@@ -44,7 +44,7 @@ Georges Gonthierによる、定理証明支援系Coqを用いた証明。
 [link](https://www.amazon.co.jp/%E5%9B%9B%E8%89%B2%E5%95%8F%E9%A1%8C-%E3%81%A9%E3%81%86%E8%A7%A3%E3%81%8B%E3%82%8C%E4%BD%95%E3%82%92%E3%82%82%E3%81%9F%E3%82%89%E3%81%97%E3%81%9F%E3%81%AE%E3%81%8B-%E3%83%96%E3%83%AB%E3%83%BC%E3%83%90%E3%83%83%E3%82%AF%E3%82%B9-%E4%B8%80%E6%9D%BE-%E4%BF%A1/dp/4062579693)  
 こちらはやや専門的。  
 
-# くわしくは
+# 証明&プログラムの説明
 [Wiki](https://github.com/righ1113/4CT_Haskell/wiki)をみてね  
   
   
