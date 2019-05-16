@@ -1,6 +1,9 @@
 module Discharge where
 
 import Control.Monad (forM_, when, unless)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Maybe (MaybeT(..))
 import Data.IORef (IORef(..), newIORef, readIORef, writeIORef, modifyIORef)
 import Data.Array.IO (IOUArray(..), newArray, readArray, writeArray)
 
@@ -312,21 +315,22 @@ addToList edgelist u v degree = do
             return ()
 
 
-rootedSubConf :: IOUArray Int Bool -> TpVertices -> Int -> TpAdjmat -> TpQuestion -> TpVertices -> Int -> Int -> Int -> Int -> IO Bool
+rootedSubConf :: IOUArray Int Bool -> TpVertices -> Int -> TpAdjmat -> TpQuestion -> TpVertices -> Int -> Int -> Int -> Int -> MaybeT IO ()
 rootedSubConf used degree deg adjmat question@(qU, qV, qZ, qXi) image x y clockwise j
-  | j == deg + 1 = return True
+  | j == deg + 1 = lift $ return ()
   | otherwise            = do
-    forM_ [0, 1 .. (cartvert-1)] $ \j -> do
+    lift $ forM_ [0, 1 .. (cartvert-1)] $ \j -> do
       writeArray used j False
       writeArray image j (-1)
-    writeArray image 0 clockwise
-    qZ0 <- readArray qZ 0
-    qZ1 <- readArray qZ 1
-    writeArray image qZ0 x
-    writeArray image qZ1 y
-    writeArray used x True
-    writeArray used y True
-    {- わからん
+    lift $ writeArray image 0 clockwise
+    qZ0 <- lift $ readArray qZ 0
+    qZ1 <- lift $ readArray qZ 1
+    lift $ writeArray image qZ0 x
+    lift $ writeArray image qZ1 y
+    lift $ writeArray used x True
+    lift $ writeArray used y True
+
+    {- できたかも
     for (Q = question + 2; Q->u >= 0; Q++) {
       if (clockwise)
         w = adjmat[image[Q->u]][image[Q->v]];
@@ -342,14 +346,63 @@ rootedSubConf used degree deg adjmat question@(qU, qV, qZ, qXi) image x y clockw
       used[w] = 1;
     }
     -}
+    lift $ forM_ [2, 3 .. 1024] $ \q -> do
+      qUQ <- readArray qU q
+      qVQ <- readArray qV q
+      qZQ <- readArray qZ q
+      qXiQ <- readArray qXi q
+      imageQUQ <- readArray image qUQ
+      imageQVQ <- readArray image qVQ
+      if qUQ < 0
+        then
+          liftIO $ fail ""
+        else
+          if clockwise /= 0
+            then do
+              w <- readArray adjmat (imageQUQ, imageQVQ)
+              if w == -1
+                then
+                  liftIO $ fail ""
+                else do
+                  degreeW <- readArray degree w
+                  if qXiQ /= 0 && qXiQ /= degreeW
+                    then
+                      liftIO $ fail ""
+                    else do
+                      usedW <- readArray used w
+                      if usedW
+                        then
+                          liftIO $ fail ""
+                        else do
+                          writeArray image qZQ w
+                          writeArray used w True
+            else do
+              w <- readArray adjmat (imageQVQ, imageQUQ)
+              if w == -1
+                then
+                  liftIO $ fail ""
+                else do
+                  degreeW <- readArray degree w
+                  if qXiQ /= 0 && qXiQ /= degreeW
+                    then
+                      liftIO $ fail ""
+                    else do
+                      usedW <- readArray used w
+                      if usedW
+                        then
+                          liftIO $ fail ""
+                        else do
+                          writeArray image qZQ w
+                          writeArray used w True
+
     -- test if image is well-positioned
     let cc = if j == 1 then 2 * deg else deg + j - 1
-    usedJ <- readArray used j
-    usedD <- readArray used (deg + j)
-    usedC <- readArray used cc
+    usedJ <- lift $ readArray used j
+    usedD <- lift $ readArray used (deg + j)
+    usedC <- lift $ readArray used cc
     if not usedJ && usedD && usedC
       then
-        return False
+        lift $ fail ""
       else
         rootedSubConf used degree deg adjmat question image x y clockwise (j+1)
 
@@ -365,9 +418,9 @@ subConf used adjmat degree question@(qU, qV, qZ, qXi) edgelist pedgeHead image i
     x <- readArray edgelist (qXi0, qXi1, i+1)
     y <- readArray edgelist (qXi0, qXi1, i)
     headD <- readArray degree 0
-    first  <- rootedSubConf used degree headD adjmat question image x y 1 1
-    second <- rootedSubConf used degree headD adjmat question image x y 0 1
-    if first || second
+    first  <- runMaybeT $ rootedSubConf used degree headD adjmat question image x y 1 1
+    second <- runMaybeT $ rootedSubConf used degree headD adjmat question image x y 0 1
+    if first == Just () || second == Just ()
       then
         return True
       else
