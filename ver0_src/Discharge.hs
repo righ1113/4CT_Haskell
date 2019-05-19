@@ -1,3 +1,16 @@
+{-
+◆動かし方
+1. https://people.math.gatech.edu/~thomas/OLDFTP/four/
+    から「present7」「rules」「unavoidable.conf」を取得し、
+    本ファイルと同じ場所に置く。
+2. > stack exec ghci --resolver lts
+3. > :l Discharge
+4. > main
+5. > 「7」を入力してEnter。
+6. 中心の次数7のグラフは、電荷が負になるか、近くに好配置があらわれるかです
+   プログラムは正常終了しました
+   が表示されたらOK
+-}
 module Discharge where
 
 import Control.Monad (forM_, when, unless)
@@ -7,21 +20,438 @@ import Control.Monad.Trans.Maybe (MaybeT(..))
 import Data.IORef (IORef(..), newIORef, readIORef, writeIORef, modifyIORef)
 import Data.Array.IO (IOUArray(..), newArray, readArray, writeArray)
 
+-- import CsvReader.CsvReader (readCSV)
+
 
 verts = 27 -- max number of vertices in a free completion + 1
 
 maxval = 12
 cartvert = 5 * maxval + 2 -- domain of l_A, u_A, where A is an axle
 
+infty = 12 -- the "12" in the definition of limited part
+maxoutlets = 110 -- max number of outlets
+
 maxelist = 134 -- length of edgelist[a][b]
 
+maxlev = 12 -- max level of an input line + 1
+
 type TpConfmat = IOUArray (Int, Int) Int
-type TpAxle = (IOUArray Int Int, IOUArray Int Int)
+type TpAxle = (IOUArray (Int, Int) Int, IOUArray (Int, Int) Int, Int)
+type TpCond = (IOUArray Int Int, IOUArray Int Int)
 type TpAdjmat = IOUArray (Int, Int) Int
-type TpVertices = IOUArray Int Int
+type TpVertices = (IOUArray (Int, Int) Int, Int)
 type TpQuestion = (IOUArray Int Int, IOUArray Int Int, IOUArray Int Int, IOUArray Int Int)
 type TpEdgelist = IOUArray (Int, Int, Int) Int
+{-typedef struct {
+   int number;	/* +/-n for outlet corresponding to rule n, always !=0 */
+   int nolines;	/* |M(T)| */
+   int value;
+   int pos[17];
+   int low[17];
+   int upp[17];
+} tp_outlet;-}
+-- type TpOutlet = (IORef Int, IORef Int, IORef Int, IOUArray Int Int, IOUArray Int Int, IOUArray Int Int)
+type TpPosout = (IOUArray Int Int, IOUArray Int Int, IOUArray Int Int, IOUArray (Int, Int) Int, IOUArray (Int, Int) Int, IOUArray (Int, Int) Int, IOUArray Int Int)
 
+
+main :: IO ()
+main = do
+  putStrLn "これは四色定理の放電法をおこなうプログラムです"
+  putStrLn "中心の次数7,8,9,10,11のいずれかを入力してください"
+  degStr <- getLine
+  let deg = read degStr :: Int
+
+  axlesLow <- newArray ((0, 0), (maxlev + 1, cartvert)) 0 :: IO (IOUArray (Int, Int) Int)
+  axlesUpp <- newArray ((0, 0), (maxlev + 1, cartvert)) 0 :: IO (IOUArray (Int, Int) Int)
+  writeArray axlesLow (0, 0) deg
+  writeArray axlesUpp (0, 0) deg
+  forM_ [1, 2 .. (5*deg)] $ \i -> do
+    writeArray axlesLow (0, i) 5
+    writeArray axlesUpp (0, i) infty
+  -- CheckHubcap(axles, NULL, 0, print); -- read rules, compute outlets
+  -- (void) Reduce(NULL, 0, 0);          -- read unavoidable set
+
+  -- TpCond
+  nn <- newArray (0, maxlev) 0 :: IO (IOUArray Int Int)
+  mm <- newArray (0, maxlev) 0 :: IO (IOUArray Int Int)
+
+  -- TpOutlet & TpPosout
+  number  <- newArray (0, 2 * maxoutlets) 0 :: IO (IOUArray Int Int)
+  nolines <- newArray (0, 2 * maxoutlets) 0 :: IO (IOUArray Int Int)
+  value   <- newArray (0, 2 * maxoutlets) 0 :: IO (IOUArray Int Int)
+  pos <- newArray ((0,0), (2 * maxoutlets, 16)) 0 :: IO (IOUArray (Int, Int) Int)
+  low <- newArray ((0,0), (2 * maxoutlets, 16)) 0 :: IO (IOUArray (Int, Int) Int)
+  upp <- newArray ((0,0), (2 * maxoutlets, 16)) 0 :: IO (IOUArray (Int, Int) Int)
+  xx      <- newArray (0, 2 * maxoutlets) 0 :: IO (IOUArray Int Int)
+
+  inStr <- readFile $ "present" ++ degStr
+  ret <- mainLoop (number, nolines, value, pos, low, upp, xx) (nn, mm) deg (axlesLow, axlesUpp, 0) (tail (map words (lines inStr))) 0
+
+  -- final check
+  if ret == "Q.E.D." then
+    putStrLn $ "中心の次数" ++ degStr ++ "のグラフは、電荷が負になるか、近くに好配置があらわれるかです"
+  else
+    putStr ""
+  putStrLn "プログラムは正常終了しました"
+
+
+mainLoop :: TpPosout -> TpCond -> Int -> TpAxle -> [[String]] -> Int -> IO String
+mainLoop posout (nn, mm) deg axles@(low, upp, index) tactics lev
+  | lev >= maxlev = error "More than %d levels"
+  | lev < 0       = return $ head $ head tactics
+  | otherwise =
+
+    -- let aA = axles -- &axles[lev]
+
+    {- if (lineno == prtline)
+      print = 0;
+    lineno = Getstring(str);
+    if (lineno == prtline)
+      print = printmode;
+    if (print >= PRTLIN) {
+      (void) printf("%4d:%s", lineno, str);
+      fflush(stdout);
+    } -}
+
+    -- for (ch = str; *ch == ' '; ch++)	/* do nothing */  ;
+
+    {- if (sscanf(ch, "L%d", &a) != 1 || a != lev) {
+      fflush(stdout);
+      (void) fprintf(stderr, "Level %d expected on line %d\n", lev, lineno);
+      exit(6);
+    } -}
+
+    -- for (; *ch != ' '; ch++)	/* do nothing */  ;
+    -- for (; *ch == ' '; ch++)	/* do nothing */  ;
+
+    case head tactics !! 1 of
+      "S" -> do
+              putStrLn "S"
+              -- CheckSymmetry(ch, A, sym, nosym, lineno);
+              mainLoop posout (nn, mm) deg (low, upp, lev-1) (tail tactics) (lev-1)
+      "R" -> do
+              putStrLn "R"
+              --if (Reduce(A, lineno, print >= PRTBAS ? 1 : 0) != 1) then Error("Reducibility failed", lineno);
+              mainLoop posout (nn, mm) deg (low, upp, lev-1) (tail tactics) (lev-1)
+      "H" -> do
+              putStrLn "H"
+              checkHubcap posout (tail (tail (head tactics))) (low, upp, lev)
+              mainLoop posout (nn, mm) deg (low, upp, lev-1) (tail tactics) (lev-1)
+      "C" -> do
+              putStrLn "C"
+              let n = read (head tactics !! 2) :: Int
+              let m = read (head tactics !! 3) :: Int
+              checkCondition (nn, mm) deg (low, upp, lev) n m lev
+              mainLoop posout (nn, mm) deg (low, upp, lev+1) (tail tactics) (lev+1)
+      _   -> error "Invalid instruction"
+
+    {- /* delete symetries */
+    if (print >= PRTBAS && sym[nosym - 1].nolines - 1 >= lev) {
+      (void) printf("Deleting symetries:");
+      for (i = nosym; i >= 1 && sym[i - 1].nolines - 1 >= lev; i--)
+        (void) printf(" %d", sym[i - 1].number);
+      (void) printf("\n");
+      (void) fflush(stdout);
+    } -}
+
+    -- for (; nosym >= 1 && sym[nosym - 1].nolines - 1 >= lev; nosym--) /* do nothing */ ;
+
+
+-- readRule :: IO ()
+-- readRule = print =<< readCSV "rules.csv"
+readRule2 :: IO ()
+readRule2 = do
+  inStr <- readFile "present6"
+  print $ map words $ lines inStr
+
+
+copyAxle :: IOUArray (Int, Int) Int -> IOUArray (Int, Int) Int -> Int -> Int -> IO ()
+copyAxle low upp to from =
+  forM_ [0, 1 .. cartvert] $ \x -> do
+    get1 <- readArray low (from, x)
+    get2 <- readArray upp (from, x)
+    writeArray low (to, x) get1
+    writeArray upp (to, x) get2
+
+
+checkCondition :: TpCond -> Int -> TpAxle -> Int -> Int -> Int -> IO ()
+checkCondition (nn, mm) deg aA@(low, upp, aAI) n m lev = do
+  -- check condition and compatibility with A
+  -- if (n < 1 || n > 5 * deg)
+  --   Error("Invalid vertex in condition", lineno);
+  -- if (m < -8 || m > 9 || (m > -5 && m < 6))
+  --   Error("Invalid condition", lineno);
+  -- let j = (n - 1) `div` deg
+  -- let i = (n - 1) `mod` deg + 1
+  -- if (n > 2 * deg && (A->low[i] != A->upp[i] || A->low[i] < j + 4))
+  --  Error("Condition not compatible with A", lineno);
+  copyAxle low upp (aAI + 1) aAI
+
+  aLowN <- readArray low (aAI, n)
+  aUppN <- readArray upp (aAI, n)
+  if m > 0
+    then -- new lower bound
+      if aLowN >= m || m > aUppN
+        then
+          error "Invalid lower bound in condition"
+        else do
+          writeArray upp (aAI, n) (m - 1)
+          writeArray low (aAI + 1, n) m
+    else -- new upper bound
+      if aLowN > -m || -m >= aUppN
+        then
+          error "Invalid upper bound in condition"
+        else do
+          writeArray low (aAI, n) (1 - m)
+          writeArray upp (aAI + 1, n) (-m)
+{-
+  -- remember symmetry unless contains a fan vertex
+  good <- newIORef =<< (return True :: IO Bool)
+  forM_ [0, 1 .. lev] $ \i -> do
+    condIN <- readArray nn i
+    if condIN > 2 * deg || condIN < 1
+      then
+        writeIORef good False
+      else
+        putStr ""
+
+  if good
+    then -- remember symmetry
+      --if (*pnosym >= MAXSYM)
+      --  Error("Too many symmetries", lineno);
+      --if (print >= PRTBAS) {
+      --  (void) printf("Adding symmetry:");
+      T = &sym[(*pnosym)++];
+      T->number = lineno;
+      T->value = 1;
+      T->nolines = lev + 1;
+      for (i = 0; i <= lev; ++i) {
+        T->pos[i] = cond[i].n;
+        if (cond[i].m > 0) {
+          T->low[i] = cond[i].m;
+          T->upp[i] = INFTY;
+        } else {
+          T->low[i] = 5;
+          T->upp[i] = -cond[i].m;
+        }
+        --if (print >= PRTBAS)
+        --  (void) printf(" (%d,%d,%d)", T->pos[i], T->low[i], T->upp[i]);
+      }
+    else
+      putStr ""
+    -- if (print >= PRTBAS) {
+    --(void) printf("Symmetry not added\n");
+    --(void) fflush(stdout);
+-}
+  writeArray nn lev n
+  writeArray mm lev m
+  writeArray nn (lev+1) 0
+  writeArray mm (lev+1) 0
+
+
+checkHubcap :: TpPosout -> [String] -> TpAxle -> IO ()
+checkHubcap posout@(_, _, _, _, _, _, pxx) str aA@(low, upp, aAI) = do
+  let xyv = map read str :: [(Int, Int, Int)]
+  print xyv
+
+  s <- newArray (0, 16) 0 :: IO (IOUArray Int Int)
+
+  {-if (print >= PRTBAS) {
+    (void) printf("Testing hubcap for:\n");
+    PrintAxle(A);
+    (void) printf("Forced positioned outlets:");
+    for (i = 1; i <= deg; i++) {
+      a = 0;	/* a=1 if edge number printed */
+      for (T = outlet, j = 0; j < nouts; ++j, ++T) {}
+        if (OutletForced(A, T, i)) {
+            if (a == 0) {
+              (void) printf("\nEdge %2d: ", i);
+              a = 1;
+            }
+            (void) printf("%2d ", T->number);
+        }
+      }
+    }
+    (void) printf("\n");
+    (void) fflush(stdout);
+  }-}
+
+  {-total = 0;
+  for (i = 1; i <= deg; ++i)
+    covered[i] = aux[i] = 0;
+  for (i = 1; i <= x[0]; ++i) {
+    if (x[i] < 1 || x[i] > deg || y[i] < 1 || y[i] > deg) {
+      fflush(stdout);
+      (void) fprintf(stderr, "Invalid hubcap member (%d,%d,%d)", x[i], y[i], v[i]);
+      Error("", lineno);
+    }
+    if (x[i] == y[i]) {
+      total += 2 * v[i];	/* repeated hubcap members listed once */
+      if (covered[x[i]])
+        Error("Invalid double cover", lineno);
+      covered[x[i]] = -1;
+    } else {
+      total += (aux[x[i]] = v[i]);
+      if (covered[x[i]] == -1 || covered[y[i]] == -1)
+        Error("Invalid double cover", lineno);
+      covered[x[i]] = covered[x[i]] == 0 ? y[i] : -1;
+      covered[y[i]] = covered[y[i]] == 0 ? x[i] : -1;
+    }
+  }-}
+
+  {-for (i = 1; i <= deg; ++i) {
+    if (covered[i] == 0)
+      Error("Invalid hubcap", lineno);
+    if (covered[i] == -1)
+      continue;
+    if (covered[covered[i]] != i)
+      Error("Invalid hubcap", lineno);
+    total += aux[i];	/* repeated hubcap members are only listed once */
+  }-}
+
+  {-if (print >= PRTBAS)
+    (void) printf("Total double cover cost is %d\n", total);
+  if (total > 20 * (deg - 6) + 1) {
+    fflush(stdout);
+    (void) fprintf(stderr, "Double cover has cost %d. ", total);
+    Error("Hubcap does not satisfy (H2)", lineno);
+  }-}
+
+  let nouts = 103 -- deg = 7
+  forM_ [0, 1 .. length str - 1] $ \i -> do
+    let (xi, yi, vi) = xyv !! i
+    forM_ [0, 1 .. nouts - 1] $ \j ->
+      writeArray pxx j xi
+      -- s[j] = 0;
+    if xi /= yi
+      then
+        forM_ [nouts, nouts + 1 .. 2 * nouts - 1] $ \j ->
+          writeArray pxx j yi
+          -- s[j] = 0;
+      else
+        putStr ""
+    writeArray s (2 * nouts) 99 -- to indicate end of list
+    checkBound aA posout s vi 0 0
+
+
+checkBound :: TpAxle -> TpPosout -> IOUArray Int Int -> Int -> Int -> Int -> IO ()
+checkBound aA posout s maxch pos depth = putStr ""
+{-
+/*************************************************************************
+     CheckBound
+Verifies (H1)
+*************************************************************************/
+void
+CheckBound(A, posout, s, maxch, pos, depth, lineno, print)
+int maxch, s[], pos, depth, lineno, print;
+tp_posout posout[];
+tp_axle *A;
+{
+  int deg, i, p, x, good, forcedch, allowedch;
+  int *sprime;
+  tp_axle *AA;
+  tp_posout *PO;
+
+  deg = A->low[0];
+
+  /* compute forced and permitted rules, allowedch, forcedch, update s */
+  forcedch = allowedch = 0;
+  for (i = 0, PO = posout; s[i] < 99; i++, PO++) {
+    if (s[i] > 0)
+      forcedch += PO->T->value;
+    if (s[i])
+      continue;
+    {-if (OutletForced(A, PO->T, PO->x)) {
+      s[i] = 1;
+      forcedch += PO->T->value;
+    } else if (!OutletPermitted(A, PO->T, PO->x))
+      s[i] = -1;-}
+    if (PO->T->value > 0)
+      allowedch += PO->T->value;
+  }
+
+  {-if (print >= PRTPAI) {
+    Indent(depth, "POs: ");
+    for (i = 0, PO = posout; s[i] < 99; i++, PO++) {
+      if (s[i] < 0)
+        continue;
+      if (s[i] == 0)
+        (void) printf("?");
+      (void) printf("%d,%d ", PO->T->number, PO->x);
+    }
+    (void) printf("\n");
+  }-}
+
+  /* check if inequality holds */
+  if (forcedch + allowedch <= maxch) {
+    if (print >= PRTPAI)
+      Indent(depth, "Inequality holds. Case done.\n");
+    return;
+  }
+
+  /* check reducibility */
+  if (forcedch > maxch) {
+    if (Reduce(A, lineno, print >= PRTALL ? 1 : 0) != 1)
+      Error("Incorrect hubcap upper bound", lineno);
+    if (print >= PRTPAI && print < PRTALL)
+      Indent(depth, "Reducible. Case done.\n");
+    return;
+  }
+
+  for (PO = posout + pos; s[pos] < 99; pos++, PO++) {
+    if (s[pos] || PO->T->value < 0)
+      continue;
+    x = PO->x;
+    /* accepting positioned outlet PO, computing AA */
+    CopyAxle(AA, A);
+    for (i = 0; i < PO->T->nolines; ++i) {
+      p = PO->T->pos[i];
+      p = x - 1 + (p - 1) % deg < deg ? p + x - 1 : p + x - 1 - deg;
+      if (PO->T->low[i] > AA->low[p])
+        AA->low[p] = PO->T->low[i];
+      if (PO->T->upp[i] < AA->upp[p])
+        AA->upp[p] = PO->T->upp[i];
+      if (AA->low[p] > AA->upp[p])
+        error "Unexpected error 321"
+    }	/* i */
+
+    {-/* Check if a previously rejected positioned outlet is forced to apply */
+    good = 1;
+    for (i = 0; i < pos; i++) {
+      if (s[i] == -1 && OutletForced(AA, posout[i].T, posout[i].x)) {
+        if (print >= PRTPAI) {
+            Indent(depth, "Positioned outlet ");
+            (void) printf("%d,%d can't be forced, because it forces %d,%d\n", PO->T->number, x, posout[i].T->number, posout[i].x);
+        }
+        good = 0;
+        break;
+      }
+    }
+    if (good) {
+      /* recursion with PO forced */
+      for (i = 0; (sprime[i] = s[i]) < 99; ++i)	/* do nothing */    ;
+      sprime[pos] = 1;
+      if (print >= PRTPAI) {
+        Indent(depth, "Starting recursion with ");
+        (void) printf("%d,%d forced\n", PO->T->number, x);
+      }
+      CheckBound(AA, posout, sprime, maxch, pos + 1, depth + 1, lineno, print);
+    }-}
+
+    -- rejecting positioned outlet PO
+    putStrLn "Rejecting positioned outlet "
+    s[pos] = -1;
+    allowedch -= PO->T->value;
+
+    if (allowedch + forcedch <= maxch) {
+      putStrLn "Inequality holds."
+      return;
+    }
+  }	/* pos */
+
+  error "Unexpected error 101"
+
+-}
 
 getQuestion :: TpConfmat -> TpQuestion -> IO ()
 getQuestion l q@(qU, qV, qZ, qXi) = do
@@ -217,7 +647,7 @@ getQuestion'Sub3 l q@(qU, qV, qZ, qXi) found ring nfound d j v g0
 
 --    let deg = (z->upp[0])
 getEdgelist :: TpAxle -> Int -> TpEdgelist -> Int -> IO ()
-getEdgelist z@(zLow, zUpp) deg edgelist i
+getEdgelist z@(zLow, zUpp, zIndex) deg edgelist i
   | i == deg + 1 = return ()
   | otherwise    = do
     if i == 1
@@ -229,15 +659,15 @@ getEdgelist z@(zLow, zUpp) deg edgelist i
       else
         putStr ""
 
-    addToList edgelist 0 i zUpp
+    addToList edgelist 0 i (zUpp, zIndex)
     let h = if i == 1 then deg else i - 1
-    addToList edgelist i h zUpp
+    addToList edgelist i h (zUpp, zIndex)
     let a = deg + h
     let b = deg + i
-    addToList edgelist i a zUpp
-    addToList edgelist i b zUpp
-    zLowI <- readArray zLow i
-    zUppI <- readArray zUpp i
+    addToList edgelist i a (zUpp, zIndex)
+    addToList edgelist i b (zUpp, zIndex)
+    zLowI <- readArray zLow (zIndex, i)
+    zUppI <- readArray zUpp (zIndex, i)
     if zLowI /= zUppI
       then
         getEdgelist z deg edgelist (i + 1)
@@ -245,31 +675,31 @@ getEdgelist z@(zLow, zUpp) deg edgelist i
         -- in this case we are not interested in the fan edges
         if zUppI == 5
           then do
-            addToList edgelist a b zUpp
+            addToList edgelist a b (zUpp, zIndex)
             getEdgelist z deg edgelist (i + 1)
           else do
             let c = 2 * deg + i
-            addToList edgelist a c zUpp
-            addToList edgelist i c zUpp
+            addToList edgelist a c (zUpp, zIndex)
+            addToList edgelist i c (zUpp, zIndex)
             if zUppI == 6
               then do
-                addToList edgelist b c zUpp
+                addToList edgelist b c (zUpp, zIndex)
                 getEdgelist z deg edgelist (i + 1)
               else do
                 let d = 3 * deg + i;
-                addToList edgelist c d zUpp
-                addToList edgelist i d zUpp
+                addToList edgelist c d (zUpp, zIndex)
+                addToList edgelist i d (zUpp, zIndex)
                 if zUppI == 7
                   then do
-                    addToList edgelist b d zUpp
+                    addToList edgelist b d (zUpp, zIndex)
                     getEdgelist z deg edgelist (i + 1)
                   else
                     if zUppI == 8
                       then do
                         let e = 4 * deg + i
-                        addToList edgelist d e zUpp
-                        addToList edgelist i e zUpp
-                        addToList edgelist b e zUpp
+                        addToList edgelist d e (zUpp, zIndex)
+                        addToList edgelist i e (zUpp, zIndex)
+                        addToList edgelist b e (zUpp, zIndex)
                         getEdgelist z deg edgelist (i + 1)
                       else
                         -- (void)fflush(stdout);
@@ -280,9 +710,9 @@ getEdgelist z@(zLow, zUpp) deg edgelist i
 
 -- adds the pair u,v to edgelist
 addToList :: TpEdgelist -> Int -> Int -> TpVertices -> IO ()
-addToList edgelist u v degree = do
-  a <- readArray degree u
-  b <- readArray degree v
+addToList edgelist u v (degree, dIndex) = do
+  a <- readArray degree (dIndex, u)
+  b <- readArray degree (dIndex, v)
   if a >= b && b <= 8 && a <= 11 && (a <= 8 || u == 0)
     then do
       eHead <- readArray edgelist (a, b, 0)
@@ -316,17 +746,17 @@ addToList edgelist u v degree = do
 
 
 rootedSubConf :: IOUArray Int Bool -> TpVertices -> Int -> TpAdjmat -> TpQuestion -> TpVertices -> Int -> Int -> Int -> Int -> MaybeT IO ()
-rootedSubConf used degree deg adjmat question@(qU, qV, qZ, qXi) image x y clockwise j
+rootedSubConf used (degree, dI) deg adjmat question@(qU, qV, qZ, qXi) (image, iI) x y clockwise j
   | j == deg + 1 = lift $ return ()
   | otherwise            = do
     lift $ forM_ [0, 1 .. (cartvert-1)] $ \j -> do
       writeArray used j False
-      writeArray image j (-1)
-    lift $ writeArray image 0 clockwise
+      writeArray image (iI, j) (-1)
+    lift $ writeArray image (iI, 0) clockwise
     qZ0 <- lift $ readArray qZ 0
     qZ1 <- lift $ readArray qZ 1
-    lift $ writeArray image qZ0 x
-    lift $ writeArray image qZ1 y
+    lift $ writeArray image (iI, qZ0) x
+    lift $ writeArray image (iI, qZ1) y
     lift $ writeArray used x True
     lift $ writeArray used y True
 
@@ -351,49 +781,31 @@ rootedSubConf used degree deg adjmat question@(qU, qV, qZ, qXi) image x y clockw
       qVQ <- readArray qV q
       qZQ <- readArray qZ q
       qXiQ <- readArray qXi q
-      imageQUQ <- readArray image qUQ
-      imageQVQ <- readArray image qVQ
+      imageQUQ <- readArray image (iI, qUQ)
+      imageQVQ <- readArray image (iI, qVQ)
       if qUQ < 0
         then
           liftIO $ fail ""
-        else
-          if clockwise /= 0
-            then do
-              w <- readArray adjmat (imageQUQ, imageQVQ)
-              if w == -1
-                then
-                  liftIO $ fail ""
-                else do
-                  degreeW <- readArray degree w
-                  if qXiQ /= 0 && qXiQ /= degreeW
-                    then
-                      liftIO $ fail ""
-                    else do
-                      usedW <- readArray used w
-                      if usedW
-                        then
-                          liftIO $ fail ""
-                        else do
-                          writeArray image qZQ w
-                          writeArray used w True
+        else do
+          w <- if clockwise /= 0
+                 then readArray adjmat (imageQUQ, imageQVQ)
+                 else readArray adjmat (imageQVQ, imageQUQ)
+          if w == -1
+            then
+              liftIO $ fail ""
             else do
-              w <- readArray adjmat (imageQVQ, imageQUQ)
-              if w == -1
+              degreeW <- readArray degree (dI, w)
+              if qXiQ /= 0 && qXiQ /= degreeW
                 then
                   liftIO $ fail ""
                 else do
-                  degreeW <- readArray degree w
-                  if qXiQ /= 0 && qXiQ /= degreeW
+                  usedW <- readArray used w
+                  if usedW
                     then
                       liftIO $ fail ""
                     else do
-                      usedW <- readArray used w
-                      if usedW
-                        then
-                          liftIO $ fail ""
-                        else do
-                          writeArray image qZQ w
-                          writeArray used w True
+                      writeArray image (iI, qZQ) w
+                      writeArray used w True
 
     -- test if image is well-positioned
     let cc = if j == 1 then 2 * deg else deg + j - 1
@@ -404,27 +816,27 @@ rootedSubConf used degree deg adjmat question@(qU, qV, qZ, qXi) image x y clockw
       then
         lift $ fail ""
       else
-        rootedSubConf used degree deg adjmat question image x y clockwise (j+1)
+        rootedSubConf used (degree, dI) deg adjmat question (image, iI) x y clockwise (j+1)
 
 
 --       pedgeHead <- readArray edgelist (qXi0, qXi1, 0)
 --    static int used[cartvert]
 subConf :: IOUArray Int Bool -> TpAdjmat -> TpVertices -> TpQuestion -> TpEdgelist -> Int -> TpVertices -> Int -> IO Bool
-subConf used adjmat degree question@(qU, qV, qZ, qXi) edgelist pedgeHead image i
+subConf used adjmat (degree, dI) question@(qU, qV, qZ, qXi) edgelist pedgeHead image i
   | i == pedgeHead + 1 = return False
   | otherwise           = do
     qXi0 <- readArray qXi 0
     qXi1 <- readArray qXi 1
     x <- readArray edgelist (qXi0, qXi1, i+1)
     y <- readArray edgelist (qXi0, qXi1, i)
-    headD <- readArray degree 0
-    first  <- runMaybeT $ rootedSubConf used degree headD adjmat question image x y 1 1
-    second <- runMaybeT $ rootedSubConf used degree headD adjmat question image x y 0 1
+    headD <- readArray degree (dI, 0)
+    first  <- runMaybeT $ rootedSubConf used (degree, dI) headD adjmat question image x y 1 1
+    second <- runMaybeT $ rootedSubConf used (degree, dI) headD adjmat question image x y 0 1
     if first == Just () || second == Just ()
       then
         return True
       else
-        subConf used adjmat degree question edgelist pedgeHead image (i+1)
+        subConf used adjmat (degree, dI) question edgelist pedgeHead image (i+1)
 
 
 
