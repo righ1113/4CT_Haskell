@@ -254,7 +254,7 @@ checkHubcap posout@(_, _, _, _, _, _, pxx) str aA@(low, upp, aAI) = do
   let xyv = map read str :: [(Int, Int, Int)]
   print xyv
 
-  s <- newArray (0, 16) 0 :: IO (IOUArray Int Int)
+  s <- newArray (0, 2 * maxoutlets + 1) 0 :: IO (IOUArray Int Int)
 
   {-if (print >= PRTBAS) {
     (void) printf("Testing hubcap for:\n");
@@ -331,44 +331,34 @@ checkHubcap posout@(_, _, _, _, _, _, pxx) str aA@(low, upp, aAI) = do
       else
         putStr ""
     writeArray s (2 * nouts) 99 -- to indicate end of list
-    checkBound aA posout s vi 0 0
+    runMaybeT $ checkBound aA posout s vi 0 0
 
 
-checkBound :: TpAxle -> TpPosout -> IOUArray Int Int -> Int -> Int -> Int -> IO ()
-checkBound aA posout s maxch pos depth = putStr ""
-{-
-/*************************************************************************
-     CheckBound
-Verifies (H1)
-*************************************************************************/
-void
-CheckBound(A, posout, s, maxch, pos, depth, lineno, print)
-int maxch, s[], pos, depth, lineno, print;
-tp_posout posout[];
-tp_axle *A;
-{
-  int deg, i, p, x, good, forcedch, allowedch;
-  int *sprime;
-  tp_axle *AA;
-  tp_posout *PO;
-
-  deg = A->low[0];
-
-  /* compute forced and permitted rules, allowedch, forcedch, update s */
-  forcedch = allowedch = 0;
-  for (i = 0, PO = posout; s[i] < 99; i++, PO++) {
-    if (s[i] > 0)
-      forcedch += PO->T->value;
-    if (s[i])
-      continue;
-    {-if (OutletForced(A, PO->T, PO->x)) {
-      s[i] = 1;
-      forcedch += PO->T->value;
-    } else if (!OutletPermitted(A, PO->T, PO->x))
-      s[i] = -1;-}
-    if (PO->T->value > 0)
-      allowedch += PO->T->value;
-  }
+checkBound :: TpAxle -> TpPosout -> IOUArray Int Int -> Int -> Int -> Int -> MaybeT IO ()
+checkBound aA posout@(_, _, value, _, _, _, pxx) s maxch pos depth = do
+  -- compute forced and permitted rules, allowedch, forcedch, update s
+  forcedch  <- lift $ newIORef =<< (return 0 :: IO Int)
+  allowedch <- lift $ newIORef =<< (return 0 :: IO Int)
+  lift $ forM_ [0, 1 .. 99] $ \i -> do
+    si     <- readArray s i
+    valuei <- readArray value i
+    when (si < 99) $
+      if si > 0
+        then
+          modifyIORef forcedch (+valuei)
+        else
+          if si == 0
+            then
+              {-if (OutletForced(A, PO->T, PO->x)) {
+                s[i] = 1;
+                forcedch += PO->T->value;
+              } else if (!OutletPermitted(A, PO->T, PO->x))
+                s[i] = -1;-}
+              if valuei > 0
+                then
+                  modifyIORef allowedch (+valuei)
+                else putStr ""
+            else putStr ""
 
   {-if (print >= PRTPAI) {
     Indent(depth, "POs: ");
@@ -382,76 +372,193 @@ tp_axle *A;
     (void) printf("\n");
   }-}
 
-  /* check if inequality holds */
-  if (forcedch + allowedch <= maxch) {
-    if (print >= PRTPAI)
-      Indent(depth, "Inequality holds. Case done.\n");
-    return;
-  }
+  -- check if inequality holds
+  forcedchV  <- lift $ readIORef forcedch
+  allowedchV <- lift $ readIORef allowedch
+  if forcedchV + allowedchV <= maxch
+    then do
+      lift $ putStrLn $ show depth ++ " Inequality holds. Case done."
+      -- MaybeT $ return Nothing -- エラーではなく、正常脱出
+      fail "" -- エラーではなく、正常脱出
+      lift $ putStrLn "come."
+    else lift $ putStr ""
 
-  /* check reducibility */
+  {- -- check reducibility
   if (forcedch > maxch) {
     if (Reduce(A, lineno, print >= PRTALL ? 1 : 0) != 1)
-      Error("Incorrect hubcap upper bound", lineno);
+      error "Incorrect hubcap upper bound"
     if (print >= PRTPAI && print < PRTALL)
-      Indent(depth, "Reducible. Case done.\n");
+      putStrLn $ (show depth) ++ " Reducible. Case done."
     return;
-  }
+  }-}
 
-  for (PO = posout + pos; s[pos] < 99; pos++, PO++) {
-    if (s[pos] || PO->T->value < 0)
-      continue;
-    x = PO->x;
-    /* accepting positioned outlet PO, computing AA */
-    CopyAxle(AA, A);
-    for (i = 0; i < PO->T->nolines; ++i) {
-      p = PO->T->pos[i];
-      p = x - 1 + (p - 1) % deg < deg ? p + x - 1 : p + x - 1 - deg;
-      if (PO->T->low[i] > AA->low[p])
-        AA->low[p] = PO->T->low[i];
-      if (PO->T->upp[i] < AA->upp[p])
-        AA->upp[p] = PO->T->upp[i];
-      if (AA->low[p] > AA->upp[p])
-        error "Unexpected error 321"
-    }	/* i */
+  lift $ forM_ [0, 1 .. 99] $ \k -> do
+    sPos   <- readArray s pos
+    valuek <- readArray value k
+    when (sPos < 99) $
+      if sPos == 0 && valuek >= 0
+        then do
+          {- x = PO->x;
+          -- accepting positioned outlet PO, computing AA
+          CopyAxle(AA, A);
+          for (i = 0; i < PO->T->nolines; ++i) {
+            p = PO->T->pos[i];
+            p = x - 1 + (p - 1) % deg < deg ? p + x - 1 : p + x - 1 - deg;
+            if (PO->T->low[i] > AA->low[p])
+              AA->low[p] = PO->T->low[i];
+            if (PO->T->upp[i] < AA->upp[p])
+              AA->upp[p] = PO->T->upp[i];
+            if (AA->low[p] > AA->upp[p])
+              error "Unexpected error 321"
+          }	/* i */ -}
 
-    {-/* Check if a previously rejected positioned outlet is forced to apply */
-    good = 1;
-    for (i = 0; i < pos; i++) {
-      if (s[i] == -1 && OutletForced(AA, posout[i].T, posout[i].x)) {
-        if (print >= PRTPAI) {
-            Indent(depth, "Positioned outlet ");
-            (void) printf("%d,%d can't be forced, because it forces %d,%d\n", PO->T->number, x, posout[i].T->number, posout[i].x);
-        }
-        good = 0;
-        break;
-      }
-    }
-    if (good) {
-      /* recursion with PO forced */
-      for (i = 0; (sprime[i] = s[i]) < 99; ++i)	/* do nothing */    ;
-      sprime[pos] = 1;
-      if (print >= PRTPAI) {
-        Indent(depth, "Starting recursion with ");
-        (void) printf("%d,%d forced\n", PO->T->number, x);
-      }
-      CheckBound(AA, posout, sprime, maxch, pos + 1, depth + 1, lineno, print);
-    }-}
+          {-/* Check if a previously rejected positioned outlet is forced to apply */
+          good = 1;
+          for (i = 0; i < pos; i++) {
+            if (s[i] == -1 && OutletForced(AA, posout[i].T, posout[i].x)) {
+              if (print >= PRTPAI) {
+                  Indent(depth, "Positioned outlet ");
+                  (void) printf("%d,%d can't be forced, because it forces %d,%d\n", PO->T->number, x, posout[i].T->number, posout[i].x);
+              }
+              good = 0;
+              break;
+            }
+          }
+          if (good) {
+            /* recursion with PO forced */
+            for (i = 0; (sprime[i] = s[i]) < 99; ++i)	/* do nothing */    ;
+            sprime[pos] = 1;
+            if (print >= PRTPAI) {
+              Indent(depth, "Starting recursion with ");
+              (void) printf("%d,%d forced\n", PO->T->number, x);
+            }
+            CheckBound(AA, posout, sprime, maxch, pos + 1, depth + 1, lineno, print);
+          }-}
 
-    -- rejecting positioned outlet PO
-    putStrLn "Rejecting positioned outlet "
-    s[pos] = -1;
-    allowedch -= PO->T->value;
-
-    if (allowedch + forcedch <= maxch) {
-      putStrLn "Inequality holds."
-      return;
-    }
-  }	/* pos */
+          -- rejecting positioned outlet PO
+          putStrLn "Rejecting positioned outlet "
+          writeArray s pos (-1)
+          modifyIORef allowedch (+valuek)
+          forcedchV2  <- readIORef forcedch
+          allowedchV2 <- readIORef allowedch
+          if forcedchV2 + allowedchV2 <= maxch
+            then do
+              putStrLn "Inequality holds."
+              liftIO $ fail "rdtlkjewtpwoetj" -- エラーではなく、正常脱出
+              putStrLn "come."
+            else putStr ""
+        else putStr ""
 
   error "Unexpected error 101"
 
+{-
+reduce :: TpAxle -> Int -> MaybeT IO ()
+reduce aA naxles
+  | naxles <= 0 = lift $ putStrLn "All possibilities for lower degrees tested"
+  | otherwise   = do
+    naxles2  <- lift $ newIORef =<< (return (naxles-1) :: IO Int)
+    naxles2V <- readIORef naxles2
+    CopyAxle(B, Astack[naxles2V]);
+    {-if (print) {
+      (void) printf("Axle from stack:");
+      PrintAxle(B);
+    }-}
+    Getadjmat(B, adjmat);
+    GetEdgelist(B, edgelist);
+    for (h = 0; h < noconf; ++h)
+      if (SubConf(adjmat, B->upp, redquestions[h], edgelist, image))
+        break;
+    if (h == noconf) {
+      putStrLn "Not reducible"
+      fail ""
+      lift $ putStrLn "come."
+    }
+    -- Semi-reducibility test found h-th configuration, say K, appearing
+    redverts = redquestions[h][1].u;
+    redring  = redquestions[h][1].v;
+    -- the above are no vertices and ring-size of free completion of K
+    -- could not use conf[h][0][0], because conf may be NULL
+
+    {-if (print) {
+      (void) printf("Conf(%d,%d,%d): ", h / 70 + 1, (h % 70) / 7 + 1, h % 7 + 1);
+      for (j = 1; j <= redverts; j++) {
+        if (image[j] != -1)
+            (void) printf(" %d(%d)", image[j], j);
+      }
+      (void) printf("\n");
+    }-}
+    if (conf != NULL)
+      CheckIso(conf[h], B, image, lineno); -- Double-check isomorphism
+
+    for (i = redring + 1; i <= redverts; i++) {
+      v = image[i];
+      if (B->low[v] == B->upp[v])
+        continue;
+      naxles4V <- readIORef naxles2
+      if naxles4V >= MAXASTACK
+        then
+          error "More than %d elements in axle stack needed"
+        else putStr ""
+      CopyAxle(Astack[naxles4V], B);
+      Astack[naxles4V]->upp[v] = B->upp[v] - 1;
+      modifyIORef naxles2 (+1)
+    }
+
+    naxles3V <- readIORef naxles2
+    reduce aA naxles3V
+/*********************************************************************
+            Reduce
+ If A==NULL it initializes by allocating memory and reading reducible
+ configurations from the file specified by UNAVSET, and computing
+ "redquestions" (i.e. questions corresponding to the unavoidable set)
+ If A!=NULL it tests reducibility of A as described in [D]
+*********************************************************************/
+Reduce(A, lineno, print)
+int lineno, print;
+tp_axle *A;
+{
+  int h, i, j, v, redring, redverts;
+  static int naxles, noconf;
+  static tp_confmat *conf;
+  static tp_edgelist edgelist;
+  static tp_adjmat adjmat;
+  static tp_vertices image;
+  static tp_axle **Astack, *B;
+  static tp_question *redquestions;
+
+  {-if (A == NULL) {
+    ALLOC(Astack, MAXASTACK, tp_axle *);
+    for (i = 0; i < MAXASTACK; i++)
+      ALLOC(Astack[i], 1, tp_axle);
+    ALLOC(B, 1, tp_axle);
+    redquestions = (tp_question *) malloc(CONFS * sizeof(tp_question));
+    if (redquestions == NULL) {
+      fflush(stdout);
+      (void) fprintf(stderr, "Insufficient memory. Additional %d KBytes needed\n", (int) CONFS * sizeof(tp_question) / 1024);
+      exit(27);
+    }
+    conf = (tp_confmat *) malloc(CONFS * sizeof(tp_confmat));
+    if (conf == NULL) {
+      (void) printf("Not enough memory to store unavoidable set. Additional %d KBytes needed.\n", (int) CONFS * sizeof(tp_confmat) / 1024);
+      (void) printf("Therefore cannot do isomorphism verification.\n");
+      fflush(stdout);
+    }
+    noconf = GetConf(conf, redquestions);
+    return (0);
+  }-}
+
+  putStrLn "Testing reducibility. Putting input axle on stack."
+  CopyAxle(Astack[0], A);
+
+  for (naxles = 1; naxles > 0;) {
+
+  }
+
+  putStrLn "All possibilities for lower degrees tested"
+  --return (1);
+}/* Reduce */
 -}
+
 
 getQuestion :: TpConfmat -> TpQuestion -> IO ()
 getQuestion l q@(qU, qV, qZ, qXi) = do
@@ -760,22 +867,6 @@ rootedSubConf used (degree, dI) deg adjmat question@(qU, qV, qZ, qXi) (image, iI
     lift $ writeArray used x True
     lift $ writeArray used y True
 
-    {- できたかも
-    for (Q = question + 2; Q->u >= 0; Q++) {
-      if (clockwise)
-        w = adjmat[image[Q->u]][image[Q->v]];
-      else
-        w = adjmat[image[Q->v]][image[Q->u]];
-      if (w == -1)
-        return (0);
-      if (Q->xi && Q->xi /= degree[w])
-        return (0);
-      if (used[w])
-        return (0);
-      image[Q->z] = w;
-      used[w] = 1;
-    }
-    -}
     lift $ forM_ [2, 3 .. 1024] $ \q -> do
       qUQ <- readArray qU q
       qVQ <- readArray qV q
