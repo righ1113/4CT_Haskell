@@ -13,12 +13,15 @@
 -}
 module Discharge where
 
+import Data.List (find)
+import Data.Maybe (fromJust)
+
 import Control.Monad (forM_, when, unless)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Maybe (MaybeT(..))
-import Data.IORef (IORef(..), newIORef, readIORef, writeIORef, modifyIORef)
-import Data.Array.IO (IOUArray(..), newArray, readArray, writeArray)
+-- import Data.IORef (IORef(..), newIORef, readIORef, writeIORef, modifyIORef)
+-- import Data.Array.IO (IOUArray(..), newArray, readArray, writeArray)
 
 
 verts = 27 -- max number of vertices in a free completion + 1
@@ -33,13 +36,13 @@ maxelist = 134 -- length of edgelist[a][b]
 
 maxlev = 12 -- max level of an input line + 1
 
-type TpConfmat = IOUArray (Int, Int) Int
-type TpAxle = (IOUArray (Int, Int) Int, IOUArray (Int, Int) Int, Int)
-type TpCond = (IOUArray Int Int, IOUArray Int Int)
-type TpAdjmat = IOUArray (Int, Int) Int
-type TpVertices = (IOUArray (Int, Int) Int, Int)
-type TpQuestion = (IOUArray Int Int, IOUArray Int Int, IOUArray Int Int, IOUArray Int Int)
-type TpEdgelist = IOUArray (Int, Int, Int) Int
+-- type TpConfmat = IOUArray (Int, Int) Int
+type TpAxle = ([[Int]], [[Int]], Int)
+type TpCond = ([Int], [Int])
+-- type TpAdjmat = IOUArray (Int, Int) Int
+-- type TpVertices = (IOUArray (Int, Int) Int, Int)
+-- type TpQuestion = (IOUArray Int Int, IOUArray Int Int, IOUArray Int Int, IOUArray Int Int)
+-- type TpEdgelist = IOUArray (Int, Int, Int) Int
 type TpPosout = ([Int], [Int], [Int], [[Int]], [[Int]], [[Int]], [Int])
 
 
@@ -50,28 +53,26 @@ main = do
   degStr <- getLine
   let deg = read degStr :: Int
 
-  axlesLow <- newArray ((0, 0), (maxlev + 1, cartvert)) 0 :: IO (IOUArray (Int, Int) Int)
-  axlesUpp <- newArray ((0, 0), (maxlev + 1, cartvert)) 0 :: IO (IOUArray (Int, Int) Int)
-  writeArray axlesLow (0, 0) deg
-  writeArray axlesUpp (0, 0) deg
-  forM_ [1, 2 .. (5*deg)] $ \i -> do
-    writeArray axlesLow (0, i) 5
-    writeArray axlesUpp (0, i) infty
+  -- TpAxle
+  let axles0 = replicate maxlev $ replicate cartvert 0
+  let axlesLow = take (maxlev + 1) ([deg] ++ replicate (5*deg) 5     ++ repeat 0) : axles0
+  let axlesUpp = take (maxlev + 1) ([deg] ++ replicate (5*deg) infty ++ repeat 0) : axles0
+
   -- CheckHubcap(axles, NULL, 0, print); -- read rules, compute outlets
   -- (void) Reduce(NULL, 0, 0);          -- read unavoidable set
 
   -- TpCond
-  nn <- newArray (0, maxlev) 0 :: IO (IOUArray Int Int)
-  mm <- newArray (0, maxlev) 0 :: IO (IOUArray Int Int)
+  let nn = replicate maxlev 0
+  let mm = replicate maxlev 0
 
   -- TpOutlet & TpPosout
-  let number   = take (2 * maxoutlets + 1) [0, 0..]
-  let nolines  = take (2 * maxoutlets + 1) [0, 0..]
-  let value    = take (2 * maxoutlets + 1) [0, 0..]
-  let pos = replicate (2 * maxoutlets + 1) [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-  let low = replicate (2 * maxoutlets + 1) [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-  let upp = replicate (2 * maxoutlets + 1) [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-  let xx       = take (2 * maxoutlets + 1) [0, 0..]
+  let number  = replicate (2 * maxoutlets) 0
+  let nolines = replicate (2 * maxoutlets) 0
+  let value   = replicate (2 * maxoutlets) 0
+  let pos     = replicate (2 * maxoutlets) [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  let low     = replicate (2 * maxoutlets) [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  let upp     = replicate (2 * maxoutlets) [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  let xx      = replicate (2 * maxoutlets) 0
 
   inStr <- readFile $ "present" ++ degStr
   ret <- mainLoop (number, nolines, value, pos, low, upp, xx) (nn, mm) deg 0 (axlesLow, axlesUpp, 0) (tail (map words (lines inStr)))
@@ -114,9 +115,23 @@ mainLoop posout (nn, mm) deg nosym axles@(low, upp, lev) tactics
 
 
 checkSymmetry :: [String] -> TpAxle -> TpPosout -> Int -> IO ()
-checkSymmetry str aA@(low, upp, lev) posout@(_, _, _, _, _, _, pxx) nosym = do
-  let l@[k, epsilon, level, line] = map read str :: [Int]
-  print l
+checkSymmetry str aA@(low, _, lev) posout@(number, nolines, _, _, _, _, _) nosym =
+  let [k, epsilon, level, line] = map read str :: [Int];
+      i = fromJust $ find (==line) number
+  in if k < 0 || k > head (low !! lev) || epsilon < 0 || epsilon > 1 then error "Illegal symmetry"
+     else if i >= nosym then                                              error "No symmetry as requested"
+          else if nolines !! i /= level + 1 then                          error "Level mismatch"
+               else if epsilon == 0 && outletForced aA /= 1 then          error "Invalid symmetry"
+                    else if reflForced aA /= 1 then                       error "Invalid reflected symmetry"
+                                               else                       putStrLn "come."
+
+
+outletForced :: TpAxle -> Int
+outletForced _ = 1
+
+
+reflForced :: TpAxle -> Int
+reflForced _ = 1
 
 
 
