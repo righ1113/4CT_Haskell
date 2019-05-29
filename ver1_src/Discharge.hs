@@ -18,7 +18,7 @@ import Data.List (find)
 import Data.Maybe (fromJust, isJust)
 
 import Control.Arrow ((<<<))
-import Control.Lens ((&), (.~), ix, (^?!))
+import Control.Lens ((&), (.~), ix, (^?!), _1, _2, (^.))
 
 import Control.Monad (forM_, when, unless)
 import Control.Monad.IO.Class (liftIO)
@@ -38,17 +38,18 @@ maxoutlets = 110          -- max number of outlets
 
 maxelist = 134            -- length of edgelist[a][b]
 
+maxstack = 5              -- max height of Astack (see "Reduce")
 maxlev = 12               -- max level of an input line + 1
 
 -- type TpConfmat = IOUArray (Int, Int) Int
-type TpAxle = ([[Int]], [[Int]], Int)
-type TpCond = ([Int], [Int])
--- type TpAdjmat = IOUArray (Int, Int) Int
--- type TpVertices = (IOUArray (Int, Int) Int, Int)
--- type TpQuestion = (IOUArray Int Int, IOUArray Int Int, IOUArray Int Int, IOUArray Int Int)
--- type TpEdgelist = IOUArray (Int, Int, Int) Int
-type TpPosout = ([Int], [Int], [Int], [[Int]], [[Int]], [[Int]], [Int])
-
+type TpAxle       = ([[Int]], [[Int]], Int)
+type TpCond       = ([Int], [Int])
+type TpAdjmat     = [[Int]]
+type TpVertices   = ([[Int]], Int)
+type TpQuestion   = ([Int], [Int], [Int], [Int])
+type TpEdgelist   = [[[Int]]]
+type TpPosout     = ([Int], [Int], [Int], [[Int]], [[Int]], [[Int]], [Int])
+type TpReducePack = (TpAxle, [Int], [Int], TpAdjmat, TpEdgelist, [Bool], TpVertices, [TpQuestion], TpVertices)
 
 main :: IO ()
 main = do
@@ -94,7 +95,6 @@ mainLoop posout (nn, mm) deg nosym axles@(low, upp, lev) tactics
   | lev >= maxlev = error "More than %d levels"
   | lev < 0       = return $ head $ head tactics
   | otherwise =
-
     case head tactics !! 1 of
       "S" -> do
               putStrLn "Symmetry"
@@ -112,9 +112,9 @@ mainLoop posout (nn, mm) deg nosym axles@(low, upp, lev) tactics
               putStrLn "Condition"
               let n = read (head tactics !! 2) :: Int
               let m = read (head tactics !! 3) :: Int
-              -- nosymを書き換える
+              nosym2                   <- checkCondition1 (nn, mm) deg (low, upp, lev) n m nosym
               (cond2, (low2, upp2, _)) <- checkCondition2 (nn, mm) (low, upp, lev) n m
-              mainLoop posout cond2 deg nosym (low2, upp2, lev+1) (tail tactics)
+              mainLoop posout cond2 deg nosym2 (low2, upp2, lev+1) (tail tactics)
       _   -> error "Invalid instruction"
 
 
@@ -139,84 +139,109 @@ reflForced _ = 1
 
 
 checkCondition1 :: TpCond -> Int -> TpAxle -> Int -> Int -> Int -> IO Int
-checkCondition1 (nn, mm) deg aA@(low, upp, lev) n m nosym = return nosym
-  -- check condition and compatibility with A
-  -- if (n < 1 || n > 5 * deg)
-  --   Error("Invalid vertex in condition", lineno);
-  -- if (m < -8 || m > 9 || (m > -5 && m < 6))
-  --   Error("Invalid condition", lineno);
-  -- let j = (n - 1) `div` deg
-  -- let i = (n - 1) `mod` deg + 1
-  -- if (n > 2 * deg && (A->low[i] != A->upp[i] || A->low[i] < j + 4))
-  --  Error("Condition not compatible with A", lineno);
-
-{-
-  -- remember symmetry unless contains a fan vertex
-  good <- newIORef =<< (return True :: IO Bool)
-  forM_ [0, 1 .. lev] $ \i -> do
-    condIN <- readArray nn i
-    if condIN > 2 * deg || condIN < 1
-      then
-        writeIORef good False
-      else
-        putStr ""
-  if good
-    then -- remember symmetry
-      --if (*pnosym >= MAXSYM)
-      --  Error("Too many symmetries", lineno);
-      --if (print >= PRTBAS) {
-      --  (void) printf("Adding symmetry:");
-      T = &sym[(*pnosym)++];
-      T->number = lineno;
-      T->value = 1;
-      T->nolines = lev + 1;
-      for (i = 0; i <= lev; ++i) {
-        T->pos[i] = cond[i].n;
-        if (cond[i].m > 0) {
-          T->low[i] = cond[i].m;
-          T->upp[i] = INFTY;
-        } else {
-          T->low[i] = 5;
-          T->upp[i] = -cond[i].m;
-        }
-        --if (print >= PRTBAS)
-        --  (void) printf(" (%d,%d,%d)", T->pos[i], T->low[i], T->upp[i]);
-      }
-    else
-      putStr ""
-    -- if (print >= PRTBAS) {
-    --(void) printf("Symmetry not added\n");
-    --(void) fflush(stdout);
--}
+checkCondition1 (nn, mm) deg aA@(low, upp, lev) n m nosym =
+  let ret = find (\x-> 1 <= x && x <= 2*deg) nn
+  in if isJust ret then return (nosym+1) else return nosym
 
 
 checkCondition2 :: TpCond -> TpAxle -> Int -> Int -> IO (TpCond, TpAxle)
-checkCondition2 (nn, mm) aA@(low, upp, lev) n m = do
-  let low2 = low & ix (lev+1) .~ (low ^?! ix lev)
-  let upp2 = upp & ix (lev+1) .~ (upp ^?! ix lev)
-  let aLowN = (low2 ^?! ix lev) ^?! ix n
-  let aUppN = (upp2 ^?! ix lev) ^?! ix n
-  if m > 0
+checkCondition2 (nn, mm) aA@(low, upp, lev) n m =
+  let low2 = low & ix (lev+1) .~ (low ^?! ix lev);
+      upp2 = upp & ix (lev+1) .~ (upp ^?! ix lev);
+      aLowN = (low2 ^?! ix lev) ^?! ix n;
+      aUppN = (upp2 ^?! ix lev) ^?! ix n
+  in if m > 0
     then -- new lower bound
       if aLowN >= m || m > aUppN
         then
           error "Invalid lower bound in condition"
-        else do
-          let upp3 = upp2 & (ix lev     <<< ix n) .~ (m-1)
-          let low3 = low2 & (ix (lev+1) <<< ix n) .~ m
-          let nnnn = (nn & ix lev .~ n) & ix (lev+1) .~ 0
-          let mmm = (mm & ix lev .~ m) & ix (lev+1) .~ 0
-          return ((nnnn, mmm), (low3, upp3, lev))
+        else
+          let upp3 = upp2 & (ix lev     <<< ix n) .~ (m-1);
+              low3 = low2 & (ix (lev+1) <<< ix n) .~ m;
+              nnn = (nn & ix lev .~ n) & ix (lev+1) .~ 0;
+              mmm = (mm & ix lev .~ m) & ix (lev+1) .~ 0
+          in return ((nnn, mmm), (low3, upp3, lev))
     else -- new upper bound
       if aLowN > -m || -m >= aUppN
         then
           error "Invalid upper bound in condition"
-        else do
-          let low3 = low2 & (ix lev     <<< ix n) .~ (1-m)
-          let upp3 = upp2 & (ix (lev+1) <<< ix n) .~ (-m)
-          let nnn = (nn & ix lev .~ n) & ix (lev+1) .~ 0
-          let mmm = (mm & ix lev .~ m) & ix (lev+1) .~ 0
-          return ((nnn, mmm), (low3, upp3, lev))
+        else
+          let low3 = low2 & (ix lev     <<< ix n) .~ (1-m);
+              upp3 = upp2 & (ix (lev+1) <<< ix n) .~ (-m);
+              nnn = (nn & ix lev .~ n) & ix (lev+1) .~ 0;
+              mmm = (mm & ix lev .~ m) & ix (lev+1) .~ 0
+          in return ((nnn, mmm), (low3, upp3, lev))
+
+
+myOr :: Bool -> Bool -> Int -> (Bool, Int)
+myOr False False _ = (False, 0)
+myOr False True  n = (True,  n+1)
+myOr True  _     n = (True,  n)
+myAny :: (a -> Bool) -> [a] -> Int -> (Bool, Int)
+myAny _ []     _ = (False, 0)
+myAny p (x:xs) n = myOr (p x) (fst (myAny p xs (n+1))) n
+
+
+reduce :: TpReducePack -> TpAxle -> IO Bool
+reduce rP@(aStack@(aSLow, aSUpp, aSLev), bLow, bUpp, adjmat, edgelist, used, image, redquestions, vert) aA@(low, upp, lev) =
+  let aStack2Low = aSLow & ix 0 .~ (low ^?! ix lev);
+      aStack2Upp = aSUpp & ix 0 .~ (upp ^?! ix lev);
+      aStack2    = (aStack2Low, aStack2Upp, aSLev)
+  in reduceSub (rP & _1 .~ aStack2) aA 1
+reduceSub :: TpReducePack -> TpAxle -> Int -> IO Bool
+reduceSub rP@(aStack@(aSLow, aSUpp, aSLev), bLow, bUpp, adjmat, edgelist, used, image, redquestions, vert) aA naxles
+  | naxles <= 0 = do {putStrLn "All possibilities for lower degrees tested"; return True}
+  | otherwise   = do
+    let noconf = 633 -- 好配置の個数
+    let bLow2 = aSLow !! (naxles - 1);
+        bUpp2 = aSUpp !! (naxles - 1)
+    let (bLow3, bUpp3) = getadjmat   (bLow2, bUpp2) adjmat
+    let (bLow4, bUpp4) = getEdgelist (bLow3, bUpp3) edgelist
+
+    -- subConfが一度も成功しなかったら、Not reducible
+    --let (retB, retH) = myAny (subConf used adjmat bUpp4 edgelist 0 image 1) [redquestions !! h | h <- [0..(noconf-1)]] 0
+    let (retB, retH) = myAny (subConf used adjmat vert edgelist 0 image 1) [redquestions !! h | h <- [0..(noconf-1)]] 0
+    if retB
+      then do
+        -- Semi-reducibility test found h-th configuration, say K, appearing
+        let redverts = ((redquestions !! retH) ^. _1) !! 1
+        let redring  = ((redquestions !! retH) ^. _2) !! 1
+        -- the above are no vertices and ring-size of free completion of K
+        -- could not use conf[h][0][0], because conf may be NULL
+        reduceSub rP aA $ getReduceN (redring + 1) redverts (naxles - 1) image
+      else do
+        putStrLn "Not reducible"
+        return False
+
+
+getReduceN :: Int -> Int -> Int -> TpVertices -> Int
+getReduceN i redverts naxles image
+  | i > redverts = naxles
+  | otherwise    =
+    let v = 0 --image !! i
+    in if True --B->low[v] == B->upp[v]
+      then
+        getReduceN (i + 1) redverts naxles image
+      else
+        if naxles >= maxstack
+          then
+            error "More than %d elements in axle stack needed"
+          else
+            --CopyAxle(Astack[naxles4V], B);
+            --Astack[naxles4V]->upp[v] = B->upp[v] - 1;
+            getReduceN (i + 1) redverts (naxles + 1) image
+
+
+getadjmat :: ([Int], [Int]) -> TpAdjmat -> ([Int], [Int])
+getadjmat b adjmat = b
+getEdgelist :: ([Int], [Int]) -> TpEdgelist -> ([Int], [Int])
+getEdgelist b edgelist = b
+
+
+--       pedgeHead <- readArray edgelist (qXi0, qXi1, 0)
+--    static int used[cartvert]
+subConf :: [Bool] -> TpAdjmat -> TpVertices -> TpEdgelist -> Int -> TpVertices -> Int -> TpQuestion -> Bool
+subConf used adjmat (degree, dI) edgelist pedgeHead image i question@(qU, qV, qZ, qXi) = True
 
 
 
