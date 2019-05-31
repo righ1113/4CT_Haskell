@@ -18,7 +18,7 @@ import Data.List (find)
 import Data.Maybe (fromJust, isJust)
 
 import Control.Arrow ((<<<))
-import Control.Lens ((&), (.~), ix, (^?!), _1, _2, (^.))
+import Control.Lens ((&), (.~), ix, (^?!), _1, _2, _6, _7, (^.))
 
 import Control.Monad (forM_, when, unless)
 import Control.Monad.IO.Class (liftIO)
@@ -45,11 +45,12 @@ maxlev = 12               -- max level of an input line + 1
 type TpAxle       = ([[Int]], [[Int]], Int)
 type TpCond       = ([Int], [Int])
 type TpAdjmat     = [[Int]]
-type TpVertices   = ([[Int]], Int)
+-- type TpVertices   = ([[Int]], Int)
+type TpVertices   = [Int]
 type TpQuestion   = ([Int], [Int], [Int], [Int])
 type TpEdgelist   = [[[Int]]]
 type TpPosout     = ([Int], [Int], [Int], [[Int]], [[Int]], [[Int]], [Int])
-type TpReducePack = (TpAxle, [Int], [Int], TpAdjmat, TpEdgelist, [Bool], TpVertices, [TpQuestion], TpVertices)
+type TpReducePack = (TpAxle, [Int], [Int], TpAdjmat, TpEdgelist, [Bool], TpVertices, [TpQuestion])
 
 main :: IO ()
 main = do
@@ -173,34 +174,33 @@ checkCondition2 (nn, mm) aA@(low, upp, lev) n m =
           in return ((nnn, mmm), (low3, upp3, lev))
 
 
-myOr :: Bool -> Bool -> Int -> (Bool, Int)
-myOr False False _ = (False, 0)
-myOr False True  n = (True,  n+1)
-myOr True  _     n = (True,  n)
-myAny :: (a -> Bool) -> [a] -> Int -> (Bool, Int)
-myAny _ []     _ = (False, 0)
-myAny p (x:xs) n = myOr (p x) (fst (myAny p xs (n+1))) n
+-- 参考記事：https://mkotha.hatenadiary.org/entry/20110430/1304122048
+myLoop :: (accT -> a -> (accT -> b) -> b) -> (accT -> b) -> accT -> [a] -> b
+myLoop _ g acc []     = g acc
+myLoop f g acc (x:xs) = f acc x $ \acc' -> myLoop f g acc' xs
 
 
-reduce :: TpReducePack -> TpAxle -> IO Bool
-reduce rP@(aStack@(aSLow, aSUpp, aSLev), bLow, bUpp, adjmat, edgelist, used, image, redquestions, vert) aA@(low, upp, lev) =
+reduce :: TpReducePack -> TpAxle -> IO (Bool, [Bool], TpVertices, TpAxle)
+reduce rP@(aStack@(aSLow, aSUpp, aSLev), _, _, _, _, _, _, _) aA@(low, upp, lev) =
   let aStack2Low = aSLow & ix 0 .~ (low ^?! ix lev);
       aStack2Upp = aSUpp & ix 0 .~ (upp ^?! ix lev);
       aStack2    = (aStack2Low, aStack2Upp, aSLev)
-  in reduceSub (rP & _1 .~ aStack2) aA 1
-reduceSub :: TpReducePack -> TpAxle -> Int -> IO Bool
-reduceSub rP@(aStack@(aSLow, aSUpp, aSLev), bLow, bUpp, adjmat, edgelist, used, image, redquestions, vert) aA naxles
-  | naxles <= 0 = do {putStrLn "All possibilities for lower degrees tested"; return True}
+  in do {putStrLn "Testing reducibility. Putting input axle on stack."; reduceSub (rP & _1 .~ aStack2) aA 1}
+reduceSub :: TpReducePack -> TpAxle -> Int -> IO (Bool, [Bool], TpVertices, TpAxle)
+reduceSub rP@(aStack@(aSLow, aSUpp, aSLev), bLow, bUpp, adjmat, edgelist, used, image, redquestions) aA naxles
+  | naxles <= 0 = do {putStrLn "All possibilities for lower degrees tested"; return (True, used, image, aStack)}
   | otherwise   = do
     let noconf = 633 -- 好配置の個数
-    let bLow2 = aSLow !! (naxles - 1);
-        bUpp2 = aSUpp !! (naxles - 1)
+    let bLow2 = aSLow !! (naxles - 1)
+    let bUpp2 = aSUpp !! (naxles - 1)
     let (bLow3, bUpp3) = getadjmat   (bLow2, bUpp2) adjmat
     let (bLow4, bUpp4) = getEdgelist (bLow3, bUpp3) edgelist
 
     -- subConfが一度も成功しなかったら、Not reducible
-    --let (retB, retH) = myAny (subConf used adjmat bUpp4 edgelist 0 image 1) [redquestions !! h | h <- [0..(noconf-1)]] 0
-    let (retB, retH) = myAny (subConf used adjmat vert edgelist 0 image 1) [redquestions !! h | h <- [0..(noconf-1)]] 0
+    let f n@(retB, retH, _, _) x cont
+          | retB      = return n
+          | otherwise = do {ret <- subConf adjmat bUpp4 edgelist 1 (n & _2 .~ (retH+1)) x; cont ret}
+    (retB, retH, used', image') <- myLoop f return (False, 0, used, image) [redquestions !! h | h <- [0..(noconf-1)]]
     if retB
       then do
         -- Semi-reducibility test found h-th configuration, say K, appearing
@@ -208,28 +208,31 @@ reduceSub rP@(aStack@(aSLow, aSUpp, aSLev), bLow, bUpp, adjmat, edgelist, used, 
         let redring  = ((redquestions !! retH) ^. _2) !! 1
         -- the above are no vertices and ring-size of free completion of K
         -- could not use conf[h][0][0], because conf may be NULL
-        reduceSub rP aA $ getReduceN (redring + 1) redverts (naxles - 1) image
+        let (retN, aStack') = getReduceN (redring + 1) redverts (naxles - 1) image' aStack bLow4 bUpp4
+        reduceSub (((rP & _1 .~ aStack') & _6 .~ used') & _7 .~ image') aA retN
       else do
         putStrLn "Not reducible"
-        return False
+        return (False, used', image', aStack)
 
 
-getReduceN :: Int -> Int -> Int -> TpVertices -> Int
-getReduceN i redverts naxles image
-  | i > redverts = naxles
+getReduceN :: Int -> Int -> Int -> TpVertices -> TpAxle -> [Int] -> [Int] -> (Int, TpAxle)
+getReduceN i redverts naxles image aStack@(aSLow, aSUpp, aSLev) bLow bUpp
+  | i > redverts = (naxles, aStack)
   | otherwise    =
-    let v = 0 --image !! i
-    in if True --B->low[v] == B->upp[v]
+    let v = image !! i
+    in if bLow !! v == bUpp !! v
       then
-        getReduceN (i + 1) redverts naxles image
+        getReduceN (i + 1) redverts naxles image aStack bLow bUpp
       else
         if naxles >= maxstack
           then
             error "More than %d elements in axle stack needed"
           else
-            --CopyAxle(Astack[naxles4V], B);
-            --Astack[naxles4V]->upp[v] = B->upp[v] - 1;
-            getReduceN (i + 1) redverts (naxles + 1) image
+            let aStack2Low = aSLow & ix naxles .~ bLow;
+                aStack2Upp = aSUpp & ix naxles .~ bUpp;
+                aStack3Upp = aStack2Upp & (ix naxles <<< ix v) .~ (bUpp ^?! ix v - 1);
+                aStack2    = (aStack2Low, aStack3Upp, aSLev)
+            in getReduceN (i + 1) redverts (naxles + 1) image aStack2 bLow bUpp
 
 
 getadjmat :: ([Int], [Int]) -> TpAdjmat -> ([Int], [Int])
@@ -238,10 +241,14 @@ getEdgelist :: ([Int], [Int]) -> TpEdgelist -> ([Int], [Int])
 getEdgelist b edgelist = b
 
 
---       pedgeHead <- readArray edgelist (qXi0, qXi1, 0)
 --    static int used[cartvert]
-subConf :: [Bool] -> TpAdjmat -> TpVertices -> TpEdgelist -> Int -> TpVertices -> Int -> TpQuestion -> Bool
-subConf used adjmat (degree, dI) edgelist pedgeHead image i question@(qU, qV, qZ, qXi) = True
+subConf :: TpAdjmat -> TpVertices -> TpEdgelist -> Int -> (Bool, Int, [Bool], TpVertices) -> TpQuestion -> IO (Bool, Int, [Bool], TpVertices)
+subConf adjmat degree edgelist i (retB, retH, used, image) question@(_, _, _, qXi) =
+  let qXi0 = head qXi;
+      qXi1 = qXi !! 1
+  in subConf' adjmat degree edgelist (((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix 0) i (retB, retH, used, image) question
+subConf' :: TpAdjmat -> TpVertices -> TpEdgelist -> Int -> Int -> (Bool, Int, [Bool], TpVertices) -> TpQuestion -> IO (Bool, Int, [Bool], TpVertices)
+subConf' adjmat degree edgelist pedgeHead i (_, retH, used, image) question@(qU, qV, qZ, qXi) = return (True, retH, used, image)
 
 
 
