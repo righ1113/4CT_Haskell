@@ -3,7 +3,7 @@
 ◆動かし方
 1. https://people.math.gatech.edu/~thomas/OLDFTP/four/
     から「present7」「rules」「unavoidable.conf」を取得し、
-    本ファイルと同じ場所に置く。
+    本ファイル、「rules7HS.txt」「unavoidableHS.txt」と同じ場所に置く。
 2. > stack install lens --resolver lts
 3. > stack exec ghci --resolver lts
 4. > :l Discharge
@@ -53,7 +53,7 @@ main = do
   degStr <- getLine
   let deg = read degStr :: Int
 
-  -- TpAxle ... input rules
+  -- TpAxle
   let axles0 = replicate maxlev $ replicate cartvert 0
   let axlesLow = take (maxlev + 1) ([deg] ++ replicate (5*deg) 5     ++ repeat 0) : axles0
   let axlesUpp = take (maxlev + 1) ([deg] ++ replicate (5*deg) infty ++ repeat 0) : axles0
@@ -62,7 +62,8 @@ main = do
   let nn = replicate maxlev 0
   let mm = replicate maxlev 0
 
-  -- TpOutlet & TpPosout
+  -- CheckHubcap(axles, NULL, 0, print); -- read rules, compute outlets
+{-
   let number  = replicate (2 * maxoutlets) 0
   let nolines = replicate (2 * maxoutlets) 0
   let value   = replicate (2 * maxoutlets) 0
@@ -70,6 +71,10 @@ main = do
   let low     = replicate (2 * maxoutlets) [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   let upp     = replicate (2 * maxoutlets) [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   let xx      = replicate (2 * maxoutlets) 0
+-}
+  -- TpOutlet & TpPosout
+  posoutStr    <- readFile $ "rules" ++ degStr ++ "HS.txt"
+  let posout   = read posoutStr :: TpPosout
 
   -- TpReducePack
   let aSLow    = replicate (maxlev + 1) $ replicate cartvert 0
@@ -84,14 +89,13 @@ main = do
   let qV       = replicate verts 0
   let qZ       = replicate verts 0
   let qXi      = replicate verts 0
-  let redQ     = replicate confs (qU, qV, qZ, qXi) -- input unavoidable
+  redQStr      <- readFile "unavoidableHS.txt"
+  let redQ     = read redQStr :: [TpQuestion] -- (void) Reduce(NULL, 0, 0); -- read unavoidable set
 
-  -- CheckHubcap(axles, NULL, 0, print); -- read rules, compute outlets
-  -- (void) Reduce(NULL, 0, 0);          -- read unavoidable set
 
   inStr <- readFile $ "present" ++ degStr
   ret   <- mainLoop ((aSLow, aSUpp, 0), bLow, bUpp, adjmat, edgelist, used, image, redQ)
-                    (number, nolines, value, pos, low, upp, xx)
+                    posout
                     (nn, mm)
                     deg
                     0
@@ -217,9 +221,9 @@ reduceSub rP@(aStack@(aSLow, aSUpp, aSLev), bLow, bUpp, adjmat, edgelist, used, 
 
     -- subConfが一度もTrueを返さなかったら、Not reducible
     let f n@(retB, retH, _, _) x cont
-          | retB      = return n
-          | otherwise = do {ret <- subConf adjmat bUpp4 edgelist 1 (n & _2 .~ (retH+1)) x; cont ret}
-    (retB, retH, used', image') <- myLoop f return (False, 0, used, image) [redquestions !! h | h <- [0..(noconf-1)]]
+          | retB      = n
+          | otherwise = cont $ subConf adjmat bUpp4 edgelist 1 (n & _2 .~ (retH+1)) x
+    let (retB, retH, used', image') = myLoop f id (False, 0, used, image) [redquestions !! h | h <- [0..(noconf-1)]]
     if retB
       then do
         -- Semi-reducibility test found h-th configuration, say K, appearing
@@ -261,14 +265,14 @@ getEdgelist b edgelist = b
 
 
 --    static int used[cartvert]
-subConf :: TpAdjmat -> TpVertices -> TpEdgelist -> Int -> TpConfPack -> TpQuestion -> IO TpConfPack
+subConf :: TpAdjmat -> TpVertices -> TpEdgelist -> Int -> TpConfPack -> TpQuestion -> TpConfPack
 subConf adjmat degree edgelist i (retB, retH, used, image) question@(_, _, _, qXi) =
   let qXi0 = head qXi;
       qXi1 = qXi !! 1
   in subConf' adjmat degree edgelist (((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix 0) i (retB, retH, used, image) question
-subConf' :: TpAdjmat -> TpVertices -> TpEdgelist -> Int -> Int -> TpConfPack -> TpQuestion -> IO TpConfPack
+subConf' :: TpAdjmat -> TpVertices -> TpEdgelist -> Int -> Int -> TpConfPack -> TpQuestion -> TpConfPack
 subConf' adjmat degree edgelist pedgeHead i (retB, retH, used, image) question@(qU, qV, qZ, qXi)
-  | i == pedgeHead + 1 = return (False, retH, used, image)
+  | i == pedgeHead + 1 = (False, retH, used, image)
   | otherwise          =
     let qXi0                          = head qXi;
         qXi1                          = qXi !! 1;
@@ -279,7 +283,7 @@ subConf' adjmat degree edgelist pedgeHead i (retB, retH, used, image) question@(
         (retB2, retH2, used2, image2) = rootedSubConf degree headD adjmat question x y 0 1 (retB1, retH1, used1, image1)
     in if retB1 || retB2
       then
-        return (True, retH2, used2, image2)
+        (True, retH2, used2, image2)
       else
         subConf' adjmat degree edgelist pedgeHead (i+1) (retB2, retH2, used2, image2) question
 
