@@ -18,7 +18,7 @@ module Discharge where
 import Data.List (find)
 import Data.Maybe (fromJust, isJust)
 import Control.Arrow ((<<<))
-import Control.Lens ((&), (.~), ix, (^?!), _1, _2, _6, _7, (^.))
+import Control.Lens ((&), (.~), ix, (^?!), _1, _2, _4, _5, _6, _7, (^.))
 
 
 verts      = 27             -- max number of vertices in a free completion + 1
@@ -92,7 +92,6 @@ main = do
   redQStr      <- readFile "unavoidableHS.txt"
   let redQ     = read redQStr :: [TpQuestion] -- (void) Reduce(NULL, 0, 0); -- read unavoidable set
 
-
   inStr <- readFile $ "present" ++ degStr
   ret   <- mainLoop ((aSLow, aSUpp, 0), bLow, bUpp, adjmat, edgelist, used, image, redQ)
                     posout
@@ -144,14 +143,14 @@ mainLoop rP posout (nn, mm) deg nosym axles@(low, upp, lev) tactics
 
 checkSymmetry :: [String] -> TpAxle -> TpPosout -> Int -> IO ()
 checkSymmetry str aA@(low, _, lev) posout@(number, nolines, _, _, _, _, _) nosym =
-  let [k, epsilon, level, line] = map read str :: [Int];
+  let [k, epsilon, level, line] = map read str :: [Int]
       i = fromJust $ find (==line) number
   in if k < 0 || k > head (low !! lev) || epsilon < 0 || epsilon > 1 then error "Illegal symmetry"
      else if i >= nosym then                                              error "No symmetry as requested"
           else if nolines !! i /= level + 1 then                          error "Level mismatch"
                else if epsilon == 0 && outletForced aA /= 1 then          error "Invalid symmetry"
                     else if reflForced aA /= 1 then                       error "Invalid reflected symmetry"
-                                               else                       putStrLn "checkSymmetry OK."
+                                               else                       putStrLn "  checkSymmetry OK."
 
 
 outletForced :: TpAxle -> Int
@@ -170,9 +169,9 @@ checkCondition1 (nn, mm) deg aA@(low, upp, lev) n m nosym =
 
 checkCondition2 :: TpCond -> TpAxle -> Int -> Int -> IO (TpCond, TpAxle)
 checkCondition2 (nn, mm) aA@(low, upp, lev) n m =
-  let low2 = low & ix (lev+1) .~ (low ^?! ix lev);
-      upp2 = upp & ix (lev+1) .~ (upp ^?! ix lev);
-      aLowN = (low2 ^?! ix lev) ^?! ix n;
+  let low2 = low & ix (lev+1) .~ (low ^?! ix lev)
+      upp2 = upp & ix (lev+1) .~ (upp ^?! ix lev)
+      aLowN = (low2 ^?! ix lev) ^?! ix n
       aUppN = (upp2 ^?! ix lev) ^?! ix n
   in if m > 0
     then -- new lower bound
@@ -180,9 +179,9 @@ checkCondition2 (nn, mm) aA@(low, upp, lev) n m =
         then
           error "Invalid lower bound in condition"
         else
-          let upp3 = upp2 & (ix lev     <<< ix n) .~ (m-1);
-              low3 = low2 & (ix (lev+1) <<< ix n) .~ m;
-              nnn = (nn & ix lev .~ n) & ix (lev+1) .~ 0;
+          let upp3 = upp2 & (ix lev     <<< ix n) .~ (m-1)
+              low3 = low2 & (ix (lev+1) <<< ix n) .~ m
+              nnn = (nn & ix lev .~ n) & ix (lev+1) .~ 0
               mmm = (mm & ix lev .~ m) & ix (lev+1) .~ 0
           in return ((nnn, mmm), (low3, upp3, lev))
     else -- new upper bound
@@ -190,9 +189,9 @@ checkCondition2 (nn, mm) aA@(low, upp, lev) n m =
         then
           error "Invalid upper bound in condition"
         else
-          let low3 = low2 & (ix lev     <<< ix n) .~ (1-m);
-              upp3 = upp2 & (ix (lev+1) <<< ix n) .~ (-m);
-              nnn = (nn & ix lev .~ n) & ix (lev+1) .~ 0;
+          let low3 = low2 & (ix lev     <<< ix n) .~ (1-m)
+              upp3 = upp2 & (ix (lev+1) <<< ix n) .~ (-m)
+              nnn = (nn & ix lev .~ n) & ix (lev+1) .~ 0
               mmm = (mm & ix lev .~ m) & ix (lev+1) .~ 0
           in return ((nnn, mmm), (low3, upp3, lev))
 
@@ -205,25 +204,25 @@ myLoop f g acc (x:xs) = f acc x $ \acc' -> myLoop f g acc' xs
 
 reduce :: TpReducePack -> TpAxle -> IO (Bool, TpAxle, [Bool], TpVertices)
 reduce rP@(aStack@(aSLow, aSUpp, aSLev), _, _, _, _, _, _, _) aA@(low, upp, lev) =
-  let aStack2Low = aSLow & ix 0 .~ (low ^?! ix lev);
-      aStack2Upp = aSUpp & ix 0 .~ (upp ^?! ix lev);
+  let aStack2Low = aSLow & ix 0 .~ (low ^?! ix lev)
+      aStack2Upp = aSUpp & ix 0 .~ (upp ^?! ix lev)
       aStack2    = (aStack2Low, aStack2Upp, aSLev)
-  in do {putStrLn "Testing reducibility. Putting input axle on stack."; reduceSub (rP & _1 .~ aStack2) aA 1}
+  in do {putStrLn "  Testing reducibility. Putting input axle on stack."; reduceSub (rP & _1 .~ aStack2) aA 1}
+
 reduceSub :: TpReducePack -> TpAxle -> Int -> IO (Bool, TpAxle, [Bool], TpVertices)
 reduceSub rP@(aStack@(aSLow, aSUpp, aSLev), bLow, bUpp, adjmat, edgelist, used, image, redquestions) aA naxles
-  | naxles <= 0 = do {putStrLn "All possibilities for lower degrees tested"; return (True, aStack, used, image)}
+  | naxles <= 0 = do {putStrLn "  All possibilities for lower degrees tested"; return (True, aStack, used, image)}
   | otherwise   = do
-    let noconf = 633 -- 好配置の個数
-    let bLow2 = aSLow !! (naxles - 1)
-    let bUpp2 = aSUpp !! (naxles - 1)
-    let (bLow3, bUpp3) = getadjmat   (bLow2, bUpp2) adjmat
-    let (bLow4, bUpp4) = getEdgelist (bLow3, bUpp3) edgelist
-
+    let noconf                    = 633 -- 好配置の個数
+    let bLow2                     = aSLow !! (naxles - 1)
+    let bUpp2                     = aSUpp !! (naxles - 1)
+    let adjmat2                   = getAdjmat (bLow2, bUpp2, adjmat)
+    let (bLow3, bUpp3, edgelist2) = getEdgelist (bLow2, bUpp2, edgelist)
     -- subConfが一度もTrueを返さなかったら、Not reducible
     let f n@(retB, retH, _, _) x cont
           | retB      = n
-          | otherwise = cont $ subConf adjmat bUpp4 edgelist 1 (n & _2 .~ (retH+1)) x
-    let (retB, retH, used', image') = myLoop f id (False, 0, used, image) [redquestions !! h | h <- [0..(noconf-1)]]
+          | otherwise = cont $ subConf adjmat2 bUpp3 (redquestions !! x) edgelist2 (n & _2 .~ (retH+1)) x
+    let (retB, retH, used', image') = myLoop f id (False, 0, used, image) [0..(noconf-1)]
     if retB
       then do
         -- Semi-reducibility test found h-th configuration, say K, appearing
@@ -231,11 +230,171 @@ reduceSub rP@(aStack@(aSLow, aSUpp, aSLev), bLow, bUpp, adjmat, edgelist, used, 
         let redring  = ((redquestions !! retH) ^. _2) !! 1
         -- the above are no vertices and ring-size of free completion of K
         -- could not use conf[h][0][0], because conf may be NULL
-        let (retN, aStack') = getReduceN (redring + 1) redverts (naxles - 1) image' aStack bLow4 bUpp4
-        reduceSub (((rP & _1 .~ aStack') & _6 .~ used') & _7 .~ image') aA retN
+        let (retN, aStack') = getReduceN (redring + 1) redverts (naxles - 1) image' aStack bLow3 bUpp3
+        reduceSub (((((rP & _1 .~ aStack') & _4 .~ adjmat2) & _5 .~ edgelist2) & _6 .~ used') & _7 .~ image') aA retN
       else do
-        putStrLn "Not reducible"
+        putStrLn "    Not reducible"
         return (False, aStack, used', image')
+
+
+getAdjmat :: ([Int], [Int], TpAdjmat) -> TpAdjmat
+getAdjmat (bLow, bUpp, _) =
+  let deg        = head bLow
+      adjmat     = replicate cartvert $ replicate cartvert (-1)
+      f n x cont = cont $ getAdjmatSub deg bUpp n x
+  in myLoop f id adjmat [1, 2 .. deg]
+
+data Way = Forward | Backward deriving Eq
+chgAdjmat :: TpAdjmat -> Int -> Int -> Int -> Way -> TpAdjmat
+chgAdjmat adjmat a b c way =
+  if way == Forward
+    then
+      let
+        adjmat2 = adjmat  & (ix a <<< ix b) .~ c
+        adjmat3 = adjmat2 & (ix c <<< ix a) .~ b
+        adjmat4 = adjmat3 & (ix b <<< ix c) .~ a
+      in
+        adjmat4
+    else
+      let
+        adjmat2 = adjmat  & (ix a <<< ix b) .~ c
+        adjmat3 = adjmat2 & (ix b <<< ix c) .~ a
+        adjmat4 = adjmat3 & (ix c <<< ix a) .~ b
+      in
+        adjmat4
+
+getAdjmatSub :: Int -> [Int] -> TpAdjmat -> Int -> TpAdjmat
+getAdjmatSub deg bUpp adjmat i =
+  let h       = if i == 1 then deg else i - 1
+      a       = deg + h
+      adjmat2 = chgAdjmat adjmat 0 h i Forward
+      adjmat3 = chgAdjmat adjmat2 i h a Forward
+  in if bUpp !! i < 9
+    then
+      doFan deg i (bUpp !! i) adjmat3
+    else
+      adjmat3
+
+doFan :: Int -> Int -> Int -> TpAdjmat -> TpAdjmat
+doFan deg i k adjmat =
+  let
+    a = if i == 1 then 2 * deg else deg + i - 1
+    b = deg + i
+  in
+    if k == 5
+      then
+        chgAdjmat adjmat i a b Backward
+      else
+        let
+          c = 2 * deg + i
+          adjmat2 = chgAdjmat adjmat i a c Backward
+        in
+          if k == 6
+            then
+              chgAdjmat adjmat2 i c b Backward
+            else
+              let
+                d = 3 * deg + i
+                adjmat3 = chgAdjmat adjmat2 i c d Backward
+              in
+                if k == 7
+                  then
+                    chgAdjmat adjmat3 i d b Backward
+                  else
+                    let
+                      e = 4 * deg + i
+                      adjmat4 = chgAdjmat adjmat3 i d e Backward
+                      adjmat5 = chgAdjmat adjmat4 i e b Backward
+                    in
+                      adjmat5
+
+
+getEdgelist :: ([Int], [Int], TpEdgelist) -> ([Int], [Int], TpEdgelist)
+getEdgelist (bLow, bUpp, edgelist) = (bLow, bUpp, edgelist)
+
+
+--    static int used[cartvert]
+subConf :: TpAdjmat -> TpVertices -> TpQuestion -> TpEdgelist -> TpConfPack -> Int -> TpConfPack
+subConf adjmat degree question@(_, _, _, qXi) edgelist (retB, retH, used, image) i =
+  let qXi0 = head qXi
+      qXi1 = qXi !! 1
+  in subConf' adjmat degree question edgelist (retB, retH, used, image) (((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix 0) i
+subConf' :: TpAdjmat -> TpVertices -> TpQuestion -> TpEdgelist -> TpConfPack -> Int -> Int -> TpConfPack
+subConf' adjmat degree question@(qU, qV, qZ, qXi) edgelist (retB, retH, used, image) pedgeHead i
+--  | i == pedgeHead + 1 = (False, retH, used, image)
+  | i == pedgeHead + 2 = (False, retH, used, image)
+  | otherwise          =
+    let qXi0                          = head qXi
+        qXi1                          = qXi !! 1
+        x                             = (((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix (i + 1))
+        y                             = (((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix i)
+        headD                         = head degree
+        (retB1, retH1, used1, image1) = rootedSubConf degree headD adjmat question x y 1 1 (retB,  retH,  used,  image )
+        (retB2, retH2, used2, image2) = rootedSubConf degree headD adjmat question x y 0 1 (retB1, retH1, used1, image1)
+    in if retB1 || retB2
+      then
+        (True, retH2, used2, image2)
+      else
+        subConf' adjmat degree question edgelist (retB2, retH2, used2, image2) pedgeHead (i+1)
+
+
+rootedSubConf :: TpVertices -> Int -> TpAdjmat -> TpQuestion -> Int -> Int -> Int -> Int -> TpConfPack -> TpConfPack
+rootedSubConf degree deg adjmat question@(qU, qV, qZ, qXi) x y clockwise j (retB, retH, used, image) = (True, retH, used, image)
+{-  let used2  = replicate cartvert False;
+      image2 = replicate cartvert (-1);
+      image3 = image2 & ix 0 .~ clockwise;
+      qZ0 = head qZ;
+      qZ1 = qZ !! 1;
+      image4 = image3 & ix qZ0 .~ x;
+      image5 = image4 & ix qZ1 .~ y;
+      used3 = used2 & ix x .~ True;
+      used4 = used3 & ix y .~ True;
+
+      f n@(retB, _, _, _) x cont
+        | not retB  = n
+        | otherwise = cont $ rootedSubConfSub1 adjmat degree question clockwise n x;
+      retPack@(retB', retH', used', image') = myLoop f id (False, retH, used4, image5) [2, 3 .. 1024]
+  in if not retB
+    then
+      retPack
+    else
+      -- test if image is well-positioned
+      let f2 n x cont
+            | n         = n
+            | otherwise = cont $ rootedSubConfSub2 used' deg x
+      in if myLoop f2 id True [1, 2 .. deg]
+        then
+          retPack
+        else
+          (True, retH', used', image')
+-}
+
+rootedSubConfSub1 :: TpAdjmat -> TpVertices -> TpQuestion -> Int -> TpConfPack -> Int -> TpConfPack
+rootedSubConfSub1 adjmat degree question@(qU, qV, qZ, qXi) clockwise (_, retH, used, image) q = (False, retH, used,                image              )
+{-  let qUQ      = qU !! q;
+      qVQ      = qV !! q;
+      qZQ      = qZ !! q;
+      qXiQ     = qXi !! q;
+      imageQUQ = image !! qUQ;
+      imageQVQ = image !! qVQ;
+      w        = if clockwise == 0
+                  then (adjmat ^?! ix imageQVQ) ^?! ix imageQUQ
+                  else (adjmat ^?! ix imageQUQ) ^?! ix imageQVQ
+      degreeW  = degree !! w
+      usedW    = used !! w
+  in if (qUQ < 0) || (w == -1) || (qXiQ /= 0 && qXiQ /= degreeW) || usedW
+    then (False, retH, used,                image              )
+    else (True,  retH, used & ix w .~ True, image & ix qZQ .~ w)
+-}
+
+rootedSubConfSub2 :: [Bool] -> Int -> Int -> Bool
+rootedSubConfSub2 used deg j = True
+{-  let cc    = if j == 1 then 2 * deg else deg + j - 1;
+      usedJ = used !! j;
+      usedD = used !! (deg + j);
+      usedC = used !! cc
+  in not usedJ && usedD && usedC
+-}
 
 
 getReduceN :: Int -> Int -> Int -> TpVertices -> TpAxle -> [Int] -> [Int] -> (Int, TpAxle)
@@ -251,93 +410,11 @@ getReduceN i redverts naxles image aStack@(aSLow, aSUpp, aSLev) bLow bUpp
           then
             error "More than %d elements in axle stack needed"
           else
-            let aStack2Low = aSLow & ix naxles .~ bLow;
-                aStack2Upp = aSUpp & ix naxles .~ bUpp;
-                aStack3Upp = aStack2Upp & (ix naxles <<< ix v) .~ (bUpp ^?! ix v - 1);
+            let aStack2Low = aSLow & ix naxles .~ bLow
+                aStack2Upp = aSUpp & ix naxles .~ bUpp
+                aStack3Upp = aStack2Upp & (ix naxles <<< ix v) .~ (bUpp ^?! ix v - 1)
                 aStack2    = (aStack2Low, aStack3Upp, aSLev)
             in getReduceN (i + 1) redverts (naxles + 1) image aStack2 bLow bUpp
-
-
-getadjmat :: ([Int], [Int]) -> TpAdjmat -> ([Int], [Int])
-getadjmat b adjmat = b
-getEdgelist :: ([Int], [Int]) -> TpEdgelist -> ([Int], [Int])
-getEdgelist b edgelist = b
-
-
---    static int used[cartvert]
-subConf :: TpAdjmat -> TpVertices -> TpEdgelist -> Int -> TpConfPack -> TpQuestion -> TpConfPack
-subConf adjmat degree edgelist i (retB, retH, used, image) question@(_, _, _, qXi) =
-  let qXi0 = head qXi;
-      qXi1 = qXi !! 1
-  in subConf' adjmat degree edgelist (((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix 0) i (retB, retH, used, image) question
-subConf' :: TpAdjmat -> TpVertices -> TpEdgelist -> Int -> Int -> TpConfPack -> TpQuestion -> TpConfPack
-subConf' adjmat degree edgelist pedgeHead i (retB, retH, used, image) question@(qU, qV, qZ, qXi)
-  | i == pedgeHead + 1 = (False, retH, used, image)
-  | otherwise          =
-    let qXi0                          = head qXi;
-        qXi1                          = qXi !! 1;
-        x                             = (((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix (i + 1));
-        y                             = (((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix i);
-        headD                         = head degree;
-        (retB1, retH1, used1, image1) = rootedSubConf degree headD adjmat question x y 1 1 (retB,  retH,  used,  image );
-        (retB2, retH2, used2, image2) = rootedSubConf degree headD adjmat question x y 0 1 (retB1, retH1, used1, image1)
-    in if retB1 || retB2
-      then
-        (True, retH2, used2, image2)
-      else
-        subConf' adjmat degree edgelist pedgeHead (i+1) (retB2, retH2, used2, image2) question
-
-
-rootedSubConf :: TpVertices -> Int -> TpAdjmat -> TpQuestion -> Int -> Int -> Int -> Int -> TpConfPack -> TpConfPack
-rootedSubConf degree deg adjmat question@(qU, qV, qZ, qXi) x y clockwise j (retB, retH, used, image)
-  | j == deg + 1 = (True, retH, used, image)
-  | otherwise    =
-    let used2  = replicate cartvert False;
-        image2 = replicate cartvert (-1);
-        image3 = image2 & ix 0 .~ clockwise;
-        qZ0 = head qZ;
-        qZ1 = qZ !! 1;
-        image4 = image3 & ix qZ0 .~ x;
-        image5 = image4 & ix qZ1 .~ y;
-        used3 = used2 & ix x .~ True;
-        used4 = used3 & ix y .~ True;
-
-        f n@(retB, _, _, _) x cont
-          | not retB  = n
-          | otherwise = cont $ rootedSubConfSub adjmat degree question clockwise n x;
-        retPack@(retB', retH', used', image') = myLoop f id (False, retH, used4, image5) [2, 3 .. 1024]
-    in if not retB
-      then
-        retPack
-      else
-        -- test if image is well-positioned
-        let cc    = if j == 1 then 2 * deg else deg + j - 1;
-            usedJ = used' !! j;
-            usedD = used' !! (deg + j);
-            usedC = used' !! cc
-        in if not usedJ && usedD && usedC
-          then
-            retPack
-          else
-            rootedSubConf degree deg adjmat question x y clockwise (j+1) retPack
-
-
-rootedSubConfSub :: TpAdjmat -> TpVertices -> TpQuestion -> Int -> TpConfPack -> Int -> TpConfPack
-rootedSubConfSub adjmat degree question@(qU, qV, qZ, qXi) clockwise (_, retH, used, image) q =
-  let qUQ      = qU !! q;
-      qVQ      = qV !! q;
-      qZQ      = qZ !! q;
-      qXiQ     = qXi !! q;
-      imageQUQ = image !! qUQ;
-      imageQVQ = image !! qVQ;
-      w        = if clockwise == 0
-                  then (adjmat ^?! ix imageQVQ) ^?! ix imageQUQ
-                  else (adjmat ^?! ix imageQUQ) ^?! ix imageQVQ
-      degreeW  = degree !! w
-      usedW    = used !! w
-  in if (qUQ < 0) || (w == -1) || (qXiQ /= 0 && qXiQ /= degreeW) || usedW
-    then (False, retH, used,                image              )
-    else (True,  retH, used & ix w .~ True, image & ix qZQ .~ w)
 
 
 
