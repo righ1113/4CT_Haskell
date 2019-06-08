@@ -20,6 +20,8 @@ import Data.Maybe (fromJust, isJust)
 import Control.Arrow ((<<<))
 import Control.Lens ((&), (.~), ix, (^?!), _1, _2, _4, _5, _6, _7, (^.))
 
+import Debug.Trace
+
 
 verts      = 27             -- max number of vertices in a free completion + 1
 
@@ -55,14 +57,14 @@ main = do
 
   -- TpAxle
   let axles0 = replicate maxlev $ replicate cartvert 0
-  let axlesLow = take (maxlev + 1) ([deg] ++ replicate (5*deg) 5     ++ repeat 0) : axles0
-  let axlesUpp = take (maxlev + 1) ([deg] ++ replicate (5*deg) infty ++ repeat 0) : axles0
+  let axlesLow = take cartvert ([deg] ++ replicate (5*deg) 5     ++ repeat 0) : axles0
+  let axlesUpp = take cartvert ([deg] ++ replicate (5*deg) infty ++ repeat 0) : axles0
 
   -- TpCond
   let nn = replicate maxlev 0
   let mm = replicate maxlev 0
 
-  -- CheckHubcap(axles, NULL, 0, print); -- read rules, compute outlets
+  -- TpOutlet & TpPosout
 {-
   let number  = replicate (2 * maxoutlets) 0
   let nolines = replicate (2 * maxoutlets) 0
@@ -72,13 +74,13 @@ main = do
   let upp     = replicate (2 * maxoutlets) [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   let xx      = replicate (2 * maxoutlets) 0
 -}
-  -- TpOutlet & TpPosout
   posoutStr    <- readFile $ "rules" ++ degStr ++ "HS.txt"
-  let posout   = read posoutStr :: TpPosout
+  let posout   = read posoutStr :: TpPosout -- CheckHubcap(axles, NULL, 0, print); -- read rules, compute outlets
 
   -- TpReducePack
   let aSLow    = replicate (maxlev + 1) $ replicate cartvert 0
   let aSUpp    = replicate (maxlev + 1) $ replicate cartvert 0
+  print aSUpp
   let bLow     = replicate cartvert 0
   let bUpp     = replicate cartvert 0
   let adjmat   = replicate cartvert $ replicate cartvert 0
@@ -213,15 +215,15 @@ reduceSub :: TpReducePack -> TpAxle -> Int -> IO (Bool, TpAxle, [Bool], TpVertic
 reduceSub rP@(aStack@(aSLow, aSUpp, aSLev), bLow, bUpp, adjmat, edgelist, used, image, redquestions) aA naxles
   | naxles <= 0 = do {putStrLn "  All possibilities for lower degrees tested"; return (True, aStack, used, image)}
   | otherwise   = do
-    let noconf                    = 633 -- 好配置の個数
-    let bLow2                     = aSLow !! (naxles - 1)
-    let bUpp2                     = aSUpp !! (naxles - 1)
-    let adjmat2                   = getAdjmat (bLow2, bUpp2, adjmat)
-    let (bLow3, bUpp3, edgelist2) = getEdgelist (bLow2, bUpp2, edgelist)
+    let noconf    = 633 -- 好配置の個数
+    let bLow2     = aSLow !! (naxles - 1)
+    let bUpp2     = trace ("aSUpp = " ++ show aSUpp) $ aSUpp !! (naxles - 1)
+    let adjmat2   = getAdjmat (bLow2, bUpp2, adjmat)
+    let edgelist2 = trace ("bUpp2 = " ++ show bUpp2) $ getEdgelist (bLow2, bUpp2, edgelist)
     -- subConfが一度もTrueを返さなかったら、Not reducible
     let f n@(retB, retH, _, _) x cont
           | retB      = n
-          | otherwise = cont $ subConf adjmat2 bUpp3 (redquestions !! x) edgelist2 (n & _2 .~ (retH+1)) x
+          | otherwise = cont $ subConf adjmat2 bUpp2 (redquestions !! x) edgelist2 (n & _2 .~ (retH+1))
     let (retB, retH, used', image') = myLoop f id (False, 0, used, image) [0..(noconf-1)]
     if retB
       then do
@@ -230,38 +232,36 @@ reduceSub rP@(aStack@(aSLow, aSUpp, aSLev), bLow, bUpp, adjmat, edgelist, used, 
         let redring  = ((redquestions !! retH) ^. _2) !! 1
         -- the above are no vertices and ring-size of free completion of K
         -- could not use conf[h][0][0], because conf may be NULL
-        let (retN, aStack') = getReduceN (redring + 1) redverts (naxles - 1) image' aStack bLow3 bUpp3
+        let (retN, aStack') = getReduceN (redring + 1) redverts (naxles - 1) image' aStack bLow2 bUpp2
         reduceSub (((((rP & _1 .~ aStack') & _4 .~ adjmat2) & _5 .~ edgelist2) & _6 .~ used') & _7 .~ image') aA retN
       else do
         putStrLn "    Not reducible"
         return (False, aStack, used', image')
 
 
-getAdjmat :: ([Int], [Int], TpAdjmat) -> TpAdjmat
+getAdjmat :: (TpVertices, TpVertices, TpAdjmat) -> TpAdjmat
 getAdjmat (bLow, bUpp, _) =
   let deg        = head bLow
       adjmat     = replicate cartvert $ replicate cartvert (-1)
       f n x cont = cont $ getAdjmatSub deg bUpp n x
-  in myLoop f id adjmat [1, 2 .. deg]
+  in myLoop f id adjmat [1..deg]
 
 data Way = Forward | Backward deriving Eq
 chgAdjmat :: TpAdjmat -> Int -> Int -> Int -> Way -> TpAdjmat
 chgAdjmat adjmat a b c way =
   if way == Forward
-    then
-      let
-        adjmat2 = adjmat  & (ix a <<< ix b) .~ c
-        adjmat3 = adjmat2 & (ix c <<< ix a) .~ b
-        adjmat4 = adjmat3 & (ix b <<< ix c) .~ a
-      in
-        adjmat4
-    else
-      let
-        adjmat2 = adjmat  & (ix a <<< ix b) .~ c
-        adjmat3 = adjmat2 & (ix b <<< ix c) .~ a
-        adjmat4 = adjmat3 & (ix c <<< ix a) .~ b
-      in
-        adjmat4
+    then let
+      adjmat2 = adjmat  & (ix a <<< ix b) .~ c
+      adjmat3 = adjmat2 & (ix c <<< ix a) .~ b
+      adjmat4 = adjmat3 & (ix b <<< ix c) .~ a
+        in
+          adjmat4
+    else let
+      adjmat2 = adjmat  & (ix a <<< ix b) .~ c
+      adjmat3 = adjmat2 & (ix b <<< ix c) .~ a
+      adjmat4 = adjmat3 & (ix c <<< ix a) .~ b
+        in
+          adjmat4
 
 getAdjmatSub :: Int -> [Int] -> TpAdjmat -> Int -> TpAdjmat
 getAdjmatSub deg bUpp adjmat i =
@@ -277,48 +277,145 @@ getAdjmatSub deg bUpp adjmat i =
 
 doFan :: Int -> Int -> Int -> TpAdjmat -> TpAdjmat
 doFan deg i k adjmat =
-  let
-    a = if i == 1 then 2 * deg else deg + i - 1
-    b = deg + i
-  in
-    if k == 5
-      then
-        chgAdjmat adjmat i a b Backward
-      else
-        let
-          c = 2 * deg + i
-          adjmat2 = chgAdjmat adjmat i a c Backward
-        in
-          if k == 6
-            then
-              chgAdjmat adjmat2 i c b Backward
-            else
-              let
-                d = 3 * deg + i
-                adjmat3 = chgAdjmat adjmat2 i c d Backward
-              in
-                if k == 7
-                  then
-                    chgAdjmat adjmat3 i d b Backward
-                  else
-                    let
-                      e = 4 * deg + i
-                      adjmat4 = chgAdjmat adjmat3 i d e Backward
-                      adjmat5 = chgAdjmat adjmat4 i e b Backward
+  let a = if i == 1 then 2 * deg else deg + i - 1
+      b = deg + i
+  in if k == 5
+    then
+      chgAdjmat adjmat i a b Backward
+    else let
+      c = 2 * deg + i
+      adjmat2 = chgAdjmat adjmat i a c Backward
+        in if k == 6
+          then
+            chgAdjmat adjmat2 i c b Backward
+          else let
+            d = 3 * deg + i
+            adjmat3 = chgAdjmat adjmat2 i c d Backward
+              in if k == 7
+                then
+                  chgAdjmat adjmat3 i d b Backward
+                else let
+                  e = 4 * deg + i
+                  adjmat4 = chgAdjmat adjmat3 i d e Backward
+                  adjmat5 = chgAdjmat adjmat4 i e b Backward
                     in
                       adjmat5
 
 
-getEdgelist :: ([Int], [Int], TpEdgelist) -> ([Int], [Int], TpEdgelist)
-getEdgelist (bLow, bUpp, edgelist) = (bLow, bUpp, edgelist)
+getEdgelist :: (TpVertices, TpVertices, TpEdgelist) -> TpEdgelist
+getEdgelist (bLow, bUpp, edgelist) =
+  let
+    edgelist2  =  edgelist  & (ix 5  <<< ix 5 <<< ix 0) .~ 0
+    edgelist3  =  edgelist2 & (ix 6  <<< ix 5 <<< ix 0) .~ 0
+    edgelist4  =  edgelist3 & (ix 6  <<< ix 6 <<< ix 0) .~ 0
+    edgelist5  =  edgelist4 & (ix 7  <<< ix 5 <<< ix 0) .~ 0
+    edgelist6  =  edgelist5 & (ix 7  <<< ix 6 <<< ix 0) .~ 0
+    edgelist7  =  edgelist6 & (ix 7  <<< ix 7 <<< ix 0) .~ 0
+    edgelist8  =  edgelist7 & (ix 8  <<< ix 5 <<< ix 0) .~ 0
+    edgelist9  =  edgelist8 & (ix 8  <<< ix 6 <<< ix 0) .~ 0
+    edgelist10 =  edgelist9 & (ix 8  <<< ix 7 <<< ix 0) .~ 0
+    edgelist11 = edgelist10 & (ix 8  <<< ix 8 <<< ix 0) .~ 0
+    edgelist12 = edgelist11 & (ix 9  <<< ix 5 <<< ix 0) .~ 0
+    edgelist13 = edgelist12 & (ix 9  <<< ix 6 <<< ix 0) .~ 0
+    edgelist14 = edgelist13 & (ix 9  <<< ix 7 <<< ix 0) .~ 0
+    edgelist15 = edgelist14 & (ix 9  <<< ix 8 <<< ix 0) .~ 0
+    edgelist16 = edgelist15 & (ix 10 <<< ix 5 <<< ix 0) .~ 0
+    edgelist17 = edgelist16 & (ix 10 <<< ix 6 <<< ix 0) .~ 0
+    edgelist18 = edgelist17 & (ix 10 <<< ix 7 <<< ix 0) .~ 0
+    edgelist19 = edgelist18 & (ix 10 <<< ix 8 <<< ix 0) .~ 0
+    edgelist20 = edgelist19 & (ix 11 <<< ix 5 <<< ix 0) .~ 0
+    edgelist21 = edgelist20 & (ix 11 <<< ix 6 <<< ix 0) .~ 0
+    edgelist22 = edgelist21 & (ix 11 <<< ix 7 <<< ix 0) .~ 0
+    edgelist23 = edgelist22 & (ix 11 <<< ix 8 <<< ix 0) .~ 0
+    deg        = head bUpp
+    f n x cont = cont $ getEdgelistSub bLow bUpp n deg x
+  in myLoop f id edgelist23 [1..deg]
+
+getEdgelistSub :: TpVertices -> TpVertices -> TpEdgelist -> Int -> Int -> TpEdgelist
+getEdgelistSub bLow bUpp edgelist deg i =
+  let
+    edgelist2 = addToList edgelist 0 i bUpp
+    h = if i == 1 then deg else i - 1
+    edgelist3 = addToList edgelist2 i h bUpp
+    a = deg + h
+    b = deg + i
+    edgelist4 = addToList edgelist3 i a bUpp
+    edgelist5 = addToList edgelist4 i b bUpp
+    bLowI = bLow !! i
+    bUppI = bUpp !! i
+  in if bLowI /= bUppI
+    then
+      edgelist5
+    else
+      -- in this case we are not interested in the fan edges
+      if bUppI == 5
+        then
+          addToList edgelist5 a b bUpp
+        else let
+          c = 2 * deg + i
+          edgelist6 = addToList edgelist5 a c bUpp
+          edgelist7 = addToList edgelist6 i c bUpp
+            in if bUppI == 6
+              then
+                addToList edgelist7 b c bUpp
+              else let
+                d = 3 * deg + i;
+                edgelist8 = addToList edgelist7 c d bUpp
+                edgelist9 = addToList edgelist8 i d bUpp
+                  in if bUppI == 7
+                    then
+                      addToList edgelist9 b d bUpp
+                    else
+                      if bUppI == 8
+                        then let
+                          e = 4 * deg + i
+                          edgelist10 = addToList edgelist9 d e bUpp
+                          edgelist11 = addToList edgelist10 i e bUpp
+                            in
+                              addToList edgelist11 b e bUpp
+                        else
+                          error "Unexpected error in `GetEdgeList'"
+
+-- adds the pair u,v to edgelist
+addToList :: TpEdgelist -> Int -> Int -> TpVertices -> TpEdgelist
+addToList edgelist u v degree =
+  let a = degree !! u
+      b = degree !! v
+  in trace ("(u,v,degree) = " ++ show (u,v,degree)) $ if a >= b && b <= 8 && a <= 11 && (a <= 8 || u == 0)
+    then let
+      eHead  = (((edgelist ^?! ix a) ^?! ix b) ^?! ix 0)
+        in if eHead + 2 >= maxelist
+          then
+            error "More than %d entries in edgelist needed"
+          else let
+            edgelist2 = edgelist  & (ix a <<< ix b <<< ix 0)           .~ (eHead + 1)
+            edgelist3 = edgelist2 & (ix a <<< ix b <<< ix (eHead + 1)) .~ u
+            edgelist4 = edgelist3 & (ix a <<< ix b <<< ix 0)           .~ (eHead + 2)
+              in
+                edgelist4 & (ix a <<< ix b <<< ix (eHead + 2)) .~ v
+    else
+      if b >= a && a <= 8 && b <= 11 && (b <= 8 || v == 0)
+        then let
+          eHead  = (((edgelist ^?! ix b) ^?! ix a) ^?! ix 0)
+            in if eHead + 2 >= maxelist
+              then
+                error "More than %d entries in edgelist needed"
+              else let
+                edgelist2 = edgelist  & (ix b <<< ix a <<< ix 0)           .~ (eHead + 1)
+                edgelist3 = edgelist2 & (ix b <<< ix a <<< ix (eHead + 1)) .~ v
+                edgelist4 = edgelist3 & (ix b <<< ix a <<< ix 0)           .~ (eHead + 2)
+                  in
+                    edgelist4 & (ix b <<< ix a <<< ix (eHead + 2)) .~ u
+        else
+          edgelist
 
 
---    static int used[cartvert]
-subConf :: TpAdjmat -> TpVertices -> TpQuestion -> TpEdgelist -> TpConfPack -> Int -> TpConfPack
-subConf adjmat degree question@(_, _, _, qXi) edgelist (retB, retH, used, image) i =
+subConf :: TpAdjmat -> TpVertices -> TpQuestion -> TpEdgelist -> TpConfPack -> TpConfPack
+subConf adjmat degree question@(_, _, _, qXi) edgelist confPack =
   let qXi0 = head qXi
       qXi1 = qXi !! 1
-  in subConf' adjmat degree question edgelist (retB, retH, used, image) (((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix 0) i
+  in subConf' adjmat degree question edgelist confPack (((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix 0) 1
+
 subConf' :: TpAdjmat -> TpVertices -> TpQuestion -> TpEdgelist -> TpConfPack -> Int -> Int -> TpConfPack
 subConf' adjmat degree question@(qU, qV, qZ, qXi) edgelist (retB, retH, used, image) pedgeHead i
 --  | i == pedgeHead + 1 = (False, retH, used, image)
@@ -333,14 +430,13 @@ subConf' adjmat degree question@(qU, qV, qZ, qXi) edgelist (retB, retH, used, im
         (retB2, retH2, used2, image2) = rootedSubConf degree headD adjmat question x y 0 1 (retB1, retH1, used1, image1)
     in if retB1 || retB2
       then
-        (True, retH2, used2, image2)
+        (True, retH, used2, image2)
       else
-        subConf' adjmat degree question edgelist (retB2, retH2, used2, image2) pedgeHead (i+1)
-
+        subConf' adjmat degree question edgelist (retB2, retH, used2, image2) pedgeHead (i+1)
 
 rootedSubConf :: TpVertices -> Int -> TpAdjmat -> TpQuestion -> Int -> Int -> Int -> Int -> TpConfPack -> TpConfPack
-rootedSubConf degree deg adjmat question@(qU, qV, qZ, qXi) x y clockwise j (retB, retH, used, image) = (True, retH, used, image)
-{-  let used2  = replicate cartvert False;
+rootedSubConf degree deg adjmat question@(qU, qV, qZ, qXi) x y clockwise j (retB, retH, used, image) =
+  let used2  = replicate cartvert False;
       image2 = replicate cartvert (-1);
       image3 = image2 & ix 0 .~ clockwise;
       qZ0 = head qZ;
@@ -367,11 +463,10 @@ rootedSubConf degree deg adjmat question@(qU, qV, qZ, qXi) x y clockwise j (retB
           retPack
         else
           (True, retH', used', image')
--}
 
 rootedSubConfSub1 :: TpAdjmat -> TpVertices -> TpQuestion -> Int -> TpConfPack -> Int -> TpConfPack
-rootedSubConfSub1 adjmat degree question@(qU, qV, qZ, qXi) clockwise (_, retH, used, image) q = (False, retH, used,                image              )
-{-  let qUQ      = qU !! q;
+rootedSubConfSub1 adjmat degree question@(qU, qV, qZ, qXi) clockwise (_, retH, used, image) q =
+  let qUQ      = qU !! q;
       qVQ      = qV !! q;
       qZQ      = qZ !! q;
       qXiQ     = qXi !! q;
@@ -385,16 +480,14 @@ rootedSubConfSub1 adjmat degree question@(qU, qV, qZ, qXi) clockwise (_, retH, u
   in if (qUQ < 0) || (w == -1) || (qXiQ /= 0 && qXiQ /= degreeW) || usedW
     then (False, retH, used,                image              )
     else (True,  retH, used & ix w .~ True, image & ix qZQ .~ w)
--}
 
 rootedSubConfSub2 :: [Bool] -> Int -> Int -> Bool
-rootedSubConfSub2 used deg j = True
-{-  let cc    = if j == 1 then 2 * deg else deg + j - 1;
+rootedSubConfSub2 used deg j =
+  let cc    = if j == 1 then 2 * deg else deg + j - 1;
       usedJ = used !! j;
       usedD = used !! (deg + j);
       usedC = used !! cc
   in not usedJ && usedD && usedC
--}
 
 
 getReduceN :: Int -> Int -> Int -> TpVertices -> TpAxle -> [Int] -> [Int] -> (Int, TpAxle)
