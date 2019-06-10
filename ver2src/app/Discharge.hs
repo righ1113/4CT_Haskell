@@ -3,12 +3,12 @@
 ◆動かし方
 1. https://people.math.gatech.edu/~thomas/OLDFTP/four/
     から「present7」「rules」「unavoidable.conf」を取得し、
-    ver2src/に置く。
-2. > stack run
+    ver2src/readFile/に置く。
+2. > stack run discharge-exe
 3. > 「7」を入力してEnter。
 4. 中心の次数7のグラフは、電荷が負になるか、近くに好配置があらわれるかです
    プログラムは正常終了しました
-   が表示されたらOK
+   が表示されたらOK（今は表示されない）
 -}
 module Main where
 -- module Discharge where
@@ -18,6 +18,7 @@ import Data.Maybe (fromJust, isJust)
 import Control.Arrow ((<<<))
 import Control.Lens ((&), (.~), ix, (^?!), _1, _2, _4, _5, _6, _7, (^.))
 import Debug.Trace (trace)
+import Lib (myLoop)
 
 
 verts      = 27             -- max number of vertices in a free completion + 1
@@ -49,12 +50,6 @@ type TpReducePack = (TpAxle, [Int], [Int], TpAdjmat, TpEdgelist, [Bool], TpVerti
 type TpConfPack   = (Bool, Int, [Bool], TpVertices, Int)
 
 
--- ユーティリティ：蓄積変数付き、脱出可能なloop関数
--- 参考記事：https://mkotha.hatenadiary.org/entry/20110430/1304122048
-myLoop :: (accT -> a -> (accT -> b) -> b) -> (accT -> b) -> accT -> [a] -> b
-myLoop _ g acc []     = g acc
-myLoop f g acc (x:xs) = f acc x $ \acc' -> myLoop f g acc' xs
-
 main :: IO ()
 main = do
   putStrLn "これは四色定理の放電法をおこなうプログラムです"
@@ -81,7 +76,7 @@ main = do
   let upp     = replicate (2 * maxoutlets) [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   let xx      = replicate (2 * maxoutlets) 0
 -}
-  posoutStr    <- readFile $ "rules" ++ degStr ++ "HS.txt"
+  posoutStr    <- readFile $ "readFile/rules" ++ degStr ++ "HS.txt"
   let posout   = read posoutStr :: TpPosout -- CheckHubcap(axles, NULL, 0, print); -- read rules, compute outlets
 
   -- TpReducePack
@@ -97,10 +92,10 @@ main = do
   let qV       = replicate verts 0
   let qZ       = replicate verts 0
   let qXi      = replicate verts 0
-  redQStr      <- readFile "unavoidableHS.txt"
+  redQStr      <- readFile "readFile/unavoidableHS.txt"
   let redQ     = read redQStr :: [TpQuestion] -- (void) Reduce(NULL, 0, 0); -- read unavoidable set
 
-  inStr <- readFile $ "present" ++ degStr
+  inStr <- readFile $ "readFile/present" ++ degStr
   ret   <- mainLoop ((aSLow, aSUpp, 0), bLow, bUpp, adjmat, edgelist, used, image, redQ)
                     posout
                     (nn, mm)
