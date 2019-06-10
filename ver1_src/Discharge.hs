@@ -4,8 +4,8 @@
 1. https://people.math.gatech.edu/~thomas/OLDFTP/four/
     から「present7」「rules」「unavoidable.conf」を取得し、
     本ファイル、「rules7HS.txt」「unavoidableHS.txt」と同じ場所に置く。
-2. > stack install lens --resolver lts
-3. > stack exec ghci --resolver lts
+2. > stack install lens --resolver lts-13.25
+3. > stack exec ghci --resolver lts-13.25
 4. > :l Discharge
 5. > main
 6. > 「7」を入力してEnter。
@@ -39,6 +39,7 @@ maxlev     = 12             -- max level of an input line + 1
 difNouts   = [0, 0, 0, 0, 0, 0, 0, 103, 103, 103, 103, 103]
 
 type TpAxle       = ([[Int]], [[Int]], Int)
+type TpAxleI      = ([Int], [Int])
 type TpCond       = ([Int], [Int])
 type TpAdjmat     = [[Int]]
 type TpVertices   = [Int]
@@ -151,33 +152,33 @@ mainLoop rP posout (nn, mm) deg nosym axles@(low, upp, lev) tactics
 
 
 checkSymmetry :: [String] -> TpAxle -> TpPosout -> Int -> IO ()
-checkSymmetry str aA@(low, _, lev) posout@(number, nolines, value, pos, plow, upp, xx) nosym =
+checkSymmetry str aA@(low, upp, lev) posout@(number, nolines, value, pos, plow, pupp, xx) nosym =
   let [k, epsilon, level, line] = map read str :: [Int]
       i                         = fromJust $ find (==line) number
-      pI                        = (number !! i, nolines !! i, value !! i, pos !! i, plow !! i, upp !! i, xx !! i)
-  in if k < 0 || k > head (low !! lev) || epsilon < 0 || epsilon > 1 then error "Illegal symmetry"
-     else if i >= nosym then                                              error "No symmetry as requested"
-          else if nolines !! i /= level + 1 then                          error "Level mismatch"
-               else if epsilon == 0 && outletForced aA pI (k+1) /= 1 then error "Invalid symmetry"
-                    else if reflForced aA /= 1 then                       error "Invalid reflected symmetry"
-                                               else                       putStrLn "  checkSymmetry OK."
+      pI                        = (number !! i, nolines !! i, value !! i, pos !! i, plow !! i, pupp !! i, xx !! i)
+  in if k < 0 || k > head (low !! lev) || epsilon < 0 || epsilon > 1 then                       error "Illegal symmetry"
+     else if i >= nosym then                                                                    error "No symmetry as requested"
+          else if nolines !! i /= level + 1 then                                                error "Level mismatch"
+               else if epsilon == 0 && outletForced (low !! lev, upp !! lev) pI (k+1) /= 1 then error "Invalid symmetry"
+                    else if reflForced aA /= 1 then                                             error "Invalid reflected symmetry"
+                                               else                                             putStrLn "  checkSymmetry OK."
 
-outletForced :: TpAxle -> TpPosoutI -> Int -> Int
-outletForced aA@(low, upp, lev) (numberI, nolinesI, valueI, posI, lowI, uppI, xxI) y =
-  let deg = (low !! lev) !! 0
+outletForced :: TpAxleI -> TpPosoutI -> Int -> Int
+outletForced aAI@(lowI, uppI) (numberI, nolinesI, valueI, posI, plowI, puppI, xxI) y =
+  let deg = lowI !! 0
       y2  = y - 1
       f n x cont
         | n == 0    = n
-        | otherwise = cont $ outletForcedSub aA deg posI y2 n x
+        | otherwise = cont $ outletForcedSub aAI deg posI y2 n x
       ret           = myLoop f id 1 [0, 1 .. nolinesI]
   in if ret == 0
     then 0
     else valueI
-outletForcedSub :: TpAxle -> Int -> [Int] -> Int -> Int -> Int -> Int
-outletForcedSub aA@(low, upp, lev) deg posI y _ i =
+outletForcedSub :: TpAxleI -> Int -> [Int] -> Int -> Int -> Int -> Int
+outletForcedSub aAI@(lowI, uppI) deg posI y _ i =
   let p  = posI !! i
       p2 = if (y + (p - 1) `mod` deg) < deg then p + y else p + y - deg
-  in if (low !! i > low !! p2) || (upp !! i < upp !! p2)
+  in if (lowI !! i > lowI !! p2) || (uppI !! i < uppI !! p2)
     then 0
     else 1
 
@@ -542,7 +543,7 @@ checkHubcap posout strs aA deg =
   in return $ myLoop f id posout [0, 1 .. length strs - 1]
 
 checkHubcapSub :: TpPosout -> [String] -> TpAxle -> Int -> Int -> TpPosout
-checkHubcapSub posout@(_, _, _, _, _, _, pxx) strs aA deg i = -- posout
+checkHubcapSub posout@(_, _, _, _, _, _, pxx) strs aA@(low, upp, lev) deg i = -- posout
   let xyvs         = map read strs :: [(Int, Int, Int)]
       s            = replicate (2 * maxoutlets + 1) 0
       nouts        = difNouts !! deg
@@ -552,12 +553,12 @@ checkHubcapSub posout@(_, _, _, _, _, _, pxx) strs aA deg i = -- posout
   in if xi /= yi
     then let
       pxx3 = take nouts pxx2 ++ replicate nouts yi
-      in checkBound aA (posout & _7 .~ pxx3) nouts s2 vi 0 0
+      in checkBound (low !! lev, upp !! lev) (posout & _7 .~ pxx3) nouts s2 vi 0 0
     else
-         checkBound aA (posout & _7 .~ pxx2) nouts s2 vi 0 0
+         checkBound (low !! lev, upp !! lev) (posout & _7 .~ pxx2) nouts s2 vi 0 0
 
-checkBound :: TpAxle -> TpPosout -> Int -> [Int] -> Int -> Int -> Int -> TpPosout
-checkBound aA@(low, upp, lev) posout@(_, _, value, _, _, _, pxx) nouts s maxch pos depth =
+checkBound :: TpAxleI -> TpPosout -> Int -> [Int] -> Int -> Int -> Int -> TpPosout
+checkBound aAI posout@(_, _, value, _, _, _, pxx) nouts s maxch pos depth =
   -- compute forced and permitted rules, allowedch, forcedch, update s
   let forcedch       = 0
       allowedch      = 0
@@ -577,7 +578,7 @@ checkBound aA@(low, upp, lev) posout@(_, _, value, _, _, _, pxx) nouts s maxch p
         | sPos >= 99 = n
         | retB       = n
         | otherwise  = cont $ checkBoundSub2 value pos n x
-      (retB, _, _, allowedch2, s2, _, posout2) = myLoop f2 id (False, 0, forcedch2, allowedch, s, aA, posout) [0, 1 .. (2 * nouts + 1)]
+      (retB, _, _, allowedch2, s2, _, posout2) = myLoop f2 id (False, 0, forcedch2, allowedch, s, aAI, posout) [0, 1 .. (2 * nouts + 1)]
         in if retB
           then
             trace "  Inequality holds." posout2
@@ -592,12 +593,13 @@ checkBoundSub1 s value (_, fo) i =
     then (si, fo + valuei)
     else (si, fo         )
 
-checkBoundSub2 :: [Int] -> Int -> (Bool, Int, Int, Int, [Int], TpAxle, TpPosout) -> Int -> (Bool, Int, Int, Int, [Int], TpAxle, TpPosout)
-checkBoundSub2 value pos (_, _, fo, al, s, aA, posout@(_, _, _, _, _, _, xx)) k =
+checkBoundSub2 :: [Int] -> Int -> (Bool, Int, Int, Int, [Int], TpAxleI, TpPosout) -> Int -> (Bool, Int, Int, Int, [Int], TpAxleI, TpPosout)
+checkBoundSub2 value pos (_, _, fo, al, s, aAI, posout@(_, _, _, _, _, _, xx)) k =
   let sPos   = s     !! pos
       valuek = value !! k
   in if sPos == 0 && valuek >= 0
     then let
+      y = xx !! k
       {- x = PO->x;
       -- accepting positioned outlet PO, computing AA
       CopyAxle(AA, A);
@@ -615,21 +617,21 @@ checkBoundSub2 value pos (_, _, fo, al, s, aA, posout@(_, _, _, _, _, _, xx)) k 
       -- Check if a previously rejected positioned outlet is forced to apply
       f n x cont
         | n == 0     = n
-        | otherwise  = cont $ checkBoundSub2Sub aA s posout n x
+        | otherwise  = cont $ checkBoundSub2Sub aAI s posout n x
       good = myLoop f id 1 [0, 1 .. (pos - 1)]
         in if good /= 0
-          then (True, sPos, fo, al, s, aA, posout)
+          then (True, sPos, fo, al, s, aAI, posout)
             {- -- recursion with PO forced
             for (i = 0; (sprime[i] = s[i]) < 99; ++i) -- sprimeにコピーしている
             sprime[pos] = 1;
             CheckBound(AA, posout, sprime, maxch, pos + 1, depth + 1, lineno, print); -}
           else
-            trace "    Rejecting positioned outlet " (True, sPos, fo, al + valuek, s & ix pos .~ (-1), aA, posout)
-    else (False, sPos, fo, al, s, aA, posout)
+            trace "    Rejecting positioned outlet " (True, sPos, fo, al + valuek, s & ix pos .~ (-1), aAI, posout)
+    else (False, sPos, fo, al, s, aAI, posout)
 
-checkBoundSub2Sub :: TpAxle -> [Int] -> TpPosout -> Int -> Int -> Int
-checkBoundSub2Sub aA s posout@(number, nolines, value, pos, low, upp, xx) _ i =
-  if (s !! i == -1) && (outletForced aA (number !! i, nolines !! i, value !! i, pos !! i, low !! i, upp !! i, xx !! i) (xx !! i) /= 0)
+checkBoundSub2Sub :: TpAxleI -> [Int] -> TpPosout -> Int -> Int -> Int
+checkBoundSub2Sub aAI s posout@(number, nolines, value, pos, low, upp, xx) _ i =
+  if (s !! i == -1) && (outletForced aAI (number !! i, nolines !! i, value !! i, pos !! i, low !! i, upp !! i, xx !! i) (xx !! i) /= 0)
     then 0
     else 1
 
