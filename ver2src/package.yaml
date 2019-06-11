@@ -36,6 +36,14 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - ver2src
+  reduce-exe:
+    main:                app/Reduce.hs
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - ver2src
 
 tests:
   ver2src-test:
