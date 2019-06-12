@@ -1,6 +1,17 @@
 module Lib
-    ( myLoop
+    ( TpConfmat,
+      readFileUnavoidR,
+      myLoop
     ) where
+
+
+type TpConfmat = [[Int]]
+
+
+readFileUnavoidR :: IO [TpConfmat]
+readFileUnavoidR = do
+  unaStr <- readFile "readFile/unavoidable2HS.txt"
+  return $ map tail (read unaStr :: [TpConfmat])
 
 -- ユーティリティ：蓄積変数付き、脱出可能なloop関数
 -- 参考記事：https://mkotha.hatenadiary.org/entry/20110430/1304122048
