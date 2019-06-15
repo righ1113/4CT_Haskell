@@ -11,11 +11,12 @@ module Main where
 {-
 import Debug.Trace (trace)
 -}
-import Data.List (find)
-import Data.Maybe (fromJust, isJust)
-import Control.Arrow ((<<<))
-import Control.Lens ((&), (.~), ix, (^?!), _1, _2, _4, _5, _6, _7, (^.))
-import Lib (TpConfmat, readFileUnavoidR, myLoop)
+import Control.Arrow            ((<<<))
+import Control.Lens             ((&), (.~), ix, (^?!), _1, _2, _4, _5, _6, _7, (^.))
+import Control.Monad.Trans.Cont (Cont, cont, runCont, callCC)
+import Data.List                (find)
+import Data.Maybe               (fromJust, isJust)
+import Lib                      (TpConfmat, readFileUnavoidR, foldlCont)
 
 
 mVerts  = 27 -- max number of vertices in a free completion + 1
@@ -26,8 +27,7 @@ maxring = 14 -- max ring-size
 
 type TpAngle  = [[Int]]
 type TpEdgeno = [[Int]]
-type TpF4 = (Bool, Int, TpEdgeno) -> Int -> ((Bool, Int, TpEdgeno) -> (Bool, Int, TpEdgeno)) -> (Bool, Int, TpEdgeno)
-
+type TpF4     = ((Bool, Int, TpEdgeno) -> Cont (Bool, Int, TpEdgeno) (Bool, Int, TpEdgeno)) -> (Bool, Int, TpEdgeno) -> Int -> Cont (Bool, Int, TpEdgeno) (Bool, Int, TpEdgeno)
 
 main :: IO ()
 main = do
@@ -79,14 +79,14 @@ strip graph =
     ring                    = (graph ^?! ix 0) ^?! ix 1
     edgeno0                 = replicate edges $ replicate edges 0
     edgeno1                 = (edgeno0 & (ix ring <<< ix 1) .~ 1) & (ix 1 <<< ix ring) .~ 1
-    f1 n x cont             = cont $ stripSub1 n x
-    edgeno2                 = myLoop f1 id edgeno1 [2 .. ring]
+    f1 n x                  = return $ stripSub1 n x
+    edgeno2                 = runCont (foldlCont f1 edgeno1 [2 .. ring]) id
     done0                   = replicate mVerts False
     term0                   = 3 * (verts - 1) - ring
-    f2 n x cont             = cont $ stripSub2 graph verts ring n x
-    (edgeno3, done1, term1) = myLoop f2 id (edgeno2, done0, term0) [(ring + 1) .. verts]
-    f3 n x cont             = cont $ stripSub3 graph verts ring n x
-    (edgeno4, done2, term2) = myLoop f3 id (edgeno3, done1, term1) [1 .. ring]
+    f2 n x                  = return $ stripSub2 graph verts ring n x
+    (edgeno3, done1, term1) = runCont (foldlCont f2 (edgeno2, done0, term0) [(ring + 1) .. verts]) id
+    f3 n x                  = return $ stripSub3 graph verts ring n x
+    (edgeno4, done2, term2) = runCont (foldlCont f3 (edgeno3, done1, term1) [1 .. ring]) id
   in [[]]
 
 stripSub3Sub1 :: TpConfmat -> [Bool] -> Int -> (Int, Int) -> Int -> (Int, Int)
@@ -102,11 +102,12 @@ stripSub3Sub1 graph done ring (maxint, best) v =
             then (inter,  v   )
             else (maxint, best)
 
+-- Now we must list the edges between the interior and the ring
 stripSub3 :: TpConfmat -> Int -> Int -> (TpEdgeno, [Bool], Int) -> Int -> (TpEdgeno, [Bool], Int)
 stripSub3 graph verts ring (edgeno0, done0, term0) x =
   let
-    f1 n x cont           = cont $ stripSub3Sub1 graph done0 ring n x
-    (maxint, best)        = myLoop f1 id (0, 0) [1 .. ring]
+    f1 n x                = return $ stripSub3Sub1 graph done0 ring n x
+    (maxint, best)        = runCont (foldlCont f1 (0, 0) [1 .. ring]) id
 {-    f2 n x cont           = cont $ stripSub2Sub2 graph max1 n x
     (maxdeg, hoge)        = myLoop f2 id (0, 0) [1 .. maxes]
     grav                  = graph !! best
@@ -131,21 +132,21 @@ stripSub2 :: TpConfmat -> Int -> Int -> (TpEdgeno, [Bool], Int) -> Int -> (TpEdg
 stripSub2 graph verts ring (edgeno0, done0, term0) x =
   let
     max0                  = replicate mVerts 0
-    f1 n x cont           = cont $ stripSub2Sub1 graph done0 n x
-    (maxint, maxes, max1) = myLoop f1 id (0, 0, max0) [(ring + 1) .. verts]
-    f2 n x cont           = cont $ stripSub2Sub2 graph max1 n x
-    (maxdeg, best)        = myLoop f2 id (0, 0) [1 .. maxes]
+    f1 n x                = return $ stripSub2Sub1 graph done0 n x
+    (maxint, maxes, max1) = runCont (foldlCont f1 (0, 0, max0) [(ring + 1) .. verts]) id
+    f2 n x                = return $ stripSub2Sub2 graph max1 n x
+    (maxdeg, best)        = runCont (foldlCont f2 (0, 0) [1 .. maxes]) id
     grav                  = graph !! best
     d                     = grav !! 1
-    f3 n@(retB, _, _, p2) x cont
-      | not p2    = n
-      | retB      = n
-      | otherwise = cont $ stripSub2Sub3 grav done0 d n x
-    (_, first, _, _)      = myLoop f3 id (False, 1, done0 !! (grav !! (d + 1)), True) [0 .. 64]
-    f4 n@(retB, _, _) x cont
-      | retB      = n
-      | otherwise = cont $ stripSub2Sub4 grav done0 d best first f4 n x
-    (_, term1, edgeno1)   = myLoop f4 id (False, term0, edgeno0) [first .. 64]
+    f3 exit n@(retB, _, _, p2) x
+      | not p2    = exit n
+      | retB      = exit n
+      | otherwise = return $ stripSub2Sub3 grav done0 d n x
+    (_, first, _, _)      = runCont (callCC $ \exit -> foldlCont (f3 exit) (False, 1, done0 !! (grav !! (d + 1)), True) [0 .. 64]) id
+    f4 exit n@(retB, _, _) x
+      | retB      = exit n
+      | otherwise = return $ stripSub2Sub4 grav done0 d best first f4 n x
+    (_, term1, edgeno1)   = runCont (callCC $ \exit -> foldlCont (f4 exit) (False, term0, edgeno0) [first .. 64]) id
   in (edgeno1, done0 & ix best .~ True, term1)
 
 stripSub2Sub1 :: TpConfmat -> [Bool] -> (Int, Int, [Int]) -> Int -> (Int, Int, [Int])
@@ -186,7 +187,7 @@ stripSub2Sub4 grav done d best first f4 (_, term0, edgeno0) h =
       in  if h == d
             then if first == 1
               then (True, term1, edgeno1)
-              else myLoop f4 id (False, term1, edgeno1) [0 .. 64]
+              else runCont (callCC $ \exit -> foldlCont (f4 exit) (False, term1, edgeno1) [0 .. 64]) id
             else (False, term1, edgeno1)
 
 -- if grav meets the done vertices in an interval of length >=1, it returns
@@ -213,11 +214,11 @@ inInterval grav done =
                   else len
                 else
                   let
-                    f n@(retN, _, _) x cont
-                      | retN == 0 = n
-                      | otherwise = cont $ inIntervalSub grav done n x
+                    f exit n@(retN, _, _) x
+                      | retN == 0 = exit n
+                      | otherwise = return $ inIntervalSub grav done n x
                     (retN, l, _) =
-                      myLoop f id (1, len, False) [(last + 2) .. d]
+                      runCont (callCC $ \exit -> foldlCont (f exit) (1, len, False) [(last + 2) .. d]) id
                   in
                     if retN == 0 then 0 else l
 

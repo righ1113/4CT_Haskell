@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ba009d0f2e875b35e6ee899c88d614035357406ae20a373dafcd082c3dd18333
+-- hash: 9fa94600e64c6e40c109c13d2181946cf2735418d282e2d8cad17c08349c7b6c
 
 name:           ver2src
 version:        0.1.0.0
@@ -35,6 +35,7 @@ library
   build-depends:
       base >=4.7 && <5
     , lens
+    , transformers
   default-language: Haskell2010
 
 executable discharge-exe
@@ -45,6 +46,7 @@ executable discharge-exe
   build-depends:
       base >=4.7 && <5
     , lens
+    , transformers
     , ver2src
   default-language: Haskell2010
 
@@ -56,5 +58,6 @@ executable reduce-exe
   build-depends:
       base >=4.7 && <5
     , lens
+    , transformers
     , ver2src
   default-language: Haskell2010

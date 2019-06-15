@@ -1,9 +1,12 @@
 module Lib
     ( TpConfmat,
       readFileUnavoidR,
-      myLoop
+      myLoop,
+      foldlCont
     ) where
 
+import Control.Monad.Trans.Cont (Cont)
+import Data.Foldable            (foldlM)
 
 type TpConfmat = [[Int]]
 
@@ -19,5 +22,8 @@ myLoop :: (accT -> a -> (accT -> b) -> b) -> (accT -> b) -> accT -> [a] -> b
 myLoop _ g acc []     = g acc
 myLoop f g acc (x:xs) = f acc x $ \acc' -> myLoop f g acc' xs
 
+-- 同じもの
+foldlCont :: (b -> a -> Cont r b) -> b -> [a] -> Cont r b
+foldlCont = foldlM
 
 
