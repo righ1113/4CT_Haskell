@@ -65,9 +65,72 @@ mainLoop graphs
 findangles :: TpConfmat -> (TpAngle, TpAngle, TpAngle, [Int])
 findangles graph =
   let
-    edge   = 3 * ((graph ^?! ix 0) ^?! ix 0) - 3 - ((graph ^?! ix 0) ^?! ix 1)
-    edgeno = strip graph
+    edge                             = 3 * ((graph ^?! ix 0) ^?! ix 0) - 3 - ((graph ^?! ix 0) ^?! ix 1)
+    edgeno                           = strip graph
+    contract0                        = replicate (edges + 1) 0
+    contract1                        = contract0 & ix 0     .~ ((graph ^?! ix 1) ^?! ix 0)
+    contract2                        = contract1 & ix edges .~ ((graph ^?! ix 0) ^?! ix 3)
+    f1 n x                           = return $ findanglesSub1 graph edgeno n x
+    contract3                        = runCont (foldlCont f1 contract2 [1 .. (head contract2)]) id
+    angle0                           = replicate edges $ replicate 5 0
+    diffangle0                       = replicate edges $ replicate 5 0
+    sameangle0                       = replicate edges $ replicate 5 0
+    angle1                           =     angle0 & (ix 0 <<< ix 0) .~ ((graph ^?! ix 0) ^?! ix 0)
+    angle2                           =     angle1 & (ix 0 <<< ix 1) .~ ((graph ^?! ix 0) ^?! ix 1)
+    angle3                           =     angle2 & (ix 0 <<< ix 2) .~ edges
+    diffangle1                       = diffangle0 & (ix 0 <<< ix 0) .~ ((graph ^?! ix 0) ^?! ix 0)
+    diffangle2                       = diffangle1 & (ix 0 <<< ix 1) .~ ((graph ^?! ix 0) ^?! ix 1)
+    diffangle3                       = diffangle2 & (ix 0 <<< ix 2) .~ edges
+    f2 n x                           = return $ findanglesSub2 graph edgeno contract3 n x
+    (angle4, diffangle4, sameangle1) = runCont (foldlCont f2 (angle3, diffangle3, sameangle0) [(v, h) | v <- [1 .. ((graph ^?! ix 0) ^?! ix 0)], h <- [1 .. ((graph ^?! ix (v + 1)) ^?! ix 1)]]) id
   in ([[]], [[]], [[]], [])
+
+findanglesSub1 :: TpConfmat -> TpEdgeno -> [Int] -> Int -> [Int]
+findanglesSub1 graph edgeno contract2 i =
+  let
+    u = (graph ^?! ix 1) ^?! ix (2 * i)
+    v = (graph ^?! ix 1) ^?! ix (2 * i + 1)
+  in
+    contract2 & ix ((edgeno ^?! ix u) ^?! ix v) .~ 1
+
+findanglesSub2 :: TpConfmat -> TpEdgeno -> [Int] -> (TpAngle, TpAngle, TpAngle) -> (Int, Int) -> (TpAngle, TpAngle, TpAngle)
+findanglesSub2 graph edgeno contract (angle3, diffangle3, sameangle0) (v, h) = 
+  if (v <= (graph ^?! ix 0) ^?! ix 1) && (h == (graph ^?! ix (v + 1)) ^?! ix 1)
+    then
+      (angle3, diffangle3, sameangle0)
+    else let
+      i = if h < (graph ^?! ix (v + 1)) ^?! ix 1 then h + 1 else 1
+      u = (graph ^?! ix (v + 1)) ^?! ix (h + 1)
+      w = (graph ^?! ix (v + 1)) ^?! ix (i + 1)
+      a = (edgeno ^?! ix v) ^?! ix w
+      b = (edgeno ^?! ix u) ^?! ix w
+      c = (edgeno ^?! ix u) ^?! ix v
+        in if a > c
+          then let
+            angle4 = angle3 & (ix c <<< ix (1 + (angle3 ^?! ix c) ^?! ix 0)) .~ a
+              in if (0 == contract !! a) && (0 == contract !! b) && (0 == contract !! c)
+                then let
+                  diffangle4 = diffangle3 & (ix c <<< ix (1 + (diffangle3 ^?! ix c) ^?! ix 0)) .~ a
+                  in if 0 /= contract !! b
+                    then let
+                      sameangle1 = sameangle0 & (ix c <<< ix (1 + (diffangle3 ^?! ix c) ^?! ix 0)) .~ a
+                      in   (angle4, diffangle4, sameangle1)
+                    else   (angle4, diffangle4, sameangle0)
+                else       (angle4, diffangle3, sameangle0)
+          else if b > c
+            then let
+              angle4 = angle3 & (ix c <<< ix (1 + (angle3 ^?! ix c) ^?! ix 0)) .~ b
+                in if (0 == contract !! a) && (0 == contract !! b) && (0 == contract !! c)
+                  then let
+                    diffangle4 = diffangle3 & (ix c <<< ix 0) .~ b
+                    in if 0 /= contract !! b
+                      then let
+                        sameangle1 = sameangle0 & (ix c <<< ix 0) .~ b
+                        in (angle4, diffangle4, sameangle1)
+                      else (angle4, diffangle4, sameangle0)
+                  else     (angle4, diffangle3, sameangle0)
+            else           (angle3, diffangle3, sameangle0)
+
 
 {- Numbers edges from 1 up, so that each edge has as many later edges in
    triangles as possible; the ring edges are first.  edgeno[u][v] will be the
@@ -86,42 +149,8 @@ strip graph =
     f2 n x                  = return $ stripSub2 graph verts ring n x
     (edgeno3, done1, term1) = runCont (foldlCont f2 (edgeno2, done0, term0) [(ring + 1) .. verts]) id
     f3 n x                  = return $ stripSub3 graph verts ring n x
-    (edgeno4, done2, term2) = runCont (foldlCont f3 (edgeno3, done1, term1) [1 .. ring]) id
-  in [[]]
-
-stripSub3Sub1 :: TpConfmat -> [Bool] -> Int -> (Int, Int) -> Int -> (Int, Int)
-stripSub3Sub1 graph done ring (maxint, best) v =
-  if done !! v
-    then (maxint, best)
-    else
-      let
-        u     = if v > 1    then v - 1 else ring
-        w     = if v < ring then v + 1 else 1
-        inter = 3 * (graph ^?! ix v ^?! ix 1) + 4 * (fromEnum (done !! u) + fromEnum (done !! w))
-      in  if inter > maxint
-            then (inter,  v   )
-            else (maxint, best)
-
--- Now we must list the edges between the interior and the ring
-stripSub3 :: TpConfmat -> Int -> Int -> (TpEdgeno, [Bool], Int) -> Int -> (TpEdgeno, [Bool], Int)
-stripSub3 graph verts ring (edgeno0, done0, term0) x =
-  let
-    f1 n x                = return $ stripSub3Sub1 graph done0 ring n x
-    (maxint, best)        = runCont (foldlCont f1 (0, 0) [1 .. ring]) id
-{-    f2 n x cont           = cont $ stripSub2Sub2 graph max1 n x
-    (maxdeg, hoge)        = myLoop f2 id (0, 0) [1 .. maxes]
-    grav                  = graph !! best
-    d                     = grav !! 1
-    f3 n@(retB, _, _, p2) x cont
-      | not p2    = n
-      | retB      = n
-      | otherwise = cont $ stripSub2Sub3 grav done0 d n x
-    (_, first, _, _)      = myLoop f3 id (False, 1, done0 !! (grav !! (d + 1)), True) [0 .. 64]
-    f4 n@(retB, _, _) x cont
-      | retB      = n
-      | otherwise = cont $ stripSub2Sub4 grav done0 d best first f4 n x
-    (_, term1, edgeno1)   = myLoop f4 id (False, term0, edgeno0) [first .. 64] -}
-  in (edgeno0, done0 & ix best .~ True, term0)
+    (edgeno4, _,     _    ) = runCont (foldlCont f3 (edgeno3, done1, term1) [1 .. ring]) id
+  in edgeno4
 
 stripSub1 :: TpEdgeno -> Int -> TpEdgeno
 stripSub1 edgeno v = (edgeno & (ix (v - 1) <<< ix v) .~ v) & (ix v <<< ix (v - 1)) .~ v
@@ -136,7 +165,7 @@ stripSub2 graph verts ring (edgeno0, done0, term0) x =
     (maxint, maxes, max1) = runCont (foldlCont f1 (0, 0, max0) [(ring + 1) .. verts]) id
     f2 n x                = return $ stripSub2Sub2 graph max1 n x
     (maxdeg, best)        = runCont (foldlCont f2 (0, 0) [1 .. maxes]) id
-    grav                  = graph !! best
+    grav                  = graph !! (best + 1)
     d                     = grav !! 1
     f3 exit n@(retB, _, _, p2) x
       | not p2    = exit n
@@ -154,12 +183,52 @@ stripSub2Sub1 graph done (maxint, maxes, max) v =
   if done !! v
     then (maxint, maxes, max)
     else
-      let inter = inInterval (graph !! v) done
+      let inter = inInterval (graph !! (v + 1)) done
       in  if inter > maxint
             then   (inter,  1,         max & ix 1 .~ v          )
             else if inter == maxint
               then (maxint, maxes + 1, max & ix (maxes + 1) .~ v)
               else (maxint, maxes,     max                      )
+
+
+-- if grav meets the done vertices in an interval of length >=1, it returns
+-- the length of the interval, and otherwise returns 0
+inInterval :: [Int] -> [Bool] -> Int
+inInterval grav done =
+  let
+    d     = grav !! 1
+    first = fromJust
+      $ find (\x -> (x < d) && not (done !! (grav !! (x + 1)))) [1 .. (deg - 1)]
+  in
+    if first == d
+      then fromEnum $ done !! (grav !! (d + 1))
+      else
+        let last = fromJust $ find
+              (\x -> (x < d) && not (done !! (grav !! (x + 1))))
+              [first .. (deg - 1)]
+            len  = last - first + 1
+        in  if last == d
+              then len
+              else if first > 1
+                then if any (\x -> done !! (grav !! (x + 1))) [(last + 2) .. d]
+                  then 0
+                  else len
+                else
+                  let
+                    f exit n@(retN, _, _) x
+                      | retN == 0 = exit n
+                      | otherwise = return $ inIntervalSub grav done n x
+                    (retN, l, _) =
+                      runCont (callCC $ \exit -> foldlCont (f exit) (1, len, False) [(last + 2) .. d]) id
+                  in
+                    if retN == 0 then 0 else l
+
+inIntervalSub :: [Int] -> [Bool] -> (Int, Int, Bool) -> Int -> (Int, Int, Bool)
+inIntervalSub grav done (_, l, w) j
+  | done !! (grav !! (j + 1)) = (1, l + 1, True)
+  | w                         = (0, l,     w   )
+  | otherwise                 = (1, l,     w   )
+
 
 -- From the terms in max we choose the one of maximum degree
 stripSub2Sub2 :: TpConfmat -> [Int] -> (Int, Int) -> Int -> (Int, Int)
@@ -190,43 +259,41 @@ stripSub2Sub4 grav done d best first f4 (_, term0, edgeno0) h =
               else runCont (callCC $ \exit -> foldlCont (f4 exit) (False, term1, edgeno1) [0 .. 64]) id
             else (False, term1, edgeno1)
 
--- if grav meets the done vertices in an interval of length >=1, it returns
--- the length of the interval, and otherwise returns 0
-inInterval :: [Int] -> [Bool] -> Int
-inInterval grav done =
+-- Now we must list the edges between the interior and the ring
+stripSub3 :: TpConfmat -> Int -> Int -> (TpEdgeno, [Bool], Int) -> Int -> (TpEdgeno, [Bool], Int)
+stripSub3 graph verts ring (edgeno0, done0, term0) x =
   let
-    d     = head grav
-    first = fromJust
-      $ find (\x -> (x < d) && not (done !! (grav !! x))) [1 .. (deg - 1)]
-  in
-    if first == d
-      then fromEnum $ done !! (grav !! d)
-      else
-        let last = fromJust $ find
-              (\x -> (x < d) && not (done !! (grav !! (x + 1))))
-              [first .. (deg - 1)]
-            len  = last - first + 1
-        in  if last == d
-              then len
-              else if first > 1
-                then if any (\x -> done !! (grav !! x)) [(last + 2) .. d]
-                  then 0
-                  else len
-                else
-                  let
-                    f exit n@(retN, _, _) x
-                      | retN == 0 = exit n
-                      | otherwise = return $ inIntervalSub grav done n x
-                    (retN, l, _) =
-                      runCont (callCC $ \exit -> foldlCont (f exit) (1, len, False) [(last + 2) .. d]) id
-                  in
-                    if retN == 0 then 0 else l
+    f1 n x                = return $ stripSub3Sub1 graph done0 ring n x
+    (maxint, best)        = runCont (foldlCont f1 (0, 0) [1 .. ring]) id
+    grav                  = graph !! (best + 1)
+    u                     = if best > 1 then best - 1 else ring
+    f2 n x                = return $ stripSub3Sub2 best grav n x
+  in if done0 !! u
+    then let
+      (edgeno1, term1) = runCont (foldlCont f2 (edgeno0, term0) [((grav !! 1) - 1), ((grav !! 1) - 2) .. 1]) id
+        in (edgeno1, done0 & ix best .~ True, term1)
+    else let
+      (edgeno1, term1) = runCont (foldlCont f2 (edgeno0, term0) [2 .. ((grav !! 1) - 1)                 ]) id
+        in (edgeno1, done0 & ix best .~ True, term1)
 
-inIntervalSub :: [Int] -> [Bool] -> (Int, Int, Bool) -> Int -> (Int, Int, Bool)
-inIntervalSub grav done (_, l, w) j
-  | done !! (grav !! j) = (1, l + 1, True)
-  | w                   = (0, l,     w   )
-  | otherwise           = (1, l,     w   )
+stripSub3Sub1 :: TpConfmat -> [Bool] -> Int -> (Int, Int) -> Int -> (Int, Int)
+stripSub3Sub1 graph done ring (maxint, best) v =
+  if done !! v
+    then (maxint, best)
+    else
+      let
+        u     = if v > 1    then v - 1 else ring
+        w     = if v < ring then v + 1 else 1
+        inter = 3 * (graph ^?! ix (v + 1) ^?! ix 1) + 4 * (fromEnum (done !! u) + fromEnum (done !! w))
+      in  if inter > maxint
+            then (inter,  v   )
+            else (maxint, best)
+
+stripSub3Sub2 :: Int -> [Int] -> (TpEdgeno, Int) -> Int -> (TpEdgeno, Int)
+stripSub3Sub2 best grav (edgeno0, term0) h =
+  let edgeno1 = (edgeno0 & (ix best <<< ix (grav !! (h + 1))) .~ term0) & (ix (grav !! (h + 1)) <<< ix best) .~ term0
+      term1   = term0 - 1
+  in (edgeno1, term1)
 
 
 
