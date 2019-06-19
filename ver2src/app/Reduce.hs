@@ -32,28 +32,26 @@ type TpF4     = ((Bool, Int, TpEdgeno) -> Cont (Bool, Int, TpEdgeno) (Bool, Int,
 main :: IO ()
 main = do
   putStrLn "これは四色定理の可約性を調べるプログラムです"
-
   graphs <- readFileUnavoidR
-
   mainLoop graphs
-
   -- putStrLn "633個の好配置は全て、Ｄ可約orＣ可約です"
   putStrLn "プログラムは正常終了しました"
 
 mainLoop :: [TpConfmat] -> IO ()
 mainLoop graphs
   | null graphs = return ()
-  | otherwise   =
-    let
-      graph = head graphs
+  | otherwise   = do
+    let graph = head graphs
       {- "findangles" fills in the arrays "angle","diffangle","sameangle" and
          "contract" from the input "graph". "angle" will be used to compute
          which colourings of the ring edges extend to the configuration; the
          others will not be used unless a contract is specified, and if so
          they will be used in "checkcontract" below to verify that the
          contract is correct. -}
-      (angle, diffangle, sameangle, contract) = findangles graph
-    in print graph
+    (angle, diffangle, sameangle, contract) <- findangles graph
+    print contract
+    print graph
+    mainLoop $ tail graphs
 
 
 {- writes into angle[i] all edges with number >i on a common triangle T say
@@ -62,7 +60,7 @@ mainLoop graphs
    writes into sameangle[i] all such edges not in X so that the third edge of
    T is in X. Sets contract[i] to 1 if edge number i is in X and to zero
    otherwise, checks that X is sparse, and if |X|=4 checks that X has a triad -}
-findangles :: TpConfmat -> (TpAngle, TpAngle, TpAngle, [Int])
+findangles :: TpConfmat -> IO (TpAngle, TpAngle, TpAngle, [Int])
 findangles graph =
   let
     edge                             = 3 * ((graph ^?! ix 0) ^?! ix 0) - 3 - ((graph ^?! ix 0) ^?! ix 1)
@@ -83,13 +81,21 @@ findangles graph =
     diffangle3                       = diffangle2 & (ix 0 <<< ix 2) .~ edges
     f2 n x                           = return $ findanglesSub2 graph edgeno contract3 n x
     (angle4, diffangle4, sameangle1) = runCont (foldlCont f2 (angle3, diffangle3, sameangle0) [(v, h) | v <- [1 .. ((graph ^?! ix 0) ^?! ix 0)], h <- [1 .. ((graph ^?! ix (v + 1)) ^?! ix 1)]]) id
-  in ([[]], [[]], [[]], [])
+  in if head contract3 < 4 -- checking that there is a triad
+    then return (angle4, diffangle4, sameangle1, contract3)
+    else let
+      f3 exit n x
+        | n         = exit n
+        | otherwise = return $ findanglesSub3 graph n x
+      retB          = runCont (callCC $ \exit -> foldlCont (f3 exit) False [(1 + head graph !! 1) .. (head $ head graph)]) id
+        in if retB then return (angle4, diffangle4, sameangle1, contract3)
+                   else error "***  ERROR: CONTRACT HAS NO TRIAD  ***"
 
 findanglesSub1 :: TpConfmat -> TpEdgeno -> [Int] -> Int -> [Int]
 findanglesSub1 graph edgeno contract2 i =
   let
-    u = (graph ^?! ix 1) ^?! ix (2 * i)
-    v = (graph ^?! ix 1) ^?! ix (2 * i + 1)
+    u = (graph ^?! ix 1) ^?! ix (i * 2 - 1)
+    v = (graph ^?! ix 1) ^?! ix (i * 2)
   in
     contract2 & ix ((edgeno ^?! ix u) ^?! ix v) .~ 1
 
@@ -131,6 +137,32 @@ findanglesSub2 graph edgeno contract (angle3, diffangle3, sameangle0) (v, h) =
                   else     (angle4, diffangle3, sameangle0)
             else           (angle3, diffangle3, sameangle0)
 
+findanglesSub3 :: TpConfmat -> Bool -> Int -> Bool
+findanglesSub3 graph _ v =
+  (a >= 3) && (((graph !! (v + 1)) !! 1) >= 6) || retB
+    where
+      f1 n x     = return $ findanglesSub3Sub1 graph v n x
+      a          = runCont (foldlCont f1 0 [1 .. ((graph !! (v + 1)) !! 1)]) id
+      neighbour0 = replicate (head (head graph)) False
+      f2 n x     = return $ findanglesSub3Sub2 graph v n x
+      neighbour1 = runCont (foldlCont f2 neighbour0 [1 .. ((graph !! (v + 1)) !! 1)]) id
+      f3 n x     = return $ findanglesSub3Sub3 graph neighbour1 n x
+      retB       = runCont (foldlCont f3 False [0 .. (length (graph !! 1) - 1)]) id
+
+findanglesSub3Sub1 :: TpConfmat -> Int -> Int -> Int -> Int
+findanglesSub3Sub1 graph v a i =
+  let
+    u    = (graph !! (v + 1)) !! (i + 1)
+    retM = find (\x -> u == ((graph !! 1) !! x)) [0 .. (length (graph !! 1) - 1)]
+  in if isJust retM then a + 1
+                    else a
+
+findanglesSub3Sub2 :: TpConfmat -> Int -> [Bool] -> Int -> [Bool]
+findanglesSub3Sub2 graph v neighbour i = neighbour & ix ((graph ^?! ix (v + 1)) ^?! ix (i + 1)) .~ True
+
+findanglesSub3Sub3 :: TpConfmat -> [Bool] -> Bool -> Int -> Bool
+findanglesSub3Sub3 graph neighbour retB j = retB || not (neighbour !! (head graph !! j))
+
 
 {- Numbers edges from 1 up, so that each edge has as many later edges in
    triangles as possible; the ring edges are first.  edgeno[u][v] will be the
@@ -150,7 +182,7 @@ strip graph =
     (edgeno3, done1, term1) = runCont (foldlCont f2 (edgeno2, done0, term0) [(ring + 1) .. verts]) id
     f3 n x                  = return $ stripSub3 graph verts ring n x
     (edgeno4, _,     _    ) = runCont (foldlCont f3 (edgeno3, done1, term1) [1 .. ring]) id
-  in edgeno4
+  in edgeno2 --edgeno4
 
 stripSub1 :: TpEdgeno -> Int -> TpEdgeno
 stripSub1 edgeno v = (edgeno & (ix (v - 1) <<< ix v) .~ v) & (ix v <<< ix (v - 1)) .~ v
@@ -159,6 +191,7 @@ stripSub1 edgeno v = (edgeno & (ix (v - 1) <<< ix v) .~ v) & (ix v <<< ix (v - 1
 -- vertices in an interval, and write them in max[1] .. max[maxes]
 stripSub2 :: TpConfmat -> Int -> Int -> (TpEdgeno, [Bool], Int) -> Int -> (TpEdgeno, [Bool], Int)
 stripSub2 graph verts ring (edgeno0, done0, term0) x =
+-- bug有り *** Exception: Prelude.!!: index too large
   let
     max0                  = replicate mVerts 0
     f1 n x                = return $ stripSub2Sub1 graph done0 n x
