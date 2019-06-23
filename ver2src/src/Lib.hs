@@ -5,7 +5,7 @@ module Lib
       foldlCont
     ) where
 
-import Control.Monad.Trans.Cont (Cont)
+import Control.Monad.Trans.Cont (Cont, ContT)
 import Data.Foldable            (foldlM)
 
 type TpConfmat = [[Int]]
@@ -23,7 +23,8 @@ myLoop _ g acc []     = g acc
 myLoop f g acc (x:xs) = f acc x $ \acc' -> myLoop f g acc' xs
 
 -- 同じもの
-foldlCont :: (b -> a -> Cont r b) -> b -> [a] -> Cont r b
+foldlCont :: (b -> a -> ContT r m b) -> b -> [a] -> ContT r m b
 foldlCont = foldlM
+
 
 
