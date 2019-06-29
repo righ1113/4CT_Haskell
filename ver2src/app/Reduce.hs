@@ -22,12 +22,13 @@ import Lib                       (TpConfmat, readFileUnavoidR, foldlCont)
 --import Control.Monad.IO.Class (liftIO)
 
 
-mVerts  = 27 -- max number of vertices in a free completion + 1
-deg     = 13 -- max degree of a vertex in a free completion + 1
+mVerts        = 27 -- max number of vertices in a free completion + 1
+deg           = 13 -- max degree of a vertex in a free completion + 1
 -- must be at least 13 because of row 0
-edges   = 62 -- max number of edges in a free completion + 1
-maxring = 14 -- max ring-size
-power   = [0, 1, 3, 9, 27, 81, 243, 729, 2187, 6561, 19683, 59049, 177147, 531441, 1594323, 4782969, 14348907] -- 3^(i-1)
+edges         = 62 -- max number of edges in a free completion + 1
+maxring       = 14 -- max ring-size
+power         = [0, 1, 3, 9, 27, 81, 243, 729, 2187, 6561, 19683, 59049, 177147, 531441, 1594323, 4782969, 14348907] -- 3^(i-1)
+simatchnumber = [0, 0, 1, 3, 10, 30, 95, 301, 980, 3228, 10797, 36487, 124542, 428506, 1485003]
 
 type TpAngle        = [[Int]]
 type TpEdgeno       = [[Int]]
@@ -87,10 +88,10 @@ findangles graph =
     sameangle0                       = replicate edges $ replicate 5 0
     angle1                           =     angle0 & (ix 0 <<< ix 0) .~ ((graph ^?! ix 0) ^?! ix 0)
     angle2                           =     angle1 & (ix 0 <<< ix 1) .~ ((graph ^?! ix 0) ^?! ix 1)
-    angle3                           =     angle2 & (ix 0 <<< ix 2) .~ edges
+    angle3                           =     angle2 & (ix 0 <<< ix 2) .~ edge
     diffangle1                       = diffangle0 & (ix 0 <<< ix 0) .~ ((graph ^?! ix 0) ^?! ix 0)
     diffangle2                       = diffangle1 & (ix 0 <<< ix 1) .~ ((graph ^?! ix 0) ^?! ix 1)
-    diffangle3                       = diffangle2 & (ix 0 <<< ix 2) .~ edges
+    diffangle3                       = diffangle2 & (ix 0 <<< ix 2) .~ edge
     f2 n x                           = return $ findanglesSub2 graph edgeno contract3 n x
     (angle4, diffangle4, sameangle1) = runCont (foldlCont f2 (angle3, diffangle3, sameangle0) [(v, h) | v <- [1 .. ((graph ^?! ix 0) ^?! ix 0)], h <- [1 .. ((graph ^?! ix (v + 1)) ^?! ix 1)]]) id
   in if head contract3 < 4 -- checking that there is a triad
@@ -196,7 +197,7 @@ strip graph =
     (edgeno3, done1, term1) = runCont (foldlCont f2 (edgeno2, done0, term0) [(ring + 1) .. verts]) id
     f3 n x                  = return $ stripSub3 graph verts ring n x
     (edgeno4, _,     _    ) = runCont (foldlCont f3 (edgeno3, done1, term1) [1 .. ring]) id
-  in edgeno2 --edgeno4
+  in edgeno2 --edgeno4      !!!bug1!!!
 
 stripSub1 :: TpEdgeno -> Int -> TpEdgeno
 stripSub1 edgeno v = (edgeno & (ix (v - 1) <<< ix v) .~ v) & (ix v <<< ix (v - 1)) .~ v
@@ -205,7 +206,7 @@ stripSub1 edgeno v = (edgeno & (ix (v - 1) <<< ix v) .~ v) & (ix v <<< ix (v - 1
 -- vertices in an interval, and write them in max[1] .. max[maxes]
 stripSub2 :: TpConfmat -> Int -> Int -> (TpEdgeno, [Bool], Int) -> Int -> (TpEdgeno, [Bool], Int)
 stripSub2 graph verts ring (edgeno0, done0, term0) x =
--- bug有り *** Exception: Prelude.!!: index too large
+-- bug1有り *** Exception: Prelude.!!: index too large
   let
     max0                  = replicate mVerts 0
     f1 n x                = return $ stripSub2Sub1 graph done0 n x
@@ -386,7 +387,7 @@ findliveSub bigno angle power ring ed extentclaim n@(_, _, _, _, _, _, live) _ =
           f2 n x     = return $ findliveSubSub2 am c1 n x
           u          = runCont (foldlCont f2 0 [i | i <- [1 .. 1023], i <= head am]) id
           forbidden1 = forbidden & ix (j - 1) .~ u
-        in do { lift $ print j; return (((ret & _3 -~ 1) & _4 .~ c1) & _5 .~ forbidden1)}
+        in return (((ret & _3 -~ 1) & _4 .~ c1) & _5 .~ forbidden1)
 
 {- Given a colouring specified by a 1,2,4-valued function "col", it computes
    the corresponding number, checks if it is in live, and if so removes it. -}
@@ -427,7 +428,7 @@ findliveSubSub1 ring ed extentclaim n@(_, _, j, c, _, _, _) _ = do
   let
     f1 exit n@(retB, _, j, c, _, _, _) x
       | retB                = exit n
-      | (c !! j) .&. 8 == 0 = exit n
+--      | (c !! j) .&. 8 == 0 = exit n      !!!bug2!!!
       | otherwise           = findliveSubSubSub ring ed extentclaim n x
   ret@(retB, _, j1, c1, _, _, _) <- lift $ runContT (callCC $ \exit -> foldlCont (f1 exit) (n & _4 .~ (c & ix j *~ 2)) [0..1023]) return
   if retB || (c1 !! j1) .&. 8 == 0
@@ -435,8 +436,8 @@ findliveSubSub1 ring ed extentclaim n@(_, _, j, c, _, _, _) _ = do
     else error "findliveSubSub1 : It was not good though it was repeated 1024 times!"
 
 findliveSubSubSub :: Int -> Int -> Int -> TpFindlivePack -> Int -> ContT TpFindlivePack IO TpFindlivePack
-findliveSubSubSub ring ed extentclaim n@(retB, ncodes, j, c, forbidden, extent, live) _ = do
-  lift $ putStrLn $ "j, ed-1 : " ++ show j ++ ", " ++ show (ed-1)
+findliveSubSubSub ring ed extentclaim n@(retB, ncodes, j, c, forbidden, extent, live) _ =
+  -- lift $ putStrLn $ "j, ed-1 : " ++ show j ++ ", " ++ show (ed-1)
   if j >= ed - 1
     then do
       lift $ printStatus ring ncodes extent extentclaim
@@ -446,7 +447,13 @@ findliveSubSubSub ring ed extentclaim n@(retB, ncodes, j, c, forbidden, extent, 
       return (retB, ncodes, j + 1, c & ix (j + 1) *~ 2, forbidden, extent, live)
 
 printStatus :: Int -> Int -> Int -> Int -> IO ()
-printStatus ring ncodes extent extentclaim = putStrLn "ahaha"
+printStatus ring totalcols extent extentclaim = do
+  putStr   $ "\n\n   This has ring-size " ++ show ring ++ ", so there are " ++ show totalcols ++ " colourings total,\n"
+  putStr   $ "   and " ++ show (simatchnumber !! ring) ++ " balanced signed matchings.\n"
+  -- putStr   $ "\n   There are " ++ show extent ++ " colourings that extend to the configuration."         !!!bug3!!!
+  putStr     "\n\n            remaining               remaining balanced\n"
+  putStr     "           colourings               signed matchings\n"
+  -- putStrLn $ "\n              " ++ show (totalcols - extent)
 
 
 
