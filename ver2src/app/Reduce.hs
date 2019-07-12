@@ -48,6 +48,7 @@ mainLoop :: [TpConfmat] -> IO ()
 mainLoop graphs
   | null graphs = return ()
   | otherwise   = do
+
     let graph = head graphs
     {- "findangles" fills in the arrays "angle","diffangle","sameangle" and
         "contract" from the input "graph". "angle" will be used to compute
@@ -57,12 +58,51 @@ mainLoop graphs
         contract is correct. -}
     (angle, diffangle, sameangle, contract) <- findangles graph
     --print contract
-    print graph
+    --print graph
+
     let ring   = (graph ^?! ix 0) ^?! ix 1   -- ring-size
         ncodes = (power !! ring + 1) `div` 2 -- number of codes of colorings of R
         live0  = replicate (ncodes - 1) 1
-    (nlive, live1) <- findlive live0 ncodes angle power ((graph ^?! ix 0) ^?! ix 2)
-    mainLoop $ tail graphs
+        real0  = replicate (simatchnumber !! maxring `div` 8 + 2) 255
+        nchar  = simatchnumber !! ring `div` 8 + 1
+    (nlive1, live1) <- findlive live0 ncodes angle power ((graph ^?! ix 0) ^?! ix 2)
+
+    -- computes {\cal M}_{i+1} from {\cal M}_i, updates the bits of "real"
+    nlive2 <- updatelive ring real0 power live1 nchar ncodes 1 -- bug4 nlive1
+    -- computes {\cal C}_{i+1} from {\cal C}_i, updates "live"
+
+    mainLoop [] -- $ tail graphs
+
+
+-- ###################################################################################################################################
+-- ###################################################################################################################################
+updatelive :: Int -> [Int] -> [Int] -> [Int] -> Int -> Int -> Int -> IO Int
+updatelive ring real0 power live1 nchar ncodes nlive1 = do
+  let
+    f1 exit n@(retB, _) x
+      | retB      = exit n
+      | otherwise = updateliveSub ring real0 power live1 nchar ncodes n x
+  (retB, nlive2) <- runContT (callCC $ \exit -> foldlCont (f1 exit) (False, nlive1) [0..1023]) return
+  if retB then return nlive2
+          else error "updatelive : It was not good though it was repeated 1024 times!"
+
+updateliveSub :: Int -> [Int] -> [Int] -> [Int] -> Int -> Int -> (Bool, Int) -> Int -> ContT (Bool, Int) IO (Bool, Int)
+updateliveSub ring real0 power live1 nchar ncodes n@(retB, nlive) _ = do
+  lift $ testmatch ring real0 power live1 nchar
+
+  let newnlive = 0
+  if (newnlive < nlive) && (newnlive > 0)
+    then return (False, nlive)
+    else do
+      if newnlive == 0
+        then lift $ putStrLn "\n\n\n                  ***  D-reducible  ***\n"
+        else lift $ putStrLn "\n\n\n                ***  Not D-reducible  ***"
+      return (True, nlive)
+
+testmatch :: Int -> [Int] -> [Int] -> [Int] -> Int -> IO ()
+testmatch ring real0 power live1 nchar = do
+  let nreal = 0
+  putStrLn $ "               " ++ show nreal
 
 
 -- ###################################################################################################################################
