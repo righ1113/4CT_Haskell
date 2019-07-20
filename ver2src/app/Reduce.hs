@@ -62,13 +62,13 @@ mainLoop graphs
 
     let ring   = (graph ^?! ix 0) ^?! ix 1   -- ring-size
         ncodes = (power !! ring + 1) `div` 2 -- number of codes of colorings of R
-        live0  = replicate (ncodes - 1) 1
+        live0  = replicate ncodes 1
         real0  = replicate (simatchnumber !! maxring `div` 8 + 2) 255
         nchar  = simatchnumber !! ring `div` 8 + 1
     (nlive1, live1) <- findlive live0 ncodes angle power ((graph ^?! ix 0) ^?! ix 2)
 
     -- computes {\cal M}_{i+1} from {\cal M}_i, updates the bits of "real"
-    nlive2 <- updatelive ring real0 power live1 nchar ncodes 1 -- bug4 nlive1
+    (nlive2, live2) <- updatelive ring real0 power live0 nchar ncodes 1 -- bug4 live1 nchar ncodes nlive1
     -- computes {\cal C}_{i+1} from {\cal C}_i, updates "live"
 
     mainLoop [] -- $ tail graphs
@@ -76,28 +76,40 @@ mainLoop graphs
 
 -- ###################################################################################################################################
 -- ###################################################################################################################################
-updatelive :: Int -> [Int] -> [Int] -> [Int] -> Int -> Int -> Int -> IO Int
+updatelive :: Int -> [Int] -> [Int] -> [Int] -> Int -> Int -> Int -> IO (Int, [Int])
 updatelive ring real0 power live1 nchar ncodes nlive1 = do
   let
-    f1 exit n@(retB, _) x
+    f1 exit n@(retB, _, _) x
       | retB      = exit n
-      | otherwise = updateliveSub ring real0 power live1 nchar ncodes n x
-  (retB, nlive2) <- runContT (callCC $ \exit -> foldlCont (f1 exit) (False, nlive1) [0..1023]) return
-  if retB then return nlive2
+      | otherwise = updateliveSub ring real0 power nchar ncodes n x
+  (retB, nlive2, live2) <- runContT (callCC $ \exit -> foldlCont (f1 exit) (False, nlive1, live1) [0..1023]) return
+  if retB then return (nlive2, live2)
           else error "updatelive : It was not good though it was repeated 1024 times!"
 
-updateliveSub :: Int -> [Int] -> [Int] -> [Int] -> Int -> Int -> (Bool, Int) -> Int -> ContT (Bool, Int) IO (Bool, Int)
-updateliveSub ring real0 power live1 nchar ncodes n@(retB, nlive) _ = do
+updateliveSub :: Int -> [Int] -> [Int] -> Int -> Int -> (Bool, Int, [Int]) -> Int -> ContT (Bool, Int, [Int]) IO (Bool, Int, [Int])
+updateliveSub ring real0 power nchar ncodes n@(retB, nlive, live1) _ = do
   lift $ testmatch ring real0 power live1 nchar
 
-  let newnlive = 0
-  if (newnlive < nlive) && (newnlive > 0)
-    then return (False, nlive)
+  let
+    newnlive    = 0
+    live2       = if head live1 > 1 then live1 & ix 0 .~ 15 else live1
+    f1 exit n x = updateliveSubSub n x
+
+  ret@(live3, newnlive2) <- lift $ runContT (callCC $ \exit -> foldlCont (f1 exit) (live2, newnlive) [0..(ncodes-1)]) return
+
+  if (newnlive2 < nlive) && (newnlive2 > 0)
+    then return (False, nlive, live3)
     else do
-      if newnlive == 0
+      if newnlive2 == 0
         then lift $ putStrLn "\n\n\n                  ***  D-reducible  ***\n"
         else lift $ putStrLn "\n\n\n                ***  Not D-reducible  ***"
-      return (True, nlive)
+      return (True, nlive, live3)
+
+updateliveSubSub :: ([Int], Int) -> Int -> ContT ([Int], Int) IO ([Int], Int)
+updateliveSubSub (live, newnlive) i =
+  if live !! i /= 15
+    then return (live & ix i .~ 0, newnlive)
+    else return (live & ix i .~ 1, newnlive + 1)
 
 testmatch :: Int -> [Int] -> [Int] -> [Int] -> Int -> IO ()
 testmatch ring real0 power live1 nchar = do
