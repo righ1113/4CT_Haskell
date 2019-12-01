@@ -48,9 +48,6 @@ main = do
   graphs <- readFileUnavoidR
   mainLoop graphs
   -- putStrLn "633個の好配置は全て、Ｄ可約orＣ可約です"
-
-  print $ matchAll [1,2,3] (List Integer) [[mc| cons $x $xs => (x, xs) |]]
-
   putStrLn "プログラムは正常終了しました"
 
 mainLoop :: [TpConfmat] -> IO ()
@@ -175,7 +172,7 @@ findanglesSub1 graph edgeno contract2 i =
 
 findanglesSub2 :: TpConfmat -> TpEdgeno -> [Int] -> (TpAngle, TpAngle, TpAngle) -> (Int, Int) -> (TpAngle, TpAngle, TpAngle)
 findanglesSub2 graph edgeno contract (angle3, diffangle3, sameangle0) (v, h) = 
-  if (v <= (graph ^?! ix 0) ^?! ix 1) && (h == (graph ^?! ix (v + 1)) ^?! ix 1)     -- ★mark
+  if (v <= (graph ^?! ix 0) ^?! ix 1) && (h == (graph ^?! ix (v + 1)) ^?! ix 1)     -- ★mini1
     then
       (angle3, diffangle3, sameangle0)
     else let
@@ -289,7 +286,7 @@ stripSub2 graph verts ring (edgeno0, done0, term0) x =
 
 stripSub2Sub1 :: TpConfmat -> [Bool] -> (Int, Int, [Int]) -> Int -> (Int, Int, [Int])
 stripSub2Sub1 graph done (maxint, maxes, max) v =
-  if done !! v      -- ★mark
+  if done !! v      -- ★mini2
     then (maxint, maxes, max)
     else
       let inter = inInterval (graph !! (v + 1)) done
@@ -308,7 +305,7 @@ inInterval grav done =
     first = fromJust
       $ find (\x -> (x < d) && not (done !! (grav !! (x + 1)))) [1 .. (deg - 1)]
   in
-    if first == d     -- ★mark
+    if first == d     -- ★mini3
       then fromEnum $ done !! (grav !! (d + 1))
       else
         let last = fromJust $ find
@@ -349,22 +346,39 @@ stripSub2Sub3 :: [Int] -> [Bool] -> Int -> (Bool, Int, Bool, Bool) -> Int -> (Bo
 stripSub2Sub3 grav done d (_, first0, _, _) _ =
   let first1   = first0 + 1
       previous = done !! (grav !! (first1 + 1))
-  in  if first0 > d then (True, 1, previous, True)      -- ★mark
-      else if not previous && done !! (grav !! (first0 + 1)) then (False, first1, previous, False) else (False, first1, previous, True)
+  in match (first0, not previous && done !! (grav !! (first0 + 1))) (Pair Integer Eql)    -- ★mini4
+    [ [mc| (pair (PredicatePat (> d)) _    ) => (True, 1, previous, True)        |],
+      [mc| (pair _                    #True) => (False, first1, previous, False) |],
+      [mc| _                                 => (False, first1, previous, True)  |] ]
+{-
+  in  if first0 > d
+        then (True, 1, previous, True)
+        else
+          if not previous && done !! (grav !! (first0 + 1))
+            then (False, first1, previous, False)
+            else (False, first1, previous, True)
+-}
 
 -- This eventually lists all the internal edges of the configuration
 stripSub2Sub4 :: [Int] -> [Bool] -> Int -> Int -> Int -> TpF4 -> (Bool, Int, TpEdgeno) -> Int -> (Bool, Int, TpEdgeno)
 stripSub2Sub4 grav done d best first f4 (_, term0, edgeno0) h =
-  if not $ done !! (grav !! (h + 1))
+  let edgeno1 = (edgeno0 & (ix best <<< ix (grav !! (h + 1))) .~ term0) & (ix (grav !! (h + 1)) <<< ix best) .~ term0
+      term1   = term0 - 1
+  in match (done !! (grav !! (h + 1)), (h, first)) (Pair Eql (Pair Integer Integer))        -- ★mini5
+    [ [mc| (pair #False _           ) => (True, term0, edgeno0)  |],
+      [mc| (pair _      (pair #d #1)) => (True, term1, edgeno1)  |],
+      [mc| (pair _      (pair #d _ )) => runCont (callCC $ \exit -> foldlCont (f4 exit) (False, term1, edgeno1) [0 .. 64]) id |],
+      [mc| _                          => (False, term1, edgeno1) |] ]
+{-
+  in if not $ done !! (grav !! (h + 1))
     then (True, term0, edgeno0)
     else
-      let edgeno1 = (edgeno0 & (ix best <<< ix (grav !! (h + 1))) .~ term0) & (ix (grav !! (h + 1)) <<< ix best) .~ term0
-          term1   = term0 - 1
-      in  if h == d             -- ★mark
-            then if first == 1
-              then (True, term1, edgeno1)
-              else runCont (callCC $ \exit -> foldlCont (f4 exit) (False, term1, edgeno1) [0 .. 64]) id
-            else (False, term1, edgeno1)
+      if h == d
+        then if first == 1
+          then (True, term1, edgeno1)
+          else runCont (callCC $ \exit -> foldlCont (f4 exit) (False, term1, edgeno1) [0 .. 64]) id
+        else (False, term1, edgeno1)
+-}
 
 -- Now we must list the edges between the interior and the ring
 stripSub3 :: TpConfmat -> Int -> Int -> (TpEdgeno, [Bool], Int) -> Int -> (TpEdgeno, [Bool], Int)
@@ -435,7 +449,21 @@ findliveSub bigno angle power ring ed extentclaim n@(_, _, _, _, _, _, live) _ =
       | (forbidden !! j) .&. (c !! j) == 0 = exit n
       | otherwise                          = findliveSubSub1 ring ed extentclaim n x
   ret@(retB, _, j, c, forbidden, extent, _) <- lift $ runContT (callCC $ \exit -> foldlCont (f1 exit) n [0..1023]) return
-  if retB       -- ★mark
+  match (retB, j) (Pair Eql Integer)                  -- ★mini6
+    [ [mc| (pair #True _          ) => return ret                                        |],
+      [mc| (pair _     #(ring + 1)) =>
+        let (extent1, live1) = record c power ring angle live extent bigno
+        in findliveSubSub1 ring ed extentclaim ((ret & _6 .~ extent1) & _7 .~ live1) 0   |],
+      [mc| _                        =>
+        let
+          am         = angle !! (j - 1)
+          c1         = c & ix (j - 1) .~ 1
+          f2 n x     = return $ findliveSubSub2 am c1 n x
+          u          = runCont (foldlCont f2 0 [i | i <- [1 .. 1023], i <= head am]) id
+          forbidden1 = forbidden & ix (j - 1) .~ u
+        in return (((ret & _3 -~ 1) & _4 .~ c1) & _5 .~ forbidden1)                      |] ]
+{-
+  if retB
     then return ret
     else if j == ring + 1
       then
@@ -449,6 +477,7 @@ findliveSub bigno angle power ring ed extentclaim n@(_, _, _, _, _, _, live) _ =
           u          = runCont (foldlCont f2 0 [i | i <- [1 .. 1023], i <= head am]) id
           forbidden1 = forbidden & ix (j - 1) .~ u
         in return (((ret & _3 -~ 1) & _4 .~ c1) & _5 .~ forbidden1)
+-}
 
 {- Given a colouring specified by a 1,2,4-valued function "col", it computes
    the corresponding number, checks if it is in live, and if so removes it. -}
@@ -475,11 +504,10 @@ recordSub1 c power angle weight i =
 recordSub2 :: [Int] -> (Int, Int) -> Int -> (Int, Int)
 recordSub2 weight (min, max) i =
   let w = weight !! i
-  in if w < min       -- ★mark
-    then (w, max)
-    else if w > max
-      then (min, w)
-      else (min, max)
+  in match w Integer                              -- ★mini7
+    [ [mc| PredicatePat (< min) => (w, max)   |],
+      [mc| PredicatePat (> max) => (min, w)   |],
+      [mc| _                    => (min, max) |] ]
 
 findliveSubSub2 :: [Int] -> [Int] -> Int -> Int -> Int
 findliveSubSub2 am c1 u i = u .|. c1 !! (am !! i)

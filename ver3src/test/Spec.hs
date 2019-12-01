@@ -20,6 +20,13 @@ spec = do
       matchAll [1..10] (Multiset Integer)
         [[mc| cons (& (PredicatePat (\x -> mod x 2 == 0)) $x) _ => x |]]
       `shouldBe` [2,4,6,8,10]
+    it "★mini7" $
+      let w = 3; min = 0; max = 7
+      in match w Integer
+        [[mc| PredicatePat (< min) => (w, max)   |],
+         [mc| PredicatePat (> max) => (min, w)   |],
+         [mc| _                    => (min, max) |]]
+      `shouldBe` (0, 7)
 
 
 
