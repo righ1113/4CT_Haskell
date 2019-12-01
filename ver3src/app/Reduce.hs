@@ -172,41 +172,59 @@ findanglesSub1 graph edgeno contract2 i =
 
 findanglesSub2 :: TpConfmat -> TpEdgeno -> [Int] -> (TpAngle, TpAngle, TpAngle) -> (Int, Int) -> (TpAngle, TpAngle, TpAngle)
 findanglesSub2 graph edgeno contract (angle3, diffangle3, sameangle0) (v, h) = 
-  if (v <= (graph ^?! ix 0) ^?! ix 1) && (h == (graph ^?! ix (v + 1)) ^?! ix 1)     -- ★mini1
+  let
+    i          = if h < (graph ^?! ix (v + 1)) ^?! ix 1 then h + 1 else 1
+    u          = (graph ^?! ix (v + 1)) ^?! ix (h + 1)
+    w          = (graph ^?! ix (v + 1)) ^?! ix (i + 1)
+    a          = (edgeno ^?! ix v) ^?! ix w
+    b          = (edgeno ^?! ix u) ^?! ix w
+    c          = (edgeno ^?! ix u) ^?! ix v
+    bx         = (v <= (graph ^?! ix 0) ^?! ix 1) && (h == (graph ^?! ix (v + 1)) ^?! ix 1)
+    by         = (0 == contract !! a) && (0 == contract !! b) && (0 == contract !! c)
+    z          = if a > c then a else b 
+    angle4     =               angle3     & (ix c <<< ix (1 + (angle3     ^?! ix c) ^?! ix 0)) .~ z
+    diffangle4 = if a > c then diffangle3 & (ix c <<< ix (1 + (diffangle3 ^?! ix c) ^?! ix 0)) .~ z else diffangle3 & (ix c <<< ix 0) .~ z
+    sameangle1 = if a > c then sameangle0 & (ix c <<< ix (1 + (sameangle0 ^?! ix c) ^?! ix 0)) .~ z else sameangle0 & (ix c <<< ix 0) .~ z
+  in match ((bx, c), (by, contract !! b)) (Pair (Pair Eql Integer) (Pair Eql Integer))    -- ★mini1
+    [ [mc| (pair (pair #True _                   ) _)                                  => (angle3, diffangle3, sameangle0) |],
+      [mc| (pair (pair _     (PredicatePat (a >))) (pair #True (PredicatePat (0 /=)))) => (angle4, diffangle4, sameangle1) |],
+      [mc| (pair (pair _     (PredicatePat (a >))) (pair #True _))                     => (angle4, diffangle4, sameangle0) |],
+      [mc| (pair (pair _     (PredicatePat (a >))) _)                                  => (angle4, diffangle3, sameangle0) |],
+      [mc| (pair (pair _     (PredicatePat (b >))) (pair #True (PredicatePat (0 /=)))) => (angle4, diffangle4, sameangle1) |],
+      [mc| (pair (pair _     (PredicatePat (b >))) (pair #True _))                     => (angle4, diffangle4, sameangle0) |],
+      [mc| (pair (pair _     (PredicatePat (b >))) _)                                  => (angle4, diffangle3, sameangle0) |],
+      [mc| _                                                                           => (angle3, diffangle3, sameangle0) |] ]
+{-
+  in if (v <= (graph ^?! ix 0) ^?! ix 1) && (h == (graph ^?! ix (v + 1)) ^?! ix 1)
     then
       (angle3, diffangle3, sameangle0)
-    else let
-      i = if h < (graph ^?! ix (v + 1)) ^?! ix 1 then h + 1 else 1
-      u = (graph ^?! ix (v + 1)) ^?! ix (h + 1)
-      w = (graph ^?! ix (v + 1)) ^?! ix (i + 1)
-      a = (edgeno ^?! ix v) ^?! ix w
-      b = (edgeno ^?! ix u) ^?! ix w
-      c = (edgeno ^?! ix u) ^?! ix v
-        in if a > c
+    else
+      if a > c
+        then let
+          angle4 = angle3 & (ix c <<< ix (1 + (angle3 ^?! ix c) ^?! ix 0)) .~ a
+            in if (0 == contract !! a) && (0 == contract !! b) && (0 == contract !! c)
+              then let
+                diffangle4 = diffangle3 & (ix c <<< ix (1 + (diffangle3 ^?! ix c) ^?! ix 0)) .~ a
+                in if 0 /= contract !! b
+                  then let
+                    sameangle1 = sameangle0 & (ix c <<< ix (1 + (diffangle3 ^?! ix c) ^?! ix 0)) .~ a
+                    in   (angle4, diffangle4, sameangle1)
+                  else   (angle4, diffangle4, sameangle0)
+              else       (angle4, diffangle3, sameangle0)
+        else if b > c
           then let
-            angle4 = angle3 & (ix c <<< ix (1 + (angle3 ^?! ix c) ^?! ix 0)) .~ a
+            angle4 = angle3 & (ix c <<< ix (1 + (angle3 ^?! ix c) ^?! ix 0)) .~ b
               in if (0 == contract !! a) && (0 == contract !! b) && (0 == contract !! c)
                 then let
-                  diffangle4 = diffangle3 & (ix c <<< ix (1 + (diffangle3 ^?! ix c) ^?! ix 0)) .~ a
+                  diffangle4 = diffangle3 & (ix c <<< ix 0) .~ b
                   in if 0 /= contract !! b
                     then let
-                      sameangle1 = sameangle0 & (ix c <<< ix (1 + (diffangle3 ^?! ix c) ^?! ix 0)) .~ a
-                      in   (angle4, diffangle4, sameangle1)
-                    else   (angle4, diffangle4, sameangle0)
-                else       (angle4, diffangle3, sameangle0)
-          else if b > c
-            then let
-              angle4 = angle3 & (ix c <<< ix (1 + (angle3 ^?! ix c) ^?! ix 0)) .~ b
-                in if (0 == contract !! a) && (0 == contract !! b) && (0 == contract !! c)
-                  then let
-                    diffangle4 = diffangle3 & (ix c <<< ix 0) .~ b
-                    in if 0 /= contract !! b
-                      then let
-                        sameangle1 = sameangle0 & (ix c <<< ix 0) .~ b
-                        in (angle4, diffangle4, sameangle1)
-                      else (angle4, diffangle4, sameangle0)
-                  else     (angle4, diffangle3, sameangle0)
-            else           (angle3, diffangle3, sameangle0)
+                      sameangle1 = sameangle0 & (ix c <<< ix 0) .~ b
+                      in (angle4, diffangle4, sameangle1)
+                    else (angle4, diffangle4, sameangle0)
+                else     (angle4, diffangle3, sameangle0)
+          else           (angle3, diffangle3, sameangle0)
+-}
 
 findanglesSub3 :: TpConfmat -> Bool -> Int -> Bool
 findanglesSub3 graph _ v =
@@ -286,7 +304,14 @@ stripSub2 graph verts ring (edgeno0, done0, term0) x =
 
 stripSub2Sub1 :: TpConfmat -> [Bool] -> (Int, Int, [Int]) -> Int -> (Int, Int, [Int])
 stripSub2Sub1 graph done (maxint, maxes, max) v =
-  if done !! v      -- ★mini2
+  let inter = inInterval (graph !! (v + 1)) done
+  in match (done !! v, inter) (Pair Eql Integer)    -- ★mini2
+    [ [mc| (pair #True _    )                      => (maxint, maxes,     max                      ) |],
+      [mc| (pair _     (PredicatePat (>  maxint))) => (inter,  1,         max & ix 1 .~ v          ) |],
+      [mc| (pair _     (PredicatePat (== maxint))) => (maxint, maxes + 1, max & ix (maxes + 1) .~ v) |],
+      [mc| _                                       => (maxint, maxes,     max                      ) |] ]
+{-
+  if done !! v
     then (maxint, maxes, max)
     else
       let inter = inInterval (graph !! (v + 1)) done
@@ -295,6 +320,7 @@ stripSub2Sub1 graph done (maxint, maxes, max) v =
             else if inter == maxint
               then (maxint, maxes + 1, max & ix (maxes + 1) .~ v)
               else (maxint, maxes,     max                      )
+-}
 
 -- if grav meets the done vertices in an interval of length >=1, it returns
 -- the length of the interval, and otherwise returns 0
@@ -304,8 +330,25 @@ inInterval grav done =
     d     = grav !! 1
     first = fromJust
       $ find (\x -> (x < d) && not (done !! (grav !! (x + 1)))) [1 .. (deg - 1)]
+    last = fromJust
+      $ find (\x -> (x < d) && not (done !! (grav !! (x + 1)))) [first .. (deg - 1)]
+    len  = last - first + 1
+  in match (d, (first, any (\x -> done !! (grav !! (x + 1))) [(last + 2) .. d])) (Pair Integer (Pair Integer Eql))    -- ★mini3
+    [ [mc| (pair (PredicatePat (first ==)) _    )                            => fromEnum $ done !! (grav !! (d + 1)) |],
+      [mc| (pair (PredicatePat (last  ==)) _    )                            => len                                  |],
+      [mc| (pair _                        (pair (PredicatePat (> 1)) #True)) => 0                                    |],
+      [mc| (pair _                        (pair (PredicatePat (> 1)) _    )) => len                                  |],
+      [mc| _ => let
+                  f exit n@(retN, _, _) x
+                    | retN == 0 = exit n
+                    | otherwise = return $ inIntervalSub grav done n x
+                  (retN, l, _) =
+                    runCont (callCC $ \exit -> foldlCont (f exit) (1, len, False) [(last + 2) .. d]) id
+                in
+                  if retN == 0 then 0 else l |] ]
+{-
   in
-    if first == d     -- ★mini3
+    if first == d
       then fromEnum $ done !! (grav !! (d + 1))
       else
         let last = fromJust $ find
@@ -327,6 +370,7 @@ inInterval grav done =
                       runCont (callCC $ \exit -> foldlCont (f exit) (1, len, False) [(last + 2) .. d]) id
                   in
                     if retN == 0 then 0 else l
+-}
 
 inIntervalSub :: [Int] -> [Bool] -> (Int, Int, Bool) -> Int -> (Int, Int, Bool)
 inIntervalSub grav done (_, l, w) j
