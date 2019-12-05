@@ -1,6 +1,6 @@
 module Lib
     ( TpConfmat,
-      readFileUnavoidR,
+      readFileGoodConfsR,
       myLoop,
       foldlCont
     ) where
@@ -11,9 +11,9 @@ import Data.Foldable            (foldlM)
 type TpConfmat = [[Int]]
 
 
-readFileUnavoidR :: IO [TpConfmat]
-readFileUnavoidR = do
-  unaStr <- readFile "readFile/unavoidable2HS.txt"
+readFileGoodConfsR :: IO [TpConfmat]
+readFileGoodConfsR = do
+  unaStr <- readFile "readFile/goodConfs.txt"
   return $ map tail (read unaStr :: [TpConfmat])
 
 -- ユーティリティ：蓄積変数付き、脱出可能なloop関数
