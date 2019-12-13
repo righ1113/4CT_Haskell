@@ -84,6 +84,12 @@ mainLoop graphs
     (nlive2, live2) <- updatelive ring real0 power live0 nchar ncodes 1 -- bug4 live1 nchar ncodes nlive1
     -- computes {\cal C}_{i+1} from {\cal C}_i, updates "live"
 
+    -- 5. checkContract()
+    {- This verifies that the set claimed to be a contract for the
+       configuration really is. -}
+    checkContract live2 nlive2 diffangle sameangle contract power
+
+
     mainLoop [] -- $ tail graphs
 
 
@@ -158,8 +164,8 @@ inInterval grav done =
       $ find (\x -> (x < d) && not (done !! (grav !! (x + 1)))) [first .. (deg - 1)]
     len  = last - first + 1
   in match (d, (first, any (\x -> done !! (grav !! (x + 1))) [(last + 2) .. d])) (Pair Integer (Pair Integer Eql))    -- ★miniE3
-    [ [mc| (pair (PredicatePat (first ==)) _    )                            => fromEnum $ done !! (grav !! (d + 1)) |],
-      [mc| (pair (PredicatePat (last  ==)) _    )                            => len                                  |],
+    [ [mc| (pair (PredicatePat (first ==)) _                               ) => fromEnum $ done !! (grav !! (d + 1)) |],
+      [mc| (pair (PredicatePat (last  ==)) _                               ) => len                                  |],
       [mc| (pair _                        (pair (PredicatePat (> 1)) #True)) => 0                                    |],
       [mc| (pair _                        (pair (PredicatePat (> 1)) _    )) => len                                  |],
       [mc| _ => let
@@ -509,6 +515,27 @@ testMatch :: Int -> [Int] -> [Int] -> [Int] -> Int -> IO ()
 testMatch ring real0 power live1 nchar = do
   let nreal = 0
   putStrLn $ "               " ++ show nreal
+
+
+-- ###################################################################################################################################
+-- ###################################################################################################################################
+    -- 5. checkContract()
+{- checks that no colouring in live is the restriction to E(R) of a
+   tri-coloring of the free extension modulo the specified contract -}
+checkContract :: [Int] -> Int -> TpAngle -> TpAngle -> [Int] -> [Int] -> IO ()
+checkContract _     0      _         _         contract _
+  = if head contract == 0 then    error "         ***  ERROR: CONTRACT PROPOSED  ***\n\n" else putStrLn ""
+--checkContract _     _      _         _         contract _
+--  | head contract == 0 =          error "       ***  ERROR: NO CONTRACT PROPOSED  ***\n\n"
+--checkContract _     nlive2 _         _         contract _
+--  | nlive2 /= contract !! edges = error "       ***  ERROR: DISCREPANCY IN EXTERIOR SIZE  ***\n\n"
+checkContract live2 nlive2 diffangle sameangle contract power = do
+  let
+    ring   = (diffangle ^?! ix 0) ^?! ix 1
+    start  = (diffangle ^?! ix 0) ^?! ix 2
+    bigno  = (power !! (ring + 1) - 1) `div` 2 -- needed in "inlive"
+    start2 = fromJust $ find (== 0) $ drop start contract
+  putStrLn "hoge"
 
 
 
