@@ -18,10 +18,10 @@ module Main where
 import Debug.Trace (trace)
 -}
 import Control.Arrow             ((<<<))
-import Control.Lens              ((&), (.~), ix, (^?!), (+~), (-~), (*~), _3, _4, _5, _6, _7)
+import Control.Lens              ((&), (.~), ix, (^?!), (+~), (-~), (*~), _1, _3, _4, _5, _6, _7)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Cont  (Cont, cont, runCont, callCC, ContT(..))
-import Data.Bits                 ((.&.), (.|.))
+import Data.Bits                 ((.&.), (.|.), complement)
 import Data.List                 (find)
 import Data.Maybe                (fromJust, isJust)
 import Lib                       (TpConfmat, readFileGoodConfsR, foldlCont)
@@ -34,7 +34,8 @@ deg           = 13 -- max degree of a vertex in a free completion + 1
 -- must be at least 13 because of row 0
 edges         = 62 -- max number of edges in a free completion + 1
 maxring       = 14 -- max ring-size
-power         = [0, 1, 3, 9, 27, 81, 243, 729, 2187, 6561, 19683, 59049, 177147, 531441, 1594323, 4782969, 14348907] -- 3^(i-1)
+                 -- 3^(i-1)
+power         = [0, 1, 3, 9, 27, 81, 243, 729, 2187, 6561, 19683, 59049, 177147, 531441, 1594323, 4782969, 14348907]
 simatchnumber = [0, 0, 1, 3, 10, 30, 95, 301, 980, 3228, 10797, 36487, 124542, 428506, 1485003]
 
 type TpAngle        = [[Int]]
@@ -43,6 +44,9 @@ type TpF4
   = ((Bool, Int, TpEdgeno) -> Cont (Bool, Int, TpEdgeno) (Bool, Int, TpEdgeno))
       -> (Bool, Int, TpEdgeno) -> Int -> Cont (Bool, Int, TpEdgeno) (Bool, Int, TpEdgeno)
 type TpFindlivePack = (Bool, Int, Int, [Int], [Int], Int, [Int])
+type TpContractPack = (ContractManage, Int, [Int], Int, [Int])
+
+data ContractManage = Endless | Continue | Break deriving Eq
 
 
 main :: IO ()
@@ -93,8 +97,8 @@ mainLoop graphs
     mainLoop [] -- $ tail graphs
 
 
--- ###################################################################################################################################
--- ###################################################################################################################################
+-- ##################################################################################################################
+-- ##################################################################################################################
     -- 1. strip()
 {- Numbers edges from 1 up, so that each edge has as many later edges in
    triangles as possible; the ring edges are first.  edgeno[u][v] will be the
@@ -106,13 +110,13 @@ strip graph =
     ring                    = (graph ^?! ix 0) ^?! ix 1
     edgeno0                 = replicate edges $ replicate edges 0
     edgeno1                 = (edgeno0 & (ix ring <<< ix 1) .~ 1) & (ix 1 <<< ix ring) .~ 1
-    f1 n x                  = return $ stripSub1 n x
+    f1                      = (return .) . stripSub1
     edgeno2                 = runCont (foldlCont f1 edgeno1 [2 .. ring]) id
     done0                   = replicate mVerts False
     term0                   = 3 * (verts - 1) - ring
-    f2 n x                  = return $ stripSub2 graph verts ring n x
+    f2                      = (return .) . stripSub2 graph verts ring
     (edgeno3, done1, term1) = runCont (foldlCont f2 (edgeno2, done0, term0) [(ring + 1) .. verts]) id
-    f3 n x                  = return $ stripSub3 graph verts ring n x
+    f3                      = (return .) . stripSub3 graph verts ring
     (edgeno4, _,     _    ) = runCont (foldlCont f3 (edgeno3, done1, term1) [1 .. ring]) id
   in edgeno2 --edgeno4      !!!bug1!!!
 
@@ -126,9 +130,9 @@ stripSub2 graph verts ring (edgeno0, done0, term0) x =
 -- bug1有り *** Exception: Prelude.!!: index too large
   let
     max0                  = replicate mVerts 0
-    f1 n x                = return $ stripSub2Sub1 graph done0 n x
+    f1                    = (return .) . stripSub2Sub1 graph done0
     (maxint, maxes, max1) = runCont (foldlCont f1 (0, 0, max0) [(ring + 1) .. verts]) id
-    f2 n x                = return $ stripSub2Sub2 graph max1 n x
+    f2                    = (return .) . stripSub2Sub2 graph max1
     (maxdeg, best)        = runCont (foldlCont f2 (0, 0) [1 .. maxes]) id
     grav                  = graph !! (best + 1)
     d                     = grav !! 1
@@ -136,7 +140,8 @@ stripSub2 graph verts ring (edgeno0, done0, term0) x =
       | not p2    = exit n
       | retB      = exit n
       | otherwise = return $ stripSub2Sub3 grav done0 d n x
-    (_, first, _, _)      = runCont (callCC $ \exit -> foldlCont (f3 exit) (False, 1, done0 !! (grav !! (d + 1)), True) [0 .. 64]) id
+    (_, first, _, _)
+      = runCont (callCC $ \exit -> foldlCont (f3 exit) (False, 1, done0 !! (grav !! (d + 1)), True) [0 .. 64]) id
     f4 exit n@(retB, _, _) x
       | retB      = exit n
       | otherwise = return $ stripSub2Sub4 grav done0 d best first f4 n x
@@ -163,11 +168,12 @@ inInterval grav done =
     last = fromJust
       $ find (\x -> (x < d) && not (done !! (grav !! (x + 1)))) [first .. (deg - 1)]
     len  = last - first + 1
-  in match (d, (first, any (\x -> done !! (grav !! (x + 1))) [(last + 2) .. d])) (Pair Integer (Pair Integer Eql))    -- ★miniE3
-    [ [mc| (pair (PredicatePat (first ==)) _                               ) => fromEnum $ done !! (grav !! (d + 1)) |],
-      [mc| (pair (PredicatePat (last  ==)) _                               ) => len                                  |],
-      [mc| (pair _                        (pair (PredicatePat (> 1)) #True)) => 0                                    |],
-      [mc| (pair _                        (pair (PredicatePat (> 1)) _    )) => len                                  |],
+  in    -- ★miniE3
+    match (d, (first, any (\x -> done !! (grav !! (x + 1))) [(last + 2) .. d])) (Pair Integer (Pair Integer Eql))
+    [ [mc| (pair (PredicatePat (first ==)) _                               ) => fromEnum $ done !! (grav !! (d+1)) |],
+      [mc| (pair (PredicatePat (last  ==)) _                               ) => len                                |],
+      [mc| (pair _                        (pair (PredicatePat (> 1)) #True)) => 0                                  |],
+      [mc| (pair _                        (pair (PredicatePat (> 1)) _    )) => len                                |],
       [mc| _ => let
                   f exit n@(retN, _, _) x
                     | retN == 0 = exit n
@@ -208,18 +214,19 @@ stripSub2Sub4 grav done d best first f4 (_, term0, edgeno0) h =
   in match (done !! (grav !! (h + 1)), (h, first)) (Pair Eql (Pair Integer Integer))        -- ★miniE5
     [ [mc| (pair #False _           ) => (True, term0, edgeno0)  |],
       [mc| (pair _      (pair #d #1)) => (True, term1, edgeno1)  |],
-      [mc| (pair _      (pair #d _ )) => runCont (callCC $ \exit -> foldlCont (f4 exit) (False, term1, edgeno1) [0 .. 64]) id |],
+      [mc| (pair _      (pair #d _ )) =>
+        runCont (callCC $ \exit -> foldlCont (f4 exit) (False, term1, edgeno1) [0 .. 64]) id |],
       [mc| _                          => (False, term1, edgeno1) |] ]
 
 -- Now we must list the edges between the interior and the ring
 stripSub3 :: TpConfmat -> Int -> Int -> (TpEdgeno, [Bool], Int) -> Int -> (TpEdgeno, [Bool], Int)
 stripSub3 graph verts ring (edgeno0, done0, term0) x =
   let
-    f1 n x                = return $ stripSub3Sub1 graph done0 ring n x
+    f1                    = (return .) . stripSub3Sub1 graph done0 ring
     (maxint, best)        = runCont (foldlCont f1 (0, 0) [1 .. ring]) id
     grav                  = graph !! (best + 1)
     u                     = if best > 1 then best - 1 else ring
-    f2 n x                = return $ stripSub3Sub2 best grav n x
+    f2                    = (return .) . stripSub3Sub2 best grav
   in if done0 !! u
     then let
       (edgeno1, term1) = runCont (foldlCont f2 (edgeno0, term0) [((grav !! 1) - 1), ((grav !! 1) - 2) .. 1]) id
@@ -246,8 +253,8 @@ stripSub3Sub2 best grav (edgeno0, term0) h =
   in (edgeno1, term1)
 
 
--- ###################################################################################################################################
--- ###################################################################################################################################
+-- ##################################################################################################################
+-- ##################################################################################################################
     -- 2. findangles()
 {- writes into angle[i] all edges with number >i on a common triangle T say
    with edge i; and if there is a contract X given, and i is not in X, writes
@@ -262,7 +269,7 @@ findangles graph edgeno =
     contract0                        = replicate (edges + 1) 0
     contract1                        = contract0 & ix 0     .~ ((graph ^?! ix 1) ^?! ix 0)
     contract2                        = contract1 & ix edges .~ ((graph ^?! ix 0) ^?! ix 3)
-    f1 n x                           = return $ findanglesSub1 graph edgeno n x
+    f1                               = (return .) . findanglesSub1 graph edgeno
     contract3                        = runCont (foldlCont f1 contract2 [1 .. (head contract2)]) id
     angle0                           = replicate edges $ replicate 5 0
     diffangle0                       = replicate edges $ replicate 5 0
@@ -273,7 +280,7 @@ findangles graph edgeno =
     diffangle1                       = diffangle0 & (ix 0 <<< ix 0) .~ ((graph ^?! ix 0) ^?! ix 0)
     diffangle2                       = diffangle1 & (ix 0 <<< ix 1) .~ ((graph ^?! ix 0) ^?! ix 1)
     diffangle3                       = diffangle2 & (ix 0 <<< ix 2) .~ edge
-    f2 n x                           = return $ findanglesSub2 graph edgeno contract3 n x
+    f2                               = (return .) . findanglesSub2 graph edgeno contract3
     (angle4, diffangle4, sameangle1)
       = runCont (foldlCont f2 (angle3, diffangle3, sameangle0)
           [(v, h) | v <- [1 .. ((graph ^?! ix 0) ^?! ix 0)], h <- [1 .. ((graph ^?! ix (v + 1)) ^?! ix 1)]]) id
@@ -283,7 +290,7 @@ findangles graph edgeno =
       f3 exit n x
         | n         = exit n
         | otherwise = return $ findanglesSub3 graph n x
-      retB          = runCont (callCC $ \exit -> foldlCont (f3 exit) False [(1 + head graph !! 1) .. (head $ head graph)]) id
+      retB = runCont (callCC $ \exit -> foldlCont (f3 exit) False [(1 + head graph !! 1) .. (head $ head graph)]) id
         in if retB then return (angle4, diffangle4, sameangle1, contract3)
                    else error "***  ERROR: CONTRACT HAS NO TRIAD  ***"
 
@@ -295,7 +302,8 @@ findanglesSub1 graph edgeno contract2 i =
   in
     contract2 & ix ((edgeno ^?! ix u) ^?! ix v) .~ 1
 
-findanglesSub2 :: TpConfmat -> TpEdgeno -> [Int] -> (TpAngle, TpAngle, TpAngle) -> (Int, Int) -> (TpAngle, TpAngle, TpAngle)
+findanglesSub2 :: TpConfmat -> TpEdgeno -> [Int] -> (TpAngle, TpAngle, TpAngle) -> (Int, Int)
+  -> (TpAngle, TpAngle, TpAngle)
 findanglesSub2 graph edgeno contract (angle3, diffangle3, sameangle0) (v, h) = 
   let
     i          = if h < (graph ^?! ix (v + 1)) ^?! ix 1 then h + 1 else 1
@@ -307,29 +315,43 @@ findanglesSub2 graph edgeno contract (angle3, diffangle3, sameangle0) (v, h) =
     bx         = (v <= (graph ^?! ix 0) ^?! ix 1) && (h == (graph ^?! ix (v + 1)) ^?! ix 1)
     by         = (0 == contract !! a) && (0 == contract !! b) && (0 == contract !! c)
     z          = if a > c then a else b 
-    angle4     =               angle3     & (ix c <<< ix (1 + (angle3     ^?! ix c) ^?! ix 0)) .~ z
-    diffangle4 = if a > c then diffangle3 & (ix c <<< ix (1 + (diffangle3 ^?! ix c) ^?! ix 0)) .~ z else diffangle3 & (ix c <<< ix 0) .~ z
-    sameangle1 = if a > c then sameangle0 & (ix c <<< ix (1 + (sameangle0 ^?! ix c) ^?! ix 0)) .~ z else sameangle0 & (ix c <<< ix 0) .~ z
+    angle4     = angle3 & (ix c <<< ix (1 + (angle3     ^?! ix c) ^?! ix 0)) .~ z
+    diffangle4 =
+      if a > c
+        then diffangle3 & (ix c <<< ix (1 + (diffangle3 ^?! ix c) ^?! ix 0)) .~ z
+        else diffangle3 & (ix c <<< ix 0) .~ z
+    sameangle1 =
+      if a > c
+        then sameangle0 & (ix c <<< ix (1 + (sameangle0 ^?! ix c) ^?! ix 0)) .~ z
+        else sameangle0 & (ix c <<< ix 0) .~ z
   in match ((bx, c), (by, contract !! b)) (Pair (Pair Eql Integer) (Pair Eql Integer))    -- ★miniE1
-    [ [mc| (pair (pair #True _                   ) _)                                  => (angle3, diffangle3, sameangle0) |],
-      [mc| (pair (pair _     (PredicatePat (a >))) (pair #True (PredicatePat (0 /=)))) => (angle4, diffangle4, sameangle1) |],
-      [mc| (pair (pair _     (PredicatePat (a >))) (pair #True _))                     => (angle4, diffangle4, sameangle0) |],
-      [mc| (pair (pair _     (PredicatePat (a >))) _)                                  => (angle4, diffangle3, sameangle0) |],
-      [mc| (pair (pair _     (PredicatePat (b >))) (pair #True (PredicatePat (0 /=)))) => (angle4, diffangle4, sameangle1) |],
-      [mc| (pair (pair _     (PredicatePat (b >))) (pair #True _))                     => (angle4, diffangle4, sameangle0) |],
-      [mc| (pair (pair _     (PredicatePat (b >))) _)                                  => (angle4, diffangle3, sameangle0) |],
-      [mc| _                                                                           => (angle3, diffangle3, sameangle0) |] ]
+    [ [mc| (pair (pair #True _                   ) _                                 )
+        => (angle3, diffangle3, sameangle0) |],
+      [mc| (pair (pair _     (PredicatePat (a >))) (pair #True (PredicatePat (0 /=))))
+        => (angle4, diffangle4, sameangle1) |],
+      [mc| (pair (pair _     (PredicatePat (a >))) (pair #True _)                    )
+        => (angle4, diffangle4, sameangle0) |],
+      [mc| (pair (pair _     (PredicatePat (a >))) _                                 )
+        => (angle4, diffangle3, sameangle0) |],
+      [mc| (pair (pair _     (PredicatePat (b >))) (pair #True (PredicatePat (0 /=))))
+        => (angle4, diffangle4, sameangle1) |],
+      [mc| (pair (pair _     (PredicatePat (b >))) (pair #True _)                    )
+        => (angle4, diffangle4, sameangle0) |],
+      [mc| (pair (pair _     (PredicatePat (b >))) _                                 )
+        => (angle4, diffangle3, sameangle0) |],
+      [mc| _
+        => (angle3, diffangle3, sameangle0) |] ]
 
 findanglesSub3 :: TpConfmat -> Bool -> Int -> Bool
 findanglesSub3 graph _ v =
   (a >= 3) && (((graph !! (v + 1)) !! 1) >= 6) || retB
     where
-      f1 n x     = return $ findanglesSub3Sub1 graph v n x
+      f1         = (return .) . findanglesSub3Sub1 graph v
       a          = runCont (foldlCont f1 0 [1 .. ((graph !! (v + 1)) !! 1)]) id
       neighbour0 = replicate (head (head graph)) False
-      f2 n x     = return $ findanglesSub3Sub2 graph v n x
+      f2         = (return .) . findanglesSub3Sub2 graph v
       neighbour1 = runCont (foldlCont f2 neighbour0 [1 .. ((graph !! (v + 1)) !! 1)]) id
-      f3 n x     = return $ findanglesSub3Sub3 graph neighbour1 n x
+      f3         = (return .) . findanglesSub3Sub3 graph neighbour1
       retB       = runCont (foldlCont f3 False [0 .. (length (graph !! 1) - 1)]) id
 
 findanglesSub3Sub1 :: TpConfmat -> Int -> Int -> Int -> Int
@@ -347,10 +369,8 @@ findanglesSub3Sub3 :: TpConfmat -> [Bool] -> Bool -> Int -> Bool
 findanglesSub3Sub3 graph neighbour retB j = retB || not (neighbour !! (head graph !! j))
 
 
-
-
--- ###################################################################################################################################
--- ###################################################################################################################################
+-- ##################################################################################################################
+-- ##################################################################################################################
     -- 3. findlive()
 {- computes {\cal C}_0 and stores it in live. That is, computes codes of
    colorings of the ring that are not restrictions of tri-colorings of the
@@ -394,7 +414,7 @@ findliveSub bigno angle power ring ed extentclaim n@(_, _, _, _, _, _, live) _ =
         let
           am         = angle !! (j - 1)
           c1         = c & ix (j - 1) .~ 1
-          f2 n x     = return $ findliveSubSub2 am c1 n x
+          f2         = (return .) . findliveSubSub2 am c1
           u          = runCont (foldlCont f2 0 [i | i <- [1 .. 1023], i <= head am]) id
           forbidden1 = forbidden & ix (j - 1) .~ u
         in return (((ret & _3 -~ 1) & _4 .~ c1) & _5 .~ forbidden1)                      |] ]
@@ -405,11 +425,11 @@ record :: [Int] -> [Int] -> Int -> TpAngle -> [Int] -> Int -> Int -> (Int, [Int]
 record c power ring angle live extent bigno =
   let
     weight0      = replicate 5 0
-    f1 n x       = return $ recordSub1 c power angle n x
+    f1           = (return .) . recordSub1 c power angle
     weight1      = runCont (foldlCont f1 weight0 [1 .. ring]) id
     min0         = weight1 !! 4
     max0         = weight1 !! 4
-    f2 n x       = return $ recordSub2 weight1 n x
+    f2           = (return .) . recordSub2 weight1
     (min1, max1) = runCont (foldlCont f2 (min0, max0) [1, 2]) id
     colno        = bigno - 2 * min1 - max1
   in if live !! colno /= 0
@@ -471,8 +491,8 @@ printStatus ring totalcols extent extentclaim = do
   -- putStrLn $ "\n              " ++ show (totalcols - extent)
 
 
--- ###################################################################################################################################
--- ###################################################################################################################################
+-- ##################################################################################################################
+-- ##################################################################################################################
     -- 4. updatelive()
 updatelive :: Int -> [Int] -> [Int] -> [Int] -> Int -> Int -> Int -> IO (Int, [Int])
 updatelive ring real0 power live1 nchar ncodes nlive1 = do
@@ -517,8 +537,8 @@ testMatch ring real0 power live1 nchar = do
   putStrLn $ "               " ++ show nreal
 
 
--- ###################################################################################################################################
--- ###################################################################################################################################
+-- ##################################################################################################################
+-- ##################################################################################################################
     -- 5. checkContract()
 {- checks that no colouring in live is the restriction to E(R) of a
    tri-coloring of the free extension modulo the specified contract -}
@@ -531,11 +551,40 @@ checkContract _     0      _         _         contract _
 --  | nlive2 /= contract !! edges = error "       ***  ERROR: DISCREPANCY IN EXTERIOR SIZE  ***\n\n"
 checkContract live2 nlive2 diffangle sameangle contract power = do
   let
-    ring   = (diffangle ^?! ix 0) ^?! ix 1
-    start  = (diffangle ^?! ix 0) ^?! ix 2
-    bigno  = (power !! (ring + 1) - 1) `div` 2 -- needed in "inlive"
-    start2 = fromJust $ find (== 0) $ drop start contract
-  putStrLn "hoge"
+    c0         = replicate edges 0
+    ring       = (diffangle ^?! ix 0) ^?! ix 1
+    start0     = (diffangle ^?! ix 0) ^?! ix 2
+    bigno      = (power !! (ring + 1) - 1) `div` 2 -- needed in "inlive"
+    start1     = fromJust $ find (== 0) $ drop start0 contract
+    c1         = c0 & ix start1 .~ 1
+    j0         = let jj = fromJust $ find (== 0) $ drop (edges - start1 + 1) $ reverse contract in edges - jj
+    dm0        = diffangle ^?! ix j0
+    sm0        = sameangle ^?! ix j0
+    c2         = c1 & ix j0 .~ 1
+    f1         = (return .) . checkContractSub1 dm0 c2
+    u1         = runCont (foldlCont f1  4 [i | i <- [1 .. 1024], i <= head dm0]) id
+    f2         = (return .) . checkContractSub2 sm0 c2
+    u2         = runCont (foldlCont f2 u1 [i | i <- [1 .. 1024], i <= head sm0]) id
+    forbidden0 = replicate edges 0
+    forbidden1 = forbidden0 & ix j0 .~ u2
+    f3 exit n@(retC, _, _, _, _) x
+      | retC == Break = exit n
+      | otherwise     = checkContractSub3 start1 contract power ring live2 bigno n x
+  (retC, j1, c3, u3, forbidden2)
+    <- runContT (callCC $ \exit -> foldlCont (f3 exit) (Endless, j0, c2, u2, forbidden1) [0..1023]) return
+  if retC == Break then return ()
+                   else error "checkContractSub3 : It was not good though it was repeated 1024 times!"
+
+checkContractSub1 :: [Int] -> [Int] -> Int -> Int -> Int
+checkContractSub1 dm0 c2 u i = u .|.             c2 !! (dm0 !! i)
+
+checkContractSub2 :: [Int] -> [Int] -> Int -> Int -> Int
+checkContractSub2 sm0 c2 u i = u .|. complement (c2 !! (sm0 !! i))
+
+checkContractSub3 :: Int -> [Int] -> [Int] -> Int -> [Int] -> Int
+  -> TpContractPack -> Int
+    -> ContT TpContractPack IO TpContractPack
+checkContractSub3 start1 contract power ring live2 bigno n _ = return $ n & _1 .~ Break
 
 
 
