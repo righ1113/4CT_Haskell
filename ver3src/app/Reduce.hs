@@ -569,7 +569,7 @@ checkContract live2 nlive2 diffangle sameangle contract power = do
     forbidden1 = forbidden0 & ix j0 .~ u2
     f3 exit n@(retC, _, _, _, _) x
       | retC == Break = exit n
-      | otherwise     = checkContractSub3 start1 contract power ring live2 bigno n x
+      | otherwise     = checkContractSub3 start1 contract power ring live2 bigno diffangle sameangle n x
   (retC, j1, c3, u3, forbidden2)
     <- runContT (callCC $ \exit -> foldlCont (f3 exit) (Endless, j0, c2, u2, forbidden1) [0..1023]) return
   if retC == Break then return ()
@@ -581,10 +581,45 @@ checkContractSub1 dm0 c2 u i = u .|.             c2 !! (dm0 !! i)
 checkContractSub2 :: [Int] -> [Int] -> Int -> Int -> Int
 checkContractSub2 sm0 c2 u i = u .|. complement (c2 !! (sm0 !! i))
 
-checkContractSub3 :: Int -> [Int] -> [Int] -> Int -> [Int] -> Int
+checkContractSub3 :: Int -> [Int] -> [Int] -> Int -> [Int] -> Int -> TpAngle -> TpAngle
   -> TpContractPack -> Int
     -> ContT TpContractPack IO TpContractPack
-checkContractSub3 start1 contract power ring live2 bigno n _ = return $ n & _1 .~ Break
+checkContractSub3 start1 contract power ring live2 bigno diffangle sameangle n _ = do
+  let
+    f1 exit n@(retC, _, _, _, _) x
+      | retC == Break = exit n
+      | otherwise     = checkContractSub3Sub1 start1 contract n x
+    f2 exit n@(retC, _, _, _, _) x
+      | retC == Break = exit n
+      | otherwise     = checkContractSub3Sub2 start1 contract power ring live2 bigno n x
+    f3 = (return .) . checkContractSub3Sub3 contract diffangle sameangle
+
+  n1@(retC1, _, _, _, _)
+    <- lift $ runContT (callCC $ \exit -> foldlCont (f1 exit) n  [0..1023]) return
+
+  n2@(retC2, _, _, _, _)
+    <- lift $ runContT (callCC $ \exit -> foldlCont (f2 exit) n1 [0..1023]) return
+
+  let
+    n3@(retC3, _, _, _, _)
+      = runCont (foldlCont f3 n2 [0..1023]) id
+
+  return $ n & _1 .~ Break
+
+checkContractSub3Sub1 :: Int -> [Int]
+  -> TpContractPack -> Int
+    -> ContT TpContractPack IO TpContractPack
+checkContractSub3Sub1 start1 contract n _ = return n
+
+checkContractSub3Sub2 :: Int -> [Int] -> [Int] -> Int -> [Int] -> Int
+  -> TpContractPack -> Int
+    -> ContT TpContractPack IO TpContractPack
+checkContractSub3Sub2 start1 contract power ring live2 bigno n _ = return n
+
+checkContractSub3Sub3 :: [Int] -> TpAngle -> TpAngle
+  -> TpContractPack -> Int
+    -> TpContractPack
+checkContractSub3Sub3 contract diffangle sameangle n _ = n
 
 
 
