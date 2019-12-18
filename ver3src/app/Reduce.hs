@@ -21,7 +21,7 @@ import Control.Arrow             ((<<<))
 import Control.Lens              ((&), (.~), ix, (^?!), (+~), (-~), (*~), _1, _2, _3, _4, _5, _6, _7)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Cont  (Cont, cont, runCont, callCC, ContT(..))
-import Data.Bits                 ((.&.), (.|.), complement)
+import Data.Bits                 ((.&.), (.|.), complement, shift)
 import Data.List                 (find)
 import Data.Maybe                (fromJust, isJust)
 import Lib                       (TpConfmat, readFileGoodConfsR, foldlCont)
@@ -555,9 +555,9 @@ checkContract live2 nlive2 diffangle sameangle contract power = do
     ring       = (diffangle ^?! ix 0) ^?! ix 1
     start0     = (diffangle ^?! ix 0) ^?! ix 2
     bigno      = (power !! (ring + 1) - 1) `div` 2 -- needed in "inlive"
-    start1     = fromJust $ find (== 0) $ drop start0 contract
+    start1     = start0 --fromJust $ find (== 0) $ drop start0 contract
     c1         = c0 & ix start1 .~ 1
-    j0         = let jj = fromJust $ find (== 0) $ drop (edges - start1 + 1) $ reverse contract in edges - jj
+    j0         = 1 --let jj = fromJust $ find (== 0) $ drop (edges - start1 + 1) $ reverse contract in edges - jj
     dm0        = diffangle ^?! ix j0
     sm0        = sameangle ^?! ix j0
     c2         = c1 & ix j0 .~ 1
@@ -572,6 +572,7 @@ checkContract live2 nlive2 diffangle sameangle contract power = do
       | otherwise     = checkContractSub3 start1 contract power ring live2 bigno diffangle sameangle n x
   (retC, j1, c3, u3, forbidden2)
     <- runContT (callCC $ \exit -> foldlCont (f3 exit) (Endless, j0, c2, u2, forbidden1) [0..1023]) return
+  -- Continueで終わってはいけない
   if retC == Break then return ()
                    else error "checkContractSub3 : It was not good though it was repeated 1024 times!"
 
@@ -596,22 +597,44 @@ checkContractSub3 start1 contract power ring live2 bigno diffangle sameangle n _
 
   n1@(retC1, _, _, _, _)
     <- lift $ runContT (callCC $ \exit -> foldlCont (f1 exit) n  [0..1023]) return
-  if retC1 /= Endless then return n1
+  if retC1 == Break then return n1
   else do
 
     n2@(retC2, _, _, _, _)
       <- lift $ runContT (callCC $ \exit -> foldlCont (f2 exit) n1 [0..1023]) return
-    if retC2 /= Endless then return n2
+    if retC2 == Break || retC2 == Continue then return n2
     else
 
       let
         n3 = runCont (foldlCont f3 n2 [0..1023]) id
-      in return $ n3 & _1 .~ Break
+      in return $ n3 & _1 .~ Break --Endless
 
 checkContractSub3Sub1 :: Int -> [Int]
   -> TpContractPack -> Int
     -> ContT TpContractPack IO TpContractPack
-checkContractSub3Sub1 start1 contract n _ = return n
+checkContractSub3Sub1 start1 contract n@(retC, j, c, u, forbidden) _ =
+  if forbidden !! j .&. c !! j == 0 then return n
+  else
+    let
+      c1 = c & ix j .~ shift (c !! j) 1
+      f1 exit n@(retC, _, _, _, _) x
+        | retC == Break = exit n
+        | otherwise     = checkContractSub3Sub1Sub start1 contract n x
+    in
+      lift $ runContT (callCC $ \exit -> foldlCont (f1 exit) (n & _3 .~ c1) [0..1023]) return
+
+checkContractSub3Sub1Sub :: Int -> [Int]
+  -> TpContractPack -> Int
+    -> ContT TpContractPack IO TpContractPack
+checkContractSub3Sub1Sub start1 contract n@(retC, j, c, u, forbidden) _ =
+  let j1 = j --fromJust $ find (== 0) $ drop j contract
+  in if j1 >= start1
+    then do
+      lift $ putStrLn "               ***  Contract confirmed  ***\n\n"
+      return $ (n  & _1 .~ Break) & _2 .~ j1
+    else
+      let c1 = c & ix j .~ shift (c !! j) 1
+      in return $ (n & _2 .~ j1) & _3 .~ c1
 
 checkContractSub3Sub2 :: Int -> [Int] -> [Int] -> Int -> [Int] -> Int
   -> TpContractPack -> Int
@@ -623,7 +646,7 @@ checkContractSub3Sub3 :: [Int] -> TpAngle -> TpAngle
     -> TpContractPack
 checkContractSub3Sub3 contract diffangle sameangle n@(retC, j, c, u, forbidden) _ =
   let
-    j1         = let jj = fromJust $ find (== 0) $ drop (edges - j + 1) $ reverse contract in edges - jj
+    j1         = j --let jj = fromJust $ find (== 0) $ drop (edges - j + 1) $ reverse contract in edges - jj
     dm0        = diffangle ^?! ix j1
     sm0        = sameangle ^?! ix j1
     f1         = (return .) . checkContractSub1 dm0 c
