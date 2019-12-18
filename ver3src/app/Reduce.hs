@@ -18,7 +18,7 @@ module Main where
 import Debug.Trace (trace)
 -}
 import Control.Arrow             ((<<<))
-import Control.Lens              ((&), (.~), ix, (^?!), (+~), (-~), (*~), _1, _3, _4, _5, _6, _7)
+import Control.Lens              ((&), (.~), ix, (^?!), (+~), (-~), (*~), _1, _2, _3, _4, _5, _6, _7)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Cont  (Cont, cont, runCont, callCC, ContT(..))
 import Data.Bits                 ((.&.), (.|.), complement)
@@ -596,15 +596,17 @@ checkContractSub3 start1 contract power ring live2 bigno diffangle sameangle n _
 
   n1@(retC1, _, _, _, _)
     <- lift $ runContT (callCC $ \exit -> foldlCont (f1 exit) n  [0..1023]) return
+  if retC1 /= Endless then return n1
+  else do
 
-  n2@(retC2, _, _, _, _)
-    <- lift $ runContT (callCC $ \exit -> foldlCont (f2 exit) n1 [0..1023]) return
+    n2@(retC2, _, _, _, _)
+      <- lift $ runContT (callCC $ \exit -> foldlCont (f2 exit) n1 [0..1023]) return
+    if retC2 /= Endless then return n2
+    else
 
-  let
-    n3@(retC3, _, _, _, _)
-      = runCont (foldlCont f3 n2 [0..1023]) id
-
-  return $ n & _1 .~ Break
+      let
+        n3 = runCont (foldlCont f3 n2 [0..1023]) id
+      in return $ n3 & _1 .~ Break
 
 checkContractSub3Sub1 :: Int -> [Int]
   -> TpContractPack -> Int
@@ -619,7 +621,17 @@ checkContractSub3Sub2 start1 contract power ring live2 bigno n _ = return n
 checkContractSub3Sub3 :: [Int] -> TpAngle -> TpAngle
   -> TpContractPack -> Int
     -> TpContractPack
-checkContractSub3Sub3 contract diffangle sameangle n _ = n
+checkContractSub3Sub3 contract diffangle sameangle n@(retC, j, c, u, forbidden) _ =
+  let
+    j1         = let jj = fromJust $ find (== 0) $ drop (edges - j + 1) $ reverse contract in edges - jj
+    dm0        = diffangle ^?! ix j1
+    sm0        = sameangle ^?! ix j1
+    f1         = (return .) . checkContractSub1 dm0 c
+    u1         = runCont (foldlCont f1  u [i | i <- [1 .. 1024], i <= head dm0]) id
+    f2         = (return .) . checkContractSub2 sm0 c
+    u2         = runCont (foldlCont f2 u1 [i | i <- [1 .. 1024], i <= head sm0]) id
+    forbidden1 = forbidden & ix j1 .~ u2
+  in ((n & _2 .~ j1) & _4 .~ u2) & _5 .~ forbidden1
 
 
 
