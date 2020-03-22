@@ -1,7 +1,8 @@
 ![4CT01](https://user-images.githubusercontent.com/34955220/56892529-e500b180-6aba-11e9-8c25-ca623f8a2b1b.jpg)  
 
 # 4CT_Haskell
-四色定理をHaskellに移植したよ（頓挫）
+四色定理をHaskellに移植したよ（頓挫）  
+F#→https://github.com/righ1113/4CT_FSharp  
 
 # 変更履歴
 19/12/28　頓挫しました  
