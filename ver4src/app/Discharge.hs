@@ -22,10 +22,11 @@ import Control.Lens ((&), (.~), ix, (^?!), _1, _2, _4, _5, _6, _7, (^.))
 import Debug.Trace (trace)
 import Lib (myLoop)
 -}
+import Control.Applicative       (empty)
 import Control.Monad.IO.Class    (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Maybe (MaybeT(..))
-import Control.Monad.Trans.RWS   (RWST(..), ask)
+import Control.Monad.Trans.RWS   (RWST(..), ask, get)
 
 
 verts      = 27             -- max number of vertices in a free completion + 1
@@ -103,16 +104,16 @@ main = do
 
   -- mainLoop
   (ret, s, w)
-    <- runRWST (runMaybeT $ mainLoop (nn, mm)
-                                     (symNum, symNol, symVal, symPos, symLow, symUpp)
-                                     0
-                                     (axlesLow, axlesUpp, 0)
-                                     (tail (map words (lines inStr))) )
+    <- runRWST (mainLoop (nn, mm)
+                         (symNum, symNol, symVal, symPos, symLow, symUpp)
+                         0
+                         (axlesLow, axlesUpp, 0)
+                         (tail (map words (lines inStr))) )
                ((bLow, bUpp, adjmat, edgelist, gConfs), rules, deg) -- read
                (((aSLow, aSUpp, 0), used, image), posoutX)          -- state
 
   -- final check
-  if ret == Just "Q.E.D." then
+  if ret == "Q.E.D." then
     putStrLn $ "中心の次数" ++ degStr -- ++ "のグラフは、電荷が負になるか、近くに好配置があらわれるかです。"
   else
     putStrLn "失敗です。"
@@ -121,7 +122,7 @@ main = do
 
 
 mainLoop :: TpCond -> TpPosout -> Int -> TpAxle -> [[String]]
-  -> MaybeT (RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO) String
+  -> RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO String
 mainLoop (nn, mm) sym nosym axles@(low, upp, lev) tactics
   | lev >= maxlev = error "More than %d levels"
   | lev < 0       = return $ head $ head tactics
@@ -149,8 +150,7 @@ mainLoop (nn, mm) sym nosym axles@(low, upp, lev) tactics
                 mainLoop (nn, mm) sym nosym (low, upp, lev - 1) (tail tactics)
         "H" -> do
                 liftIO $ putStrLn $ "Hubcap  " ++ show nowTac
-                ret <- checkHubcap (tail (tail (head tactics))) axles
-                liftIO $ print ret
+                checkHubcap (tail (tail (head tactics))) axles
                 --mainLoop rP posout' (nn, mm) deg nosym (low, upp, lev - 1) (tail tactics)
                 return "Q.E.D."
         "C" -> do
@@ -166,22 +166,69 @@ mainLoop (nn, mm) sym nosym axles@(low, upp, lev) tactics
 -- ##################################################################################################################
 -- ##################################################################################################################
 checkHubcap :: [String] -> TpAxle
-  -> MaybeT (RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO) String
+  -> RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO String
 checkHubcap strs aA@(low, upp, lev) = do
-  ((bLow, bUpp, adjmat, edgelist, gConfs), rules, deg) <- lift ask
+  (_, _, deg)     <- ask
   let xyvs         = map read strs :: [(Int, Int, Int)]
       s            = replicate (2 * maxoutlets + 1) 0
       nouts        = difNouts !! deg
       --s2           = s & ix (2 * nouts) .~ 99 -- to indicate end of list
       (xi, yi, vi) = xyvs !! 1 --i
       --pxx2         = replicate nouts 0 ++ drop nouts pxx
-  checkBound (low !! lev, upp !! lev) nouts s vi 0 0 --s2 vi 0 0
+  ret <- runMaybeT $ checkBound (low !! lev, upp !! lev) nouts s vi 0 0 --s2 vi 0 0
+  liftIO $ print ret
+  return "checkHubcap end."
   --let f n x cont = cont $ checkHubcapSub n strs aA deg x
   --in return $ myLoop f id posout [0, 1 .. length strs - 1]
 
 checkBound :: TpAxleI -> Int -> [Int] -> Int -> Int -> Int
   -> MaybeT (RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO) String
-checkBound aAI nouts s maxch pos depth = return "checkBound"
+checkBound aAI@(lowI, uppI) nouts s maxch pos depth = do -- empty
+  ((bLow, bUpp, adjmat, edgelist, gConfs), rules, deg) <- lift ask
+  (((aSLow, aSUpp, aSLev), used, image), posoutX)      <- lift get
+
+  -- 1. compute forced and permitted rules, allowedch, forcedch, update s
+  {-
+  let loop1 i forcedch allowedch retS = do
+    if retS !! i >= 99 then
+      (forcedch, allowedch, retS)
+    else do
+      let forcedch2 = if retS !! i > 0 then forcedch + rules.value[i] else forcedch
+      if s[i] /= 0 then
+        loop1 (i + 1) forcedch2 allowedch retS
+      else
+        {-retN = outletForced(lowI,
+                            uppI,
+                                                  posout.number[i],
+                                                  posout.nolines[i],
+                                                  posout.value[i],
+                                                  posout.pos[i],
+                                                  posout.plow[i],
+                                                  posout.pupp[i],
+                                                  posoutX);-}
+        if True then --(retN != 0) {
+          s[i] = 1
+          forcedch += posout.value[i]
+        else
+          {-outletPermitted(lowI,
+                                 uppI,
+                                                      posout.number[i],
+                                                      posout.nolines[i],
+                                                      posout.value[i],
+                                                      posout.pos[i],
+                                                      posout.plow[i],
+                                                      posout.pupp[i],
+                                                      posoutX) == 0)-}
+          if True then
+            s[i] = -1
+          else
+            if rules.value[i] > 0 then
+              allowedch += posout.value[i];
+            else no
+        loop1 (i + 1) forcedch2 allowedch retS
+  let (forcedch, allowedch, s2) = loop1 0 0 0 s
+  -}
+  return "checkBound end."
 
 
 {-
