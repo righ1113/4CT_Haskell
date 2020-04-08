@@ -3,7 +3,7 @@
 ◆動かし方
 1. $ stack run discharge-exe
 2. > 「07」を入力してEnter。
-3. 中心の次数7のグラフは、電荷が負になるか、近くに好配置があらわれるかです
+3. 中心の次数07のグラフは、電荷が負になるか、近くに好配置があらわれるかです
    プログラムは正常終了しました
    が表示されたらOK（今は表示されない）
 1. $ stack ghci --main-is ver4src:exe:discharge-exe
@@ -67,8 +67,8 @@ main = do
 
   -- TpAxle
   let axles0 = replicate maxlev $ replicate cartvert 0
-  let axlesLow = take cartvert ([deg] ++ replicate (5*deg) 5     ++ repeat 0) : axles0
-  let axlesUpp = take cartvert ([deg] ++ replicate (5*deg) infty ++ repeat 0) : axles0
+  let axLow  = take cartvert ([deg] ++ replicate (5 * deg) 5     ++ repeat 0) : axles0
+  let axUpp  = take cartvert ([deg] ++ replicate (5 * deg) infty ++ repeat 0) : axles0
 
   -- TpCond
   let nn = replicate maxlev 0
@@ -107,7 +107,7 @@ main = do
     <- runRWST (mainLoop (nn, mm)
                          (symNum, symNol, symVal, symPos, symLow, symUpp)
                          0
-                         (axlesLow, axlesUpp, 0)
+                         (axLow, axUpp, 0)
                          (tail (map words (lines inStr))) )
                ((bLow, bUpp, adjmat, edgelist, gConfs), rules, deg) -- read
                (((aSLow, aSUpp, 0), used, image), posoutX)          -- state
@@ -123,9 +123,9 @@ main = do
 
 mainLoop :: TpCond -> TpPosout -> Int -> TpAxle -> [[String]]
   -> RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO String
-mainLoop (nn, mm) sym nosym axles@(low, upp, lev) tactics
-  | lev >= maxlev = error "More than %d levels"
-  | lev < 0       = return $ head $ head tactics
+mainLoop (nn, mm) sym nosym ax@(axLow, axUpp, axLev) tactics
+  | axLev >= maxlev = error "More than %d levels"
+  | axLev < 0       = return $ head $ head tactics
   | otherwise     = let nowTac = head tactics in
       case nowTac !! 1 of
         "S" -> do
@@ -147,10 +147,10 @@ mainLoop (nn, mm) sym nosym axles@(low, upp, lev) tactics
                              (tail tactics)
                   else
                     error "Reducibility failed"-}
-                mainLoop (nn, mm) sym nosym (low, upp, lev - 1) (tail tactics)
+                mainLoop (nn, mm) sym nosym (axLow, axUpp, axLev - 1) (tail tactics)
         "H" -> do
                 liftIO $ putStrLn $ "Hubcap  " ++ show nowTac
-                checkHubcap (tail (tail (head tactics))) axles
+                checkHubcap (tail (tail (head tactics))) ax
                 --mainLoop rP posout' (nn, mm) deg nosym (low, upp, lev - 1) (tail tactics)
                 return "Q.E.D."
         "C" -> do
@@ -159,7 +159,7 @@ mainLoop (nn, mm) sym nosym axles@(low, upp, lev) tactics
                 let m = read (head tactics !! 3) :: Int
                 nosym2                   <- checkCondition1 (nn, mm) deg axles n m nosym
                 (cond2, (low2, upp2, _)) <- checkCondition2 (nn, mm) axles n m-}
-                mainLoop (nn, mm) sym nosym (low, upp, lev + 1) (tail tactics)
+                mainLoop (nn, mm) sym nosym (axLow, axUpp, axLev + 1) (tail tactics)
         _   -> error "Invalid instruction"
 
 
@@ -167,7 +167,7 @@ mainLoop (nn, mm) sym nosym axles@(low, upp, lev) tactics
 -- ##################################################################################################################
 checkHubcap :: [String] -> TpAxle
   -> RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO String
-checkHubcap strs aA@(low, upp, lev) = do
+checkHubcap strs ax@(axLow, axUpp, axLev) = do
   (_, _, deg)     <- ask
   let xyvs         = map read strs :: [(Int, Int, Int)]
       s            = replicate (2 * maxoutlets + 1) 0
@@ -175,7 +175,7 @@ checkHubcap strs aA@(low, upp, lev) = do
       --s2           = s & ix (2 * nouts) .~ 99 -- to indicate end of list
       (xi, yi, vi) = xyvs !! 1 --i
       --pxx2         = replicate nouts 0 ++ drop nouts pxx
-  ret <- runMaybeT $ checkBound (low !! lev, upp !! lev) nouts s vi 0 0 --s2 vi 0 0
+  ret <- runMaybeT $ checkBound (axLow !! axLev, axUpp !! axLev) nouts s vi 0 0 --s2 vi 0 0
   liftIO $ print ret
   return "checkHubcap end."
   --let f n x cont = cont $ checkHubcapSub n strs aA deg x
@@ -183,7 +183,7 @@ checkHubcap strs aA@(low, upp, lev) = do
 
 checkBound :: TpAxleI -> Int -> [Int] -> Int -> Int -> Int
   -> MaybeT (RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO) String
-checkBound aAI@(lowI, uppI) nouts s maxch pos depth = do -- empty
+checkBound axL@(axLowL, axUppL) nouts s maxch pos depth = do -- empty
   ((bLow, bUpp, adjmat, edgelist, gConfs), rules, deg) <- lift ask
   (((aSLow, aSUpp, aSLev), used, image), posoutX)      <- lift get
 
@@ -197,8 +197,8 @@ checkBound aAI@(lowI, uppI) nouts s maxch pos depth = do -- empty
       if s[i] /= 0 then
         loop1 (i + 1) forcedch2 allowedch retS
       else
-        {-retN = outletForced(lowI,
-                            uppI,
+        {-retF = outletForced(axLowL,
+                            axUppL,
                                                   posout.number[i],
                                                   posout.nolines[i],
                                                   posout.value[i],
@@ -206,12 +206,12 @@ checkBound aAI@(lowI, uppI) nouts s maxch pos depth = do -- empty
                                                   posout.plow[i],
                                                   posout.pupp[i],
                                                   posoutX);-}
-        if True then --(retN != 0) {
+        if True then --(retF != 0) {
           s[i] = 1
           forcedch += posout.value[i]
         else
-          {-outletPermitted(lowI,
-                                 uppI,
+          {-outletPermitted(axLowL,
+                                 axUppL,
                                                       posout.number[i],
                                                       posout.nolines[i],
                                                       posout.value[i],
