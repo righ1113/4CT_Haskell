@@ -23,6 +23,7 @@ import Debug.Trace (trace)
 import Lib (myLoop)
 -}
 import Control.Applicative       (empty)
+import Control.Lens              ((&), (.~), ix, _3, (^.))
 import Control.Monad.IO.Class    (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Maybe (MaybeT(..))
@@ -188,46 +189,40 @@ checkBound axL@(axLowL, axUppL) nouts s maxch pos depth = do -- empty
   (((aSLow, aSUpp, aSLev), used, image), posoutX)      <- lift get
 
   -- 1. compute forced and permitted rules, allowedch, forcedch, update s
-  {-
-  let loop1 i forcedch allowedch retS = do
-    if retS !! i >= 99 then
-      (forcedch, allowedch, retS)
-    else do
-      let forcedch2 = if retS !! i > 0 then forcedch + rules.value[i] else forcedch
-      if s[i] /= 0 then
-        loop1 (i + 1) forcedch2 allowedch retS
-      else
-        {-retF = outletForced(axLowL,
-                            axUppL,
-                                                  posout.number[i],
-                                                  posout.nolines[i],
-                                                  posout.value[i],
-                                                  posout.pos[i],
-                                                  posout.plow[i],
-                                                  posout.pupp[i],
-                                                  posoutX);-}
-        if True then --(retF != 0) {
-          s[i] = 1
-          forcedch += posout.value[i]
+  let loop1 i forcedch allowedch retS =
+        if retS !! i >= 99 then
+          (forcedch, allowedch, retS)
         else
-          {-outletPermitted(axLowL,
-                                 axUppL,
-                                                      posout.number[i],
-                                                      posout.nolines[i],
-                                                      posout.value[i],
-                                                      posout.pos[i],
-                                                      posout.plow[i],
-                                                      posout.pupp[i],
-                                                      posoutX) == 0)-}
-          if True then
-            s[i] = -1
-          else
-            if rules.value[i] > 0 then
-              allowedch += posout.value[i];
-            else no
-        loop1 (i + 1) forcedch2 allowedch retS
+          let rVi       = (rules ^. _3) !! i
+              forcedch2 = if retS !! i > 0 then forcedch + rVi else forcedch
+              (forcedch3, allowedch2, retS2)
+                | retS !! i /= 0 = (forcedch2,       allowedch,       retS)
+                | True           = (forcedch2 + rVi, allowedch,       retS & ix i .~ 1)
+                | True           = (forcedch2,       allowedch,       retS & ix i .~ (-1))
+                | rVi > 0        = (forcedch2,       allowedch + rVi, retS)
+                | otherwise      = (forcedch2,       allowedch,       retS)
+                {-retF = outletForced(axLowL,
+                                    axUppL,
+                                                          posout.number[i],
+                                                          posout.nolines[i],
+                                                          posout.value[i],
+                                                          posout.pos[i],
+                                                          posout.plow[i],
+                                                          posout.pupp[i],
+                                                          posoutX);-}
+                --(retF != 0) {
+                  {-outletPermitted(axLowL,
+                                        axUppL,
+                                                              posout.number[i],
+                                                              posout.nolines[i],
+                                                              posout.value[i],
+                                                              posout.pos[i],
+                                                              posout.plow[i],
+                                                              posout.pupp[i],
+                                                              posoutX) == 0)-}
+          in loop1 (i + 1) forcedch3 allowedch2 retS2
   let (forcedch, allowedch, s2) = loop1 0 0 0 s
-  -}
+
   return "checkBound end."
 
 
