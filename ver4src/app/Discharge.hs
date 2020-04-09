@@ -23,7 +23,7 @@ import Debug.Trace (trace)
 import Lib (myLoop)
 -}
 import Control.Applicative       (empty)
-import Control.Lens              ((&), (.~), ix, _3, (^.))
+import Control.Lens              ((&), (.~), ix, _1, _3, (^.))
 import Control.Monad.IO.Class    (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Maybe (MaybeT(..))
@@ -76,7 +76,7 @@ main = do
   let mm = replicate maxlev 0
 
   -- TpPosout
-  rulesStr    <- readFile $ "4ctdata/DiRules" ++ degStr ++ ".txt"
+  rulesStr   <- readFile $ "4ctdata/DiRules" ++ degStr ++ ".txt"
   let rules   = read rulesStr :: TpPosout -- read rules, compute outlets
   let posoutX = replicate (2 * maxoutlets) 0
 
@@ -97,7 +97,7 @@ main = do
   let edgelist = replicate 12 $ replicate 9 $ replicate maxelist 0
   let used     = replicate cartvert False
   let image    = replicate cartvert 0
-  gConfsStr    <- readFile "4ctdata/DiGoodConfs.txt"
+  gConfsStr   <- readFile "4ctdata/DiGoodConfs.txt"
   let gConfs   = read gConfsStr :: [TpQuestion] -- read GoodConfs set
 
   -- Tactics
@@ -166,6 +166,20 @@ mainLoop (nn, mm) sym nosym ax@(axLow, axUpp, axLev) tactics
 
 -- ##################################################################################################################
 -- ##################################################################################################################
+getPosoutI :: TpPosout -> Int -> TpPosoutI
+getPosoutI (num, nol, val, pos, low, upp) i
+  = (num !! i, nol !! i, val !! i, pos !! i, low !! i, upp !! i)
+
+outletForced :: TpAxleI -> TpPosoutI -> Int -> Int
+outletForced axL@(axLowL, axUppL) (numI, nolI, valI, posI, lowI, uppI) pXI = 66
+
+
+outletPermitted :: TpAxleI -> TpPosoutI -> Int -> Int
+outletPermitted axL@(axLowL, axUppL) (numI, nolI, valI, posI, lowI, uppI) pXI = 67
+
+
+-- ##################################################################################################################
+-- ##################################################################################################################
 checkHubcap :: [String] -> TpAxle
   -> RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO String
 checkHubcap strs ax@(axLow, axUpp, axLev) = do
@@ -173,10 +187,10 @@ checkHubcap strs ax@(axLow, axUpp, axLev) = do
   let xyvs         = map read strs :: [(Int, Int, Int)]
       s            = replicate (2 * maxoutlets + 1) 0
       nouts        = difNouts !! deg
-      --s2           = s & ix (2 * nouts) .~ 99 -- to indicate end of list
+      s2           = s & ix (2 * nouts) .~ 99 -- to indicate end of list
       (xi, yi, vi) = xyvs !! 1 --i
       --pxx2         = replicate nouts 0 ++ drop nouts pxx
-  ret <- runMaybeT $ checkBound (axLow !! axLev, axUpp !! axLev) nouts s vi 0 0 --s2 vi 0 0
+  ret <- runMaybeT $ checkBound (axLow !! axLev, axUpp !! axLev) nouts s2 vi 0 0
   liftIO $ print ret
   return "checkHubcap end."
   --let f n x cont = cont $ checkHubcapSub n strs aA deg x
@@ -184,7 +198,7 @@ checkHubcap strs ax@(axLow, axUpp, axLev) = do
 
 checkBound :: TpAxleI -> Int -> [Int] -> Int -> Int -> Int
   -> MaybeT (RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO) String
-checkBound axL@(axLowL, axUppL) nouts s maxch pos depth = do -- empty
+checkBound axL@(axLowL, axUppL) nouts s maxch pos depth = do
   ((bLow, bUpp, adjmat, edgelist, gConfs), rules, deg) <- lift ask
   (((aSLow, aSUpp, aSLev), used, image), posoutX)      <- lift get
 
@@ -195,33 +209,35 @@ checkBound axL@(axLowL, axUppL) nouts s maxch pos depth = do -- empty
         else
           let rVi       = (rules ^. _3) !! i
               forcedch2 = if retS !! i > 0 then forcedch + rVi else forcedch
+              retF      = outletForced    axL (getPosoutI rules i) (posoutX !! i)
+              retP      = outletPermitted axL (getPosoutI rules i) (posoutX !! i)
               (forcedch3, allowedch2, retS2)
                 | retS !! i /= 0 = (forcedch2,       allowedch,       retS)
-                | True           = (forcedch2 + rVi, allowedch,       retS & ix i .~ 1)
-                | True           = (forcedch2,       allowedch,       retS & ix i .~ (-1))
+                | retF /= 0      = (forcedch2 + rVi, allowedch,       retS & ix i .~ 1)
+                | retP == 0      = (forcedch2,       allowedch,       retS & ix i .~ (-1))
                 | rVi > 0        = (forcedch2,       allowedch + rVi, retS)
                 | otherwise      = (forcedch2,       allowedch,       retS)
-                {-retF = outletForced(axLowL,
-                                    axUppL,
-                                                          posout.number[i],
-                                                          posout.nolines[i],
-                                                          posout.value[i],
-                                                          posout.pos[i],
-                                                          posout.plow[i],
-                                                          posout.pupp[i],
-                                                          posoutX);-}
-                --(retF != 0) {
-                  {-outletPermitted(axLowL,
-                                        axUppL,
-                                                              posout.number[i],
-                                                              posout.nolines[i],
-                                                              posout.value[i],
-                                                              posout.pos[i],
-                                                              posout.plow[i],
-                                                              posout.pupp[i],
-                                                              posoutX) == 0)-}
           in loop1 (i + 1) forcedch3 allowedch2 retS2
-  let (forcedch, allowedch, s2) = loop1 0 0 0 s
+      (forcedch, allowedch, s2) = loop1 0 0 0 s
+
+  -- 2.
+  liftIO $ putStr $ show depth ++ " POs: "
+  let loop2 i
+        | s !! i >= 99 = return ()
+        | s !! i < 0   = loop2 (i + 1)
+        | otherwise    = do
+            putStr $ if s !! i == 0 then "?" else ""
+            putStr $ show ((rules ^. _1) !! i) ++ "," ++ show (posoutX !! i) ++ " "
+            loop2 (i + 1)
+  liftIO $ loop2 0
+  liftIO $ putStrLn ""
+
+  -- 3. check if inequality holds
+  if forcedch + allowedch <= maxch then do
+    liftIO $ putStrLn $ show depth ++ " Inequality holds. Case done."
+    empty
+  else
+    liftIO $ putStrLn ""
 
   return "checkBound end."
 
