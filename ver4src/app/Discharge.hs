@@ -23,11 +23,11 @@ import Debug.Trace (trace)
 import Lib (myLoop)
 -}
 import Control.Applicative       (empty)
-import Control.Lens              ((&), (.~), ix, _1, _3, (^.))
+import Control.Lens              ((&), (.~), ix, _1, _2, _3, _4, _5, _6, (^.))
 import Control.Monad.IO.Class    (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Maybe (MaybeT(..))
-import Control.Monad.Trans.RWS   (RWST(..), ask, get)
+import Control.Monad.Trans.RWS   (RWST(..), ask, get, put)
 
 
 verts      = 27             -- max number of vertices in a free completion + 1
@@ -165,6 +165,7 @@ mainLoop (nn, mm) sym nosym ax@(axLow, axUpp, axLev) tactics
 
 
 -- ##################################################################################################################
+--   Symmetry
 -- ##################################################################################################################
 getPosoutI :: TpPosout -> Int -> TpPosoutI
 getPosoutI (num, nol, val, pos, low, upp) i
@@ -179,6 +180,14 @@ outletPermitted axL@(axLowL, axUppL) (numI, nolI, valI, posI, lowI, uppI) pXI = 
 
 
 -- ##################################################################################################################
+--   Reduce
+-- ##################################################################################################################
+reduce :: MaybeT (RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO) String
+reduce = return "reduce end."
+
+
+-- ##################################################################################################################
+--   Hubcap
 -- ##################################################################################################################
 checkHubcap :: [String] -> TpAxle
   -> RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO String
@@ -195,6 +204,7 @@ checkHubcap strs ax@(axLow, axUpp, axLev) = do
   return "checkHubcap end."
   --let f n x cont = cont $ checkHubcapSub n strs aA deg x
   --in return $ myLoop f id posout [0, 1 .. length strs - 1]
+
 
 checkBound :: TpAxleI -> Int -> [Int] -> Int -> Int -> Int
   -> MaybeT (RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO) String
@@ -235,11 +245,93 @@ checkBound axL@(axLowL, axUppL) nouts s maxch pos depth = do
   -- 3. check if inequality holds
   if forcedch + allowedch <= maxch then do
     liftIO $ putStrLn $ show depth ++ " Inequality holds. Case done."
-    empty
+    empty -- 正常終了
   else
-    liftIO $ putStrLn ""
+    liftIO $ putStr ""
 
-  return "checkBound end."
+  -- 4. check reducibility
+  if forcedch > maxch then do
+    lift $ put (((aSLow & ix 0 .~ axLowL, aSUpp & ix 0 .~ axUppL, aSLev), used, image), posoutX)
+    ret <- lift $ runMaybeT reduce
+    if ret == Nothing then
+      error "Incorrect hubcap upper bound"
+    else do
+      liftIO $ putStrLn $ show forcedch ++ " " ++ show allowedch ++ " " ++ show maxch
+                  ++ " Reducible. Case done."
+      empty -- 正常終了
+  else
+    liftIO $ putStr ""
+
+  -- 5.
+  let loop5 pos =
+  --for (; s[pos] < 99; pos++) {
+        --if (s[pos] != 0 || posout.value[pos] < 0)
+        --  continue;
+        let x                       = posoutX !! pos
+
+        -- accepting positioned outlet PO, computing AA
+            loop5_1 i axLowL axUppL =
+              if i >= (rules ^. _2) !! pos then
+                (axLowL, axUppL)
+              else
+                let p0      = ((rules ^. _4) !! pos) !! i
+                    p       = if (x - 1 + (p0 - 1)) `mod` deg < deg then p0 + x - 1 else p0 + x - 1 - deg
+                    lowPosI = ((rules ^. _5) !! pos) !! i
+                    uppPosI = ((rules ^. _6) !! pos) !! i
+                    (axLowL2, axUppL2)
+                      |      lowPosI > axLowL !! p  &&      uppPosI < axUppL !! p
+                          = (axLowL & ix p .~ lowPosI, axUppL & ix p .~ uppPosI)
+                      | not (lowPosI > axLowL !! p) &&      uppPosI < axUppL !! p
+                          = (axLowL                  , axUppL & ix p .~ uppPosI)
+                      |      lowPosI > axLowL !! p  && not (uppPosI < axUppL !! p)
+                          = (axLowL & ix p .~ lowPosI, axUppL                  )
+                      | not (lowPosI > axLowL !! p) && not (uppPosI < axUppL !! p)
+                          = (axLowL                  , axUppL                  )
+                in if axLowL2 !! p > axUppL2 !! p then
+                  error "Unexpected error 321"
+                else
+                  loop5_1 (i + 1) axLowL2 axUppL2
+            (axLowL2, axUppL2)      = loop5_1 0 axLowL axUppL
+
+        -- Check if a previously rejected positioned outlet is forced to apply
+        {-
+        good = 1;
+        for (i = 0; i < pos; i++) {
+          if (s[i] == -1 &&
+              outletForced axL2 (getPosoutI rules i) (posoutX !! i)
+                                                    != 0) {
+            liftIO $ putStr $ depth ++ " Positioned outlet "
+            liftIO $ putStrLn $ show ((rules ^. _1) !! pos) ++ "," ++ show x
+                            ++ " can't be forced, because it forces "
+                            ++ show ((rules ^. _1) !! i)   ++ "," ++ show (posoutX !! i)
+            good = 0;
+            break;
+          }
+        }
+        if good /= 0 then
+          -- recursion with PO forced
+          Console.Write("{0} Starting recursion with ", depth);
+          Console.Write("{0},{1} forced\n", posout.number[pos], x);
+          CheckBound(posout, s & ix pos .~ 1, maxch, pos + 1, depth + 1, ref rP1, ref rP2, axles2);
+        else
+          liftIO $ putStr ""
+
+        -- rejecting positioned outlet PO
+        Console.Write("{0} Rejecting positioned outlet ", depth);
+        Console.Write("{0},{1}. ", posout.number[pos], x);
+        s[pos] = -1;
+        allowedch -= posout.value[pos];
+        if (allowedch + forcedch <= maxch) {
+          Console.Write("Inequality holds.\n");
+          return true;
+        } else {
+          Console.Write("\n");
+        }
+        -}
+        in "5. end."
+
+  -- 6.
+  return "checkBound end." -- error "Unexpected error 101"
 
 
 {-
