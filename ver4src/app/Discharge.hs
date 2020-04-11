@@ -192,6 +192,11 @@ reduce = return "reduce end."
 checkHubcap :: [String] -> TpAxle
   -> RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO String
 checkHubcap strs ax@(axLow, axUpp, axLev) = do
+  --1. omitted
+  --2. omitted
+  --3. omitted
+  --4. omitted
+  --5.
   (_, _, deg)     <- ask
   let xyvs         = map read strs :: [(Int, Int, Int)]
       s            = replicate (2 * maxoutlets + 1) 0
@@ -199,16 +204,16 @@ checkHubcap strs ax@(axLow, axUpp, axLev) = do
       s2           = s & ix (2 * nouts) .~ 99 -- to indicate end of list
       (xi, yi, vi) = xyvs !! 1 --i
       --pxx2         = replicate nouts 0 ++ drop nouts pxx
-  ret <- runMaybeT $ checkBound (axLow !! axLev, axUpp !! axLev) nouts s2 vi 0 0
+  ret <- runMaybeT $ checkBound (axLow !! axLev, axUpp !! axLev) s2 vi 0 0
   liftIO $ print ret
   return "checkHubcap end."
   --let f n x cont = cont $ checkHubcapSub n strs aA deg x
   --in return $ myLoop f id posout [0, 1 .. length strs - 1]
 
 
-checkBound :: TpAxleI -> Int -> [Int] -> Int -> Int -> Int
+checkBound :: TpAxleI -> [Int] -> Int -> Int -> Int
   -> MaybeT (RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO) String
-checkBound axL@(axLowL, axUppL) nouts s maxch pos depth = do
+checkBound axL@(axLowL, axUppL) s maxch pos depth = do
   ((bLow, bUpp, adjmat, edgelist, gConfs), rules, deg) <- lift ask
   (((aSLow, aSUpp, aSLev), used, image), posoutX)      <- lift get
 
@@ -231,7 +236,7 @@ checkBound axL@(axLowL, axUppL) nouts s maxch pos depth = do
       (forcedch, allowedch, s2) = loop1 0 0 0 s
 
   -- 2.
-  liftIO $ putStr $ show depth ++ " POs: "
+  liftIO . putStr $ show depth ++ " POs: "
   let loop2 i
         | s !! i >= 99 = return ()
         | s !! i < 0   = loop2 (i + 1)
@@ -244,7 +249,7 @@ checkBound axL@(axLowL, axUppL) nouts s maxch pos depth = do
 
   -- 3. check if inequality holds
   if forcedch + allowedch <= maxch then do
-    liftIO $ putStrLn $ show depth ++ " Inequality holds. Case done."
+    liftIO . putStrLn $ show depth ++ " Inequality holds. Case done."
     empty -- 正常終了
   else
     liftIO $ putStr ""
@@ -256,79 +261,80 @@ checkBound axL@(axLowL, axUppL) nouts s maxch pos depth = do
     if ret == Nothing then
       error "Incorrect hubcap upper bound"
     else do
-      liftIO $ putStrLn $ show forcedch ++ " " ++ show allowedch ++ " " ++ show maxch
+      liftIO . putStrLn $ show forcedch ++ " " ++ show allowedch ++ " " ++ show maxch
                   ++ " Reducible. Case done."
       empty -- 正常終了
   else
     liftIO $ putStr ""
 
   -- 5.
-  let loop5 pos =
-  --for (; s[pos] < 99; pos++) {
-        --if (s[pos] != 0 || posout.value[pos] < 0)
-        --  continue;
-        let x                       = posoutX !! pos
+  let loop5 pos allowedch s --型がMaybeT
+        | s !! pos >= 99                            = return "5. end."
+        | s !! pos /= 0 || (rules ^. _3) !! pos < 0 = loop5 (pos + 1) allowedch s
+        | otherwise = do
+          let x                       = posoutX !! pos
 
-        -- accepting positioned outlet PO, computing AA
-            loop5_1 i axLowL axUppL =
-              if i >= (rules ^. _2) !! pos then
-                (axLowL, axUppL)
-              else
-                let p0      = ((rules ^. _4) !! pos) !! i
-                    p       = if (x - 1 + (p0 - 1)) `mod` deg < deg then p0 + x - 1 else p0 + x - 1 - deg
-                    lowPosI = ((rules ^. _5) !! pos) !! i
-                    uppPosI = ((rules ^. _6) !! pos) !! i
-                    (axLowL2, axUppL2)
-                      |      lowPosI > axLowL !! p  &&      uppPosI < axUppL !! p
-                          = (axLowL & ix p .~ lowPosI, axUppL & ix p .~ uppPosI)
-                      | not (lowPosI > axLowL !! p) &&      uppPosI < axUppL !! p
-                          = (axLowL                  , axUppL & ix p .~ uppPosI)
-                      |      lowPosI > axLowL !! p  && not (uppPosI < axUppL !! p)
-                          = (axLowL & ix p .~ lowPosI, axUppL                  )
-                      | not (lowPosI > axLowL !! p) && not (uppPosI < axUppL !! p)
-                          = (axLowL                  , axUppL                  )
-                in if axLowL2 !! p > axUppL2 !! p then
-                  error "Unexpected error 321"
+          -- 5.1. accepting positioned outlet PO, computing AA
+          let loop5_1 i axLowL axUppL =
+                if i >= (rules ^. _2) !! pos then
+                  (axLowL, axUppL)
                 else
-                  loop5_1 (i + 1) axLowL2 axUppL2
-            (axLowL2, axUppL2)      = loop5_1 0 axLowL axUppL
+                  let p0      = ((rules ^. _4) !! pos) !! i
+                      p       = if (x - 1 + (p0 - 1)) `mod` deg < deg then p0 + x - 1 else p0 + x - 1 - deg
+                      lowPosI = ((rules ^. _5) !! pos) !! i
+                      uppPosI = ((rules ^. _6) !! pos) !! i
+                      (axLowL2, axUppL2)
+                        |      lowPosI > axLowL !! p  &&      uppPosI < axUppL !! p
+                            = (axLowL & ix p .~ lowPosI, axUppL & ix p .~ uppPosI)
+                        | not (lowPosI > axLowL !! p) &&      uppPosI < axUppL !! p
+                            = (axLowL                  , axUppL & ix p .~ uppPosI)
+                        |      lowPosI > axLowL !! p  && not (uppPosI < axUppL !! p)
+                            = (axLowL & ix p .~ lowPosI, axUppL                  )
+                        | not (lowPosI > axLowL !! p) && not (uppPosI < axUppL !! p)
+                            = (axLowL                  , axUppL                  )
+                  in if axLowL2 !! p > axUppL2 !! p then
+                    error "Unexpected error 321"
+                  else
+                    loop5_1 (i + 1) axLowL2 axUppL2
+              (axLowL2, axUppL2)      = loop5_1 0 axLowL axUppL
 
-        -- Check if a previously rejected positioned outlet is forced to apply
-        {-
-        good = 1;
-        for (i = 0; i < pos; i++) {
-          if (s[i] == -1 &&
-              outletForced axL2 (getPosoutI rules i) (posoutX !! i)
-                                                    != 0) {
-            liftIO $ putStr $ depth ++ " Positioned outlet "
-            liftIO $ putStrLn $ show ((rules ^. _1) !! pos) ++ "," ++ show x
+          -- 5.2. Check if a previously rejected positioned outlet is forced to apply
+          let loop5_2 i =
+                if i >= pos then
+                  return 1
+                else do
+                  let retF = outletForced (axLowL2, axUppL2) (getPosoutI rules i) (posoutX !! i)
+                  if s !! i == -1 && retF /= 0 then do
+                    putStr $ show depth ++ " Positioned outlet "
+                    putStrLn $ show ((rules ^. _1) !! pos) ++ "," ++ show x
                             ++ " can't be forced, because it forces "
                             ++ show ((rules ^. _1) !! i)   ++ "," ++ show (posoutX !! i)
-            good = 0;
-            break;
-          }
-        }
-        if good /= 0 then
-          -- recursion with PO forced
-          Console.Write("{0} Starting recursion with ", depth);
-          Console.Write("{0},{1} forced\n", posout.number[pos], x);
-          CheckBound(posout, s & ix pos .~ 1, maxch, pos + 1, depth + 1, ref rP1, ref rP2, axles2);
-        else
-          liftIO $ putStr ""
+                    return 0
+                  else
+                    loop5_2 (i + 1)
+          good2 <- liftIO $ loop5_2 0
+          let good = 0
+          if good /= 0 then do
+            -- recursion with PO forced
+            liftIO . putStrLn $ show depth ++ " Starting recursion with "
+            liftIO . putStrLn $ show ((rules ^. _1) !! pos) ++ ", " ++ show x ++ " forced"
+            lift . runMaybeT $ checkBound (axLowL2, axUppL2) (s & ix pos .~ 1) maxch (pos + 1) (depth + 1)
+            liftIO $ putStr ""
+          else
+            liftIO $ putStr ""
 
-        -- rejecting positioned outlet PO
-        Console.Write("{0} Rejecting positioned outlet ", depth);
-        Console.Write("{0},{1}. ", posout.number[pos], x);
-        s[pos] = -1;
-        allowedch -= posout.value[pos];
-        if (allowedch + forcedch <= maxch) {
-          Console.Write("Inequality holds.\n");
-          return true;
-        } else {
-          Console.Write("\n");
-        }
-        -}
-        in "5. end."
+          -- 5.3. rejecting positioned outlet PO
+          liftIO . putStrLn $ show depth ++ " Rejecting positioned outlet "
+          liftIO . putStrLn $ show ((rules ^. _1) !! pos) ++ ", " ++ show x
+          let s2         = s  & ix pos .~ (-1)
+              allowedch2 = allowedch - ((rules ^. _3) !! pos)
+          if allowedch2 + forcedch <= maxch then do
+            liftIO $ putStrLn "Inequality holds."
+            empty
+          else
+            liftIO $ putStrLn ""
+          loop5 (pos + 1) allowedch2 s2
+  loop5 0 allowedch s
 
   -- 6.
   return "checkBound end." -- error "Unexpected error 101"
