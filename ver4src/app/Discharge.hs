@@ -47,12 +47,12 @@ type TpAxleI         = ([Int], [Int])
 type TpCond          = ([Int], [Int])
 type TpAdjmat        = [[Int]]
 type TpVertices      = [Int]
-type TpQuestion      = ([Int], [Int], [Int], [Int])
+type TpGoodConf      = ([Int], [Int], [Int], [Int])
 type TpEdgelist      = [[[Int]]]
 type TpPosout        = ([Int], [Int], [Int], [[Int]], [[Int]], [[Int]])
 type TpPosoutI       = (Int, Int, Int, [Int], [Int], [Int])
-type TpReducePack    = ([Int], [Int], TpAdjmat, TpEdgelist, [TpQuestion])
-type TpReducePackMut = (TpAxle, [Bool], TpVertices)
+-- type TpReducePack    = ([Int], [Int], TpAdjmat, TpEdgelist, [TpGoodConf])
+type TpReducePack    = (TpAxle, [Bool], TpVertices, TpAdjmat, TpEdgelist)
 type TpConfPack      = (Bool, Int, [Bool], TpVertices, Int)
 
 
@@ -98,7 +98,7 @@ main = do
   let used     = replicate cartvert False
   let image    = replicate cartvert 0
   gConfsStr   <- readFile "4ctdata/DiGoodConfs.txt"
-  let gConfs   = read gConfsStr :: [TpQuestion] -- read GoodConfs set
+  let gConfs   = read gConfsStr :: [TpGoodConf] -- read GoodConfs set
 
   -- Tactics
   inStr <- readFile $ "4ctdata/DiTactics" ++ degStr ++ ".txt"
@@ -110,8 +110,8 @@ main = do
                          0
                          (axLow, axUpp, 0)
                          (tail (map words (lines inStr))) )
-               ((bLow, bUpp, adjmat, edgelist, gConfs), rules, deg) -- read
-               (((aSLow, aSUpp, 0), used, image), posoutX)          -- state
+               (gConfs, rules, deg)                                          -- read
+               (((aSLow, aSUpp, 0), used, image, adjmat, edgelist), posoutX) -- state
 
   -- final check
   if ret == "Q.E.D." then
@@ -123,7 +123,7 @@ main = do
 
 
 mainLoop :: TpCond -> TpPosout -> Int -> TpAxle -> [[String]]
-  -> RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO String
+  -> RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO String
 mainLoop (nn, mm) sym nosym ax@(axLow, axUpp, axLev) tactics
   | axLev >= maxlev = error "More than %d levels"
   | axLev < 0       = return $ head $ head tactics
@@ -136,19 +136,15 @@ mainLoop (nn, mm) sym nosym ax@(axLow, axUpp, axLev) tactics
                 return "Q.E.D."
         "R" -> do
                 liftIO $ putStrLn $ "Reduce  " ++ show nowTac
-                {-(retB, aStack', used', image') <- reduce rP axles
-                if retB
-                  then
-                    mainLoop (((rP & _1 .~ aStack') & _6 .~ used') & _7 .~ image')
-                             posout
-                             (nn, mm)
-                             deg
-                             nosym
-                             (low, upp, lev-1)
-                             (tail tactics)
-                  else
-                    error "Reducibility failed"-}
-                mainLoop (nn, mm) sym nosym (axLow, axUpp, axLev - 1) (tail tactics)
+                (((aSLow, aSUpp, aSLev), used, image, adjmat, edgelist), posoutX) <- get
+                put ( ( (aSLow & ix 0 .~ axLow !! axLev, aSUpp & ix 0 .~ axUpp !! axLev, aSLev),
+                        used, image, adjmat, edgelist ),
+                      posoutX )
+                ret <- runMaybeT reduce
+                if ret == Nothing then
+                  error "Reducibility failed"
+                else
+                  mainLoop (nn, mm) sym nosym (axLow, axUpp, axLev - 1) (tail tactics)
         "H" -> do
                 liftIO $ putStrLn $ "Hubcap  " ++ show nowTac
                 checkHubcap (tail (tail (head tactics))) ax
@@ -177,267 +173,6 @@ outletForced axL@(axLowL, axUppL) (numI, nolI, valI, posI, lowI, uppI) pXI = 66
 
 outletPermitted :: TpAxleI -> TpPosoutI -> Int -> Int
 outletPermitted axL@(axLowL, axUppL) (numI, nolI, valI, posI, lowI, uppI) pXI = 67
-
-
--- ##################################################################################################################
---   Reduce
--- ##################################################################################################################
-reduce :: MaybeT (RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO) String
-reduce = return "reduce end."
-
-
--- ##################################################################################################################
---   Hubcap
--- ##################################################################################################################
-checkHubcap :: [String] -> TpAxle
-  -> RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO String
-checkHubcap strs ax@(axLow, axUpp, axLev) = do
-  --1. omitted
-  --2. omitted
-  --3. omitted
-  --4. omitted
-  --5.
-  (_, _, deg)     <- ask
-  let xyvs         = map read strs :: [(Int, Int, Int)]
-      s            = replicate (2 * maxoutlets + 1) 0
-      nouts        = difNouts !! deg
-      s2           = s & ix (2 * nouts) .~ 99 -- to indicate end of list
-      (xi, yi, vi) = xyvs !! 1 --i
-      --pxx2         = replicate nouts 0 ++ drop nouts pxx
-  ret <- runMaybeT $ checkBound (axLow !! axLev, axUpp !! axLev) s2 vi 0 0
-  liftIO $ print ret
-  return "checkHubcap end."
-  --let f n x cont = cont $ checkHubcapSub n strs aA deg x
-  --in return $ myLoop f id posout [0, 1 .. length strs - 1]
-
-
-checkBound :: TpAxleI -> [Int] -> Int -> Int -> Int
-  -> MaybeT (RWST (TpReducePack, TpPosout, Int) () (TpReducePackMut, [Int]) IO) String
-checkBound axL@(axLowL, axUppL) s maxch pos depth = do
-  ((bLow, bUpp, adjmat, edgelist, gConfs), rules, deg) <- lift ask
-  (((aSLow, aSUpp, aSLev), used, image), posoutX)      <- lift get
-
-  -- 1. compute forced and permitted rules, allowedch, forcedch, update s
-  let loop1 i forcedch allowedch retS =
-        if retS !! i >= 99 then
-          (forcedch, allowedch, retS)
-        else
-          let rVi       = (rules ^. _3) !! i
-              forcedch2 = if retS !! i > 0 then forcedch + rVi else forcedch
-              retF      = outletForced    axL (getPosoutI rules i) (posoutX !! i)
-              retP      = outletPermitted axL (getPosoutI rules i) (posoutX !! i)
-              (forcedch3, allowedch2, retS2)
-                | retS !! i /= 0 = (forcedch2,       allowedch,       retS)
-                | retF /= 0      = (forcedch2 + rVi, allowedch,       retS & ix i .~ 1)
-                | retP == 0      = (forcedch2,       allowedch,       retS & ix i .~ (-1))
-                | rVi > 0        = (forcedch2,       allowedch + rVi, retS)
-                | otherwise      = (forcedch2,       allowedch,       retS)
-          in loop1 (i + 1) forcedch3 allowedch2 retS2
-      (forcedch, allowedch, s2) = loop1 0 0 0 s
-
-  -- 2.
-  liftIO . putStr $ show depth ++ " POs: "
-  let loop2 i
-        | s !! i >= 99 = return ()
-        | s !! i < 0   = loop2 (i + 1)
-        | otherwise    = do
-            putStr $ if s !! i == 0 then "?" else ""
-            putStr $ show ((rules ^. _1) !! i) ++ "," ++ show (posoutX !! i) ++ " "
-            loop2 (i + 1)
-  liftIO $ loop2 0
-  liftIO $ putStrLn ""
-
-  -- 3. check if inequality holds
-  if forcedch + allowedch <= maxch then do
-    liftIO . putStrLn $ show depth ++ " Inequality holds. Case done."
-    empty -- 正常終了
-  else
-    liftIO $ putStr ""
-
-  -- 4. check reducibility
-  if forcedch > maxch then do
-    lift $ put (((aSLow & ix 0 .~ axLowL, aSUpp & ix 0 .~ axUppL, aSLev), used, image), posoutX)
-    ret <- lift $ runMaybeT reduce
-    if ret == Nothing then
-      error "Incorrect hubcap upper bound"
-    else do
-      liftIO . putStrLn $ show forcedch ++ " " ++ show allowedch ++ " " ++ show maxch
-                  ++ " Reducible. Case done."
-      empty -- 正常終了
-  else
-    liftIO $ putStr ""
-
-  -- 5.
-  let loop5 pos allowedch s --型がMaybeT
-        | s !! pos >= 99                            = return "5. end."
-        | s !! pos /= 0 || (rules ^. _3) !! pos < 0 = loop5 (pos + 1) allowedch s
-        | otherwise = do
-          let x                       = posoutX !! pos
-
-          -- 5.1. accepting positioned outlet PO, computing AA
-          let loop5_1 i axLowL axUppL =
-                if i >= (rules ^. _2) !! pos then
-                  (axLowL, axUppL)
-                else
-                  let p0      = ((rules ^. _4) !! pos) !! i
-                      p       = if (x - 1 + (p0 - 1)) `mod` deg < deg then p0 + x - 1 else p0 + x - 1 - deg
-                      lowPosI = ((rules ^. _5) !! pos) !! i
-                      uppPosI = ((rules ^. _6) !! pos) !! i
-                      (axLowL2, axUppL2)
-                        |      lowPosI > axLowL !! p  &&      uppPosI < axUppL !! p
-                            = (axLowL & ix p .~ lowPosI, axUppL & ix p .~ uppPosI)
-                        | not (lowPosI > axLowL !! p) &&      uppPosI < axUppL !! p
-                            = (axLowL                  , axUppL & ix p .~ uppPosI)
-                        |      lowPosI > axLowL !! p  && not (uppPosI < axUppL !! p)
-                            = (axLowL & ix p .~ lowPosI, axUppL                  )
-                        | not (lowPosI > axLowL !! p) && not (uppPosI < axUppL !! p)
-                            = (axLowL                  , axUppL                  )
-                  in if axLowL2 !! p > axUppL2 !! p then
-                    error "Unexpected error 321"
-                  else
-                    loop5_1 (i + 1) axLowL2 axUppL2
-              (axLowL2, axUppL2)      = loop5_1 0 axLowL axUppL
-
-          -- 5.2. Check if a previously rejected positioned outlet is forced to apply
-          let loop5_2 i =
-                if i >= pos then
-                  return 1
-                else do
-                  let retF = outletForced (axLowL2, axUppL2) (getPosoutI rules i) (posoutX !! i)
-                  if s !! i == -1 && retF /= 0 then do
-                    putStr $ show depth ++ " Positioned outlet "
-                    putStrLn $ show ((rules ^. _1) !! pos) ++ "," ++ show x
-                            ++ " can't be forced, because it forces "
-                            ++ show ((rules ^. _1) !! i)   ++ "," ++ show (posoutX !! i)
-                    return 0
-                  else
-                    loop5_2 (i + 1)
-          good2 <- liftIO $ loop5_2 0
-          let good = 0
-          if good /= 0 then do
-            -- recursion with PO forced
-            liftIO . putStrLn $ show depth ++ " Starting recursion with "
-            liftIO . putStrLn $ show ((rules ^. _1) !! pos) ++ ", " ++ show x ++ " forced"
-            lift . runMaybeT $ checkBound (axLowL2, axUppL2) (s & ix pos .~ 1) maxch (pos + 1) (depth + 1)
-            liftIO $ putStr ""
-          else
-            liftIO $ putStr ""
-
-          -- 5.3. rejecting positioned outlet PO
-          liftIO . putStrLn $ show depth ++ " Rejecting positioned outlet "
-          liftIO . putStrLn $ show ((rules ^. _1) !! pos) ++ ", " ++ show x
-          let s2         = s  & ix pos .~ (-1)
-              allowedch2 = allowedch - ((rules ^. _3) !! pos)
-          if allowedch2 + forcedch <= maxch then do
-            liftIO $ putStrLn "Inequality holds."
-            empty
-          else
-            liftIO $ putStrLn ""
-          loop5 (pos + 1) allowedch2 s2
-  loop5 0 allowedch s
-
-  -- 6.
-  return "checkBound end." -- error "Unexpected error 101"
-
-
-{-
-checkHubcapSub :: TpPosout -> [String] -> TpAxle -> Int -> Int -> TpPosout
-checkHubcapSub posout@(_, _, _, _, _, _, pxx) strs aA@(low, upp, lev) deg i = -- posout
-  let xyvs         = map read strs :: [(Int, Int, Int)]
-      s            = replicate (2 * maxoutlets + 1) 0
-      nouts        = difNouts !! deg
-      s2           = s & ix (2 * nouts) .~ 99 -- to indicate end of list
-      (xi, yi, vi) = xyvs !! i
-      pxx2         = replicate nouts 0 ++ drop nouts pxx
-  in if xi /= yi
-    then let
-      pxx3 = take nouts pxx2 ++ replicate nouts yi
-      in checkBound (low !! lev, upp !! lev) (posout & _7 .~ pxx3) nouts s2 vi 0 0
-    else
-         checkBound (low !! lev, upp !! lev) (posout & _7 .~ pxx2) nouts s2 vi 0 0
-
-checkBound :: TpAxleI -> TpPosout -> Int -> [Int] -> Int -> Int -> Int -> TpPosout
-checkBound aAI posout@(_, _, value, _, _, _, pxx) nouts s maxch pos depth =
-  -- compute forced and permitted rules, allowedch, forcedch, update s
-  let forcedch       = 0
-      allowedch      = 0
-
-      f n@(si, _) x cont
-        | si >= 99   = n
-        | otherwise  = cont $ checkBoundSub1 s value n x
-      (_, forcedch2) = myLoop f id (0, forcedch) [0, 1 .. (2 * nouts + 1)]
-
-  -- check if inequality holds
-  in if forcedch2 + allowedch <= maxch
-    then
-      trace ("  " ++ show depth ++ " Inequality holds. Case done.") posout
-    else let
-
-      f2 n@(retB, sPos, _, _, _, _, _) x cont
-        | sPos >= 99 = n
-        | retB       = n
-        | otherwise  = cont $ checkBoundSub2 value pos n x
-      (retB, _, _, allowedch2, s2, _, posout2) = myLoop f2 id (False, 0, forcedch2, allowedch, s, aAI, posout) [0, 1 .. (2 * nouts + 1)]
-        in if retB
-          then
-            trace "  Inequality holds." posout2
-          else
-            error "Unexpected error 101"
-
-checkBoundSub1 :: [Int] -> [Int] -> (Int, Int) -> Int -> (Int, Int)
-checkBoundSub1 s value (_, fo) i =
-  let si     = s     !! i
-      valuei = value !! i
-  in if si > 0
-    then (si, fo + valuei)
-    else (si, fo         )
-
-checkBoundSub2 :: [Int] -> Int -> (Bool, Int, Int, Int, [Int], TpAxleI, TpPosout) -> Int -> (Bool, Int, Int, Int, [Int], TpAxleI, TpPosout)
-checkBoundSub2 value pos (_, _, fo, al, s, aAI, posout@(_, _, _, _, _, _, xx)) k =
-  let sPos   = s     !! pos
-      valuek = value !! k
-  in if sPos == 0 && valuek >= 0
-    then let
-      y = xx !! k
-      {- x = PO->x;
-      -- accepting positioned outlet PO, computing AA
-      CopyAxle(AA, A);
-      for (i = 0; i < PO->T->nolines; ++i) {
-        p = PO->T->pos[i];
-        p = x - 1 + (p - 1) % deg < deg ? p + x - 1 : p + x - 1 - deg;
-        if (PO->T->low[i] > AA->low[p])
-          AA->low[p] = PO->T->low[i];
-        if (PO->T->upp[i] < AA->upp[p])
-          AA->upp[p] = PO->T->upp[i];
-        if (AA->low[p] > AA->upp[p])
-          error "Unexpected error 321"
-      }	/* i */ -}
-
-      -- Check if a previously rejected positioned outlet is forced to apply
-      f n x cont
-        | n == 0     = n
-        | otherwise  = cont $ checkBoundSub2Sub aAI s posout n x
-      good = myLoop f id 1 [0, 1 .. (pos - 1)]
-        in if good /= 0
-          then (True, sPos, fo, al, s, aAI, posout)
-            {- -- recursion with PO forced
-            for (i = 0; (sprime[i] = s[i]) < 99; ++i) -- sprimeにコピーしている
-            sprime[pos] = 1;
-            CheckBound(AA, posout, sprime, maxch, pos + 1, depth + 1, lineno, print); -}
-          else
-            trace "    Rejecting positioned outlet " (True, sPos, fo, al + valuek, s & ix pos .~ (-1), aAI, posout)
-    else (False, sPos, fo, al, s, aAI, posout)
-
-checkBoundSub2Sub :: TpAxleI -> [Int] -> TpPosout -> Int -> Int -> Int
-checkBoundSub2Sub aAI s posout@(number, nolines, value, pos, low, upp, xx) _ i =
-  if (s !! i == -1) && (outletForced aAI (number !! i, nolines !! i, value !! i, pos !! i, low !! i, upp !! i, xx !! i) (xx !! i) /= 0)
-    then 0
-    else 1
--}
-
-
--- ##################################################################################################################
--- ##################################################################################################################
 
 {-
 checkSymmetry :: [String] -> TpAxle -> TpPosout -> Int -> IO ()
@@ -474,43 +209,15 @@ outletForcedSub aAI@(lowI, uppI) deg posI y _ i =
 
 reflForced :: TpAxle -> Int
 reflForced _ = 1
+-}
 
+-- ##################################################################################################################
+--   Reduce
+-- ##################################################################################################################
+reduce :: MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
+reduce = return "reduce end."
 
-checkCondition1 :: TpCond -> Int -> TpAxle -> Int -> Int -> Int -> IO Int
-checkCondition1 (nn, mm) deg aA@(low, upp, lev) n m nosym =
-  let ret = find (\x-> 1 <= x && x <= 2*deg) nn
-  in if isJust ret then return (nosym+1) else return nosym
-
-
-checkCondition2 :: TpCond -> TpAxle -> Int -> Int -> IO (TpCond, TpAxle)
-checkCondition2 (nn, mm) aA@(low, upp, lev) n m =
-  let low2 = low & ix (lev+1) .~ (low ^?! ix lev)
-      upp2 = upp & ix (lev+1) .~ (upp ^?! ix lev)
-      aLowN = (low2 ^?! ix lev) ^?! ix n
-      aUppN = (upp2 ^?! ix lev) ^?! ix n
-  in if m > 0     -- ★mark
-    then -- new lower bound
-      if aLowN >= m || m > aUppN
-        then
-          error "Invalid lower bound in condition"
-        else
-          let upp3 = upp2 & (ix lev     <<< ix n) .~ (m-1)
-              low3 = low2 & (ix (lev+1) <<< ix n) .~ m
-              nnn = (nn & ix lev .~ n) & ix (lev+1) .~ 0
-              mmm = (mm & ix lev .~ m) & ix (lev+1) .~ 0
-          in return ((nnn, mmm), (low3, upp3, lev))
-    else -- new upper bound
-      if aLowN > -m || -m >= aUppN
-        then
-          error "Invalid upper bound in condition"
-        else
-          let low3 = low2 & (ix lev     <<< ix n) .~ (1-m)
-              upp3 = upp2 & (ix (lev+1) <<< ix n) .~ (-m)
-              nnn = (nn & ix lev .~ n) & ix (lev+1) .~ 0
-              mmm = (mm & ix lev .~ m) & ix (lev+1) .~ 0
-          in return ((nnn, mmm), (low3, upp3, lev))
-
-
+{-
 reduce :: TpReducePack -> TpAxle -> IO (Bool, TpAxle, [Bool], TpVertices)
 reduce rP@(aStack@(aSLow, aSUpp, aSLev), _, _, _, _, _, _, _) aA@(low, upp, lev) =
   let aStack2Low = aSLow & ix 0 .~ (low ^?! ix lev)
@@ -718,14 +425,14 @@ addToList edgelist u v degree =
           edgelist
 
 
-subConf :: TpAdjmat -> TpVertices -> TpQuestion -> TpEdgelist -> TpConfPack -> TpConfPack
+subConf :: TpAdjmat -> TpVertices -> TpGoodConf -> TpEdgelist -> TpConfPack -> TpConfPack
 subConf adjmat degree question@(_, _, _, qXi) edgelist confPack =
   let qXi0 = head qXi
       qXi1 = qXi !! 1
       pedgeHead = ((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix 0
   in trace ("    (qXi0,qXi1,pedgeHead) = " ++ show (qXi0,qXi1,pedgeHead)) $ subConf' adjmat degree question edgelist confPack pedgeHead 1
 
-subConf' :: TpAdjmat -> TpVertices -> TpQuestion -> TpEdgelist -> TpConfPack -> Int -> Int -> TpConfPack
+subConf' :: TpAdjmat -> TpVertices -> TpGoodConf -> TpEdgelist -> TpConfPack -> Int -> Int -> TpConfPack
 subConf' adjmat degree question@(qU, qV, qZ, qXi) edgelist (retB, retH, used, image, _) pedgeHead i
   | i == pedgeHead + 1 = (False, retH, used, image, 0)
   | otherwise          =
@@ -745,7 +452,7 @@ subConf' adjmat degree question@(qU, qV, qZ, qXi) edgelist (retB, retH, used, im
         else
           subConf' adjmat degree question edgelist (retB2, retH, used2, image2, 0) pedgeHead (i+1)
 
-rootedSubConf :: TpVertices -> Int -> TpAdjmat -> TpQuestion -> Int -> Int -> Int -> Int -> TpConfPack -> TpConfPack
+rootedSubConf :: TpVertices -> Int -> TpAdjmat -> TpGoodConf -> Int -> Int -> Int -> Int -> TpConfPack -> TpConfPack
 rootedSubConf degree deg adjmat question@(qU, qV, qZ, qXi) x y clockwise j (retB, retH, used, image, _) = -- (True,  retH, used, image, 0)
   let used2  = replicate cartvert False
       image2 = replicate cartvert (-1) -- !!
@@ -776,7 +483,7 @@ rootedSubConf degree deg adjmat question@(qU, qV, qZ, qXi) x y clockwise j (retB
         else
           (True,  retH', used', image', 0)
 
-rootedSubConfSub1 :: TpAdjmat -> TpVertices -> TpQuestion -> Int -> TpConfPack -> Int -> TpConfPack
+rootedSubConfSub1 :: TpAdjmat -> TpVertices -> TpGoodConf -> Int -> TpConfPack -> Int -> TpConfPack
 rootedSubConfSub1 adjmat degree question@(qU, qV, qZ, qXi) clockwise (_, retH, used, image, _) q =
   let qUQ      = qU !! q
   in if qUQ < 0
@@ -824,6 +531,212 @@ getReduceN i redverts naxles image aStack@(aSLow, aSUpp, aSLev) bLow bUpp
                 aStack3Upp = aStack2Upp & (ix naxles <<< ix v) .~ (bUpp ^?! ix v - 1)
                 aStack2    = (aStack2Low, aStack3Upp, aSLev)
             in getReduceN (i + 1) redverts (naxles + 1) image aStack2 bLow bUpp
+-}
+-- ##################################################################################################################
+--   Hubcap
+-- ##################################################################################################################
+checkHubcap :: [String] -> TpAxle
+  -> RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO String
+checkHubcap strs ax@(axLow, axUpp, axLev) = do
+  -- 1. omitted
+  -- 2. omitted
+  -- 3. omitted
+  -- 4. omitted
+  -- 5.
+  (_, _, deg)     <- ask
+  (rP, posoutX)   <- get
+  let xyvList      = map read strs :: [(Int, Int, Int)]
+      s            = replicate (2 * maxoutlets + 1) 0
+      nouts        = difNouts !! deg
+      loop1 i      =
+        if i >= length xyvList then return "1. end."
+        else do
+          let (xi, yi, vi) = xyvList !! i
+          liftIO . putStrLn $ "\n-->Checking hubcap member " ++ show (xyvList !! i)
+          if xi /= yi then do
+            let posX = replicate nouts xi ++ replicate nouts yi
+            put (rP, posX)
+            ret <- runMaybeT $ checkBound (axLow !! axLev, axUpp !! axLev) (s & ix (2 * nouts) .~ 99) vi 0 0
+            liftIO $ print ret
+          else do
+            let posX = replicate nouts xi ++ replicate nouts 0
+            put (rP, posX)
+            ret <- runMaybeT $ checkBound (axLow !! axLev, axUpp !! axLev) (s & ix      nouts  .~ 99) vi 0 0
+            liftIO $ print ret
+          loop1 (i + 1)
+  loop1 0
+  return "checkHubcap end."
+
+
+checkBound :: TpAxleI -> [Int] -> Int -> Int -> Int
+  -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
+checkBound axL@(axLowL, axUppL) s0 maxch pos depth = do
+  (gConfs, rules, deg)                                              <- lift ask
+  (((aSLow, aSUpp, aSLev), used, image, adjmat, edgelist), posoutX) <- lift get
+
+  -- 1. compute forced and permitted rules, allowedch, forcedch, update s
+  let loop1 i forcedch allowedch retS =
+        if retS !! i >= 99 then
+          (forcedch, allowedch, retS)
+        else
+          let rVi       = (rules ^. _3) !! i
+              forcedch2 = if retS !! i > 0 then forcedch + rVi else forcedch
+              retF      = outletForced    axL (getPosoutI rules i) (posoutX !! i)
+              retP      = outletPermitted axL (getPosoutI rules i) (posoutX !! i)
+              (forcedch3, allowedch2, retS2)
+                | retS !! i /= 0 = (forcedch2,       allowedch,       retS)
+                | retF /= 0      = (forcedch2 + rVi, allowedch,       retS & ix i .~ 1)
+                | retP == 0      = (forcedch2,       allowedch,       retS & ix i .~ (-1))
+                | rVi > 0        = (forcedch2,       allowedch + rVi, retS)
+                | otherwise      = (forcedch2,       allowedch,       retS)
+          in loop1 (i + 1) forcedch3 allowedch2 retS2
+      (forcedch, allowedch, s) = loop1 0 0 0 s0
+
+  -- 2.
+  liftIO . putStr $ show depth ++ " POs: "
+  let loop2 i
+        | s !! i >= 99 = return ()
+        | s !! i < 0   = loop2 (i + 1)
+        | otherwise    = do
+            putStr $ if s !! i == 0 then "?" else ""
+            putStr $ show ((rules ^. _1) !! i) ++ "," ++ show (posoutX !! i) ++ " "
+            loop2 (i + 1)
+  liftIO $ loop2 0
+  liftIO $ putStrLn ""
+
+  -- 3. check if inequality holds
+  if forcedch + allowedch <= maxch then do
+    liftIO . putStrLn $ show depth ++ " Inequality holds. Case done."
+    empty -- 正常終了
+  else
+    liftIO $ putStr ""
+
+  -- 4. check reducibility
+  if forcedch > maxch then do
+    lift $ put (((aSLow & ix 0 .~ axLowL, aSUpp & ix 0 .~ axUppL, aSLev), used, image, adjmat, edgelist), posoutX)
+    ret <- lift $ runMaybeT reduce
+    if ret == Nothing then
+      error "Incorrect hubcap upper bound"
+    else do
+      liftIO . putStrLn $ show forcedch ++ " " ++ show allowedch ++ " " ++ show maxch
+                  ++ " Reducible. Case done."
+      empty -- 正常終了
+  else
+    liftIO $ putStr ""
+
+  -- 5.
+  let loop5 pos allowedch s --型がMaybeT
+        | s !! pos >= 99                            = return "5. end."
+        | s !! pos /= 0 || (rules ^. _3) !! pos < 0 = loop5 (pos + 1) allowedch s
+        | otherwise = do
+          let x                       = posoutX !! pos
+
+          -- 5.1. accepting positioned outlet PO, computing AA
+          let loop5_1 i axLowL axUppL =
+                if i >= (rules ^. _2) !! pos then
+                  (axLowL, axUppL)
+                else
+                  let p0      = ((rules ^. _4) !! pos) !! i
+                      p       = if (x - 1 + (p0 - 1)) `mod` deg < deg then p0 + x - 1 else p0 + x - 1 - deg
+                      lowPosI = ((rules ^. _5) !! pos) !! i
+                      uppPosI = ((rules ^. _6) !! pos) !! i
+                      (axLowL2, axUppL2)
+                        |      lowPosI > axLowL !! p  &&      uppPosI < axUppL !! p
+                            = (axLowL & ix p .~ lowPosI, axUppL & ix p .~ uppPosI)
+                        | not (lowPosI > axLowL !! p) &&      uppPosI < axUppL !! p
+                            = (axLowL                  , axUppL & ix p .~ uppPosI)
+                        |      lowPosI > axLowL !! p  && not (uppPosI < axUppL !! p)
+                            = (axLowL & ix p .~ lowPosI, axUppL                  )
+                        | not (lowPosI > axLowL !! p) && not (uppPosI < axUppL !! p)
+                            = (axLowL                  , axUppL                  )
+                  in if axLowL2 !! p > axUppL2 !! p then
+                    error "Unexpected error 321"
+                  else
+                    loop5_1 (i + 1) axLowL2 axUppL2
+              (axLowL2, axUppL2)      = loop5_1 0 axLowL axUppL
+
+          -- 5.2. Check if a previously rejected positioned outlet is forced to apply
+          let loop5_2 i =
+                if i >= pos then
+                  return 1
+                else do
+                  let retF = outletForced (axLowL2, axUppL2) (getPosoutI rules i) (posoutX !! i)
+                  if s !! i == -1 && retF /= 0 then do
+                    putStr $ show depth ++ " Positioned outlet "
+                    putStrLn $ show ((rules ^. _1) !! pos) ++ "," ++ show x
+                            ++ " can't be forced, because it forces "
+                            ++ show ((rules ^. _1) !! i)   ++ "," ++ show (posoutX !! i)
+                    return 0
+                  else
+                    loop5_2 (i + 1)
+          good2 <- liftIO $ loop5_2 0
+          let good = 0
+          if good /= 0 then do
+            -- recursion with PO forced
+            liftIO . putStrLn $ show depth ++ " Starting recursion with "
+            liftIO . putStrLn $ show ((rules ^. _1) !! pos) ++ ", " ++ show x ++ " forced"
+            lift . runMaybeT $ checkBound (axLowL2, axUppL2) (s & ix pos .~ 1) maxch (pos + 1) (depth + 1)
+            liftIO $ putStr ""
+          else
+            liftIO $ putStr ""
+
+          -- 5.3. rejecting positioned outlet PO
+          liftIO . putStrLn $ show depth ++ " Rejecting positioned outlet "
+          liftIO . putStrLn $ show ((rules ^. _1) !! pos) ++ ", " ++ show x
+          let s2         = s  & ix pos .~ (-1)
+              allowedch2 = allowedch - ((rules ^. _3) !! pos)
+          if allowedch2 + forcedch <= maxch then do
+            liftIO $ putStrLn "Inequality holds."
+            empty -- 正常終了
+          else
+            liftIO $ putStrLn ""
+          loop5 (pos + 1) allowedch2 s2
+  loop5 0 allowedch s
+
+  -- 6.
+  return "checkBound end." -- error "Unexpected error 101"
+
+
+-- ##################################################################################################################
+--   Condition
+-- ##################################################################################################################
+
+{-
+checkCondition1 :: TpCond -> Int -> TpAxle -> Int -> Int -> Int -> IO Int
+checkCondition1 (nn, mm) deg aA@(low, upp, lev) n m nosym =
+  let ret = find (\x-> 1 <= x && x <= 2*deg) nn
+  in if isJust ret then return (nosym+1) else return nosym
+
+
+checkCondition2 :: TpCond -> TpAxle -> Int -> Int -> IO (TpCond, TpAxle)
+checkCondition2 (nn, mm) aA@(low, upp, lev) n m =
+  let low2 = low & ix (lev+1) .~ (low ^?! ix lev)
+      upp2 = upp & ix (lev+1) .~ (upp ^?! ix lev)
+      aLowN = (low2 ^?! ix lev) ^?! ix n
+      aUppN = (upp2 ^?! ix lev) ^?! ix n
+  in if m > 0     -- ★mark
+    then -- new lower bound
+      if aLowN >= m || m > aUppN
+        then
+          error "Invalid lower bound in condition"
+        else
+          let upp3 = upp2 & (ix lev     <<< ix n) .~ (m-1)
+              low3 = low2 & (ix (lev+1) <<< ix n) .~ m
+              nnn = (nn & ix lev .~ n) & ix (lev+1) .~ 0
+              mmm = (mm & ix lev .~ m) & ix (lev+1) .~ 0
+          in return ((nnn, mmm), (low3, upp3, lev))
+    else -- new upper bound
+      if aLowN > -m || -m >= aUppN
+        then
+          error "Invalid upper bound in condition"
+        else
+          let low3 = low2 & (ix lev     <<< ix n) .~ (1-m)
+              upp3 = upp2 & (ix (lev+1) <<< ix n) .~ (-m)
+              nnn = (nn & ix lev .~ n) & ix (lev+1) .~ 0
+              mmm = (mm & ix lev .~ m) & ix (lev+1) .~ 0
+          in return ((nnn, mmm), (low3, upp3, lev))
+
+
 -}
 
 
