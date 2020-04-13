@@ -17,13 +17,12 @@ module Main where
 {-
 import Data.List (find)
 import Data.Maybe (fromJust, isJust)
-import Control.Arrow ((<<<))
-import Control.Lens ((&), (.~), ix, (^?!), _1, _2, _4, _5, _6, _7, (^.))
 import Debug.Trace (trace)
 import Lib (myLoop)
 -}
 import Control.Applicative       (empty)
-import Control.Lens              ((&), (.~), ix, _1, _2, _3, _4, _5, _6, (^.))
+import Control.Arrow             ((<<<))
+import Control.Lens              ((&), (.~), ix, (^?!), _1, _2, _3, _4, _5, _6, (^.))
 import Control.Monad.IO.Class    (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Maybe (MaybeT(..))
@@ -218,6 +217,58 @@ reduce :: MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO
 reduce = return "reduce end."
 
 {-
+getAdjmat :: (TpVertices, TpVertices, TpAdjmat) -> TpAdjmat
+getAdjmat (bLow, bUpp, _) =
+  let deg        = head bLow
+      adjmat     = replicate cartvert $ replicate cartvert (-1)
+      f n x cont = cont $ getAdjmatSub deg bUpp n x
+  in myLoop f id adjmat [1..deg]
+-}
+data Way = Forward | Backward deriving Eq
+chgAdjmat :: TpAdjmat -> Int -> Int -> Int -> Way -> TpAdjmat
+chgAdjmat adjmat a b c way =
+  if way == Forward then
+    let
+      adjmat2 = adjmat  & (ix a <<< ix b) .~ c
+      adjmat3 = adjmat2 & (ix c <<< ix a) .~ b
+      adjmat4 = adjmat3 & (ix b <<< ix c) .~ a
+    in adjmat4
+  else
+    let
+      adjmat2 = adjmat  & (ix a <<< ix b) .~ c
+      adjmat3 = adjmat2 & (ix b <<< ix c) .~ a
+      adjmat4 = adjmat3 & (ix c <<< ix a) .~ b
+    in adjmat4
+
+getAdjmatSub :: Int -> [Int] -> TpAdjmat -> Int -> TpAdjmat
+getAdjmatSub deg bUpp adjmat i =
+  let h       = if i == 1 then deg else i - 1
+      a       = deg + h
+      adjmat2 = chgAdjmat adjmat 0 h i Forward
+      adjmat3 = chgAdjmat adjmat2 i h a Forward
+  in if bUpp !! i < 9 then
+    doFan deg i (bUpp !! i) adjmat3
+  else
+    adjmat3
+
+doFan :: Int -> Int -> Int -> TpAdjmat -> TpAdjmat
+doFan deg i k adjmat =
+  let a       = if i == 1 then 2 * deg else deg + i - 1
+      b       = deg + i
+      c       = 2 * deg + i
+      adjmat2 = chgAdjmat adjmat i a c Backward
+      d       = 3 * deg + i
+      adjmat3 = chgAdjmat adjmat2 i c d Backward
+      e       = 4 * deg + i
+      adjmat4 = chgAdjmat adjmat3 i d e Backward
+      ret
+        | k == 5    = chgAdjmat adjmat  i a b Backward
+        | k == 6    = chgAdjmat adjmat2 i c b Backward
+        | k == 7    = chgAdjmat adjmat3 i d b Backward
+        | otherwise = chgAdjmat adjmat4 i e b Backward
+  in ret
+
+{-
 reduce :: TpReducePack -> TpAxle -> IO (Bool, TpAxle, [Bool], TpVertices)
 reduce rP@(aStack@(aSLow, aSUpp, aSLev), _, _, _, _, _, _, _) aA@(low, upp, lev) =
   let aStack2Low = aSLow & ix 0 .~ (low ^?! ix lev)
@@ -254,67 +305,6 @@ reduceSub rP@(aStack@(aSLow, aSUpp, aSLev), bLow, bUpp, adjmat, edgelist, used, 
         return (False, aStack, used', image')
 
 
-getAdjmat :: (TpVertices, TpVertices, TpAdjmat) -> TpAdjmat
-getAdjmat (bLow, bUpp, _) =
-  let deg        = head bLow
-      adjmat     = replicate cartvert $ replicate cartvert (-1)
-      f n x cont = cont $ getAdjmatSub deg bUpp n x
-  in myLoop f id adjmat [1..deg]
-
-data Way = Forward | Backward deriving Eq
-chgAdjmat :: TpAdjmat -> Int -> Int -> Int -> Way -> TpAdjmat
-chgAdjmat adjmat a b c way =
-  if way == Forward
-    then let
-      adjmat2 = adjmat  & (ix a <<< ix b) .~ c
-      adjmat3 = adjmat2 & (ix c <<< ix a) .~ b
-      adjmat4 = adjmat3 & (ix b <<< ix c) .~ a
-        in
-          adjmat4
-    else let
-      adjmat2 = adjmat  & (ix a <<< ix b) .~ c
-      adjmat3 = adjmat2 & (ix b <<< ix c) .~ a
-      adjmat4 = adjmat3 & (ix c <<< ix a) .~ b
-        in
-          adjmat4
-
-getAdjmatSub :: Int -> [Int] -> TpAdjmat -> Int -> TpAdjmat
-getAdjmatSub deg bUpp adjmat i =
-  let h       = if i == 1 then deg else i - 1
-      a       = deg + h
-      adjmat2 = chgAdjmat adjmat 0 h i Forward
-      adjmat3 = chgAdjmat adjmat2 i h a Forward
-  in if bUpp !! i < 9
-    then
-      doFan deg i (bUpp !! i) adjmat3
-    else
-      adjmat3
-
-doFan :: Int -> Int -> Int -> TpAdjmat -> TpAdjmat
-doFan deg i k adjmat =
-  let a = if i == 1 then 2 * deg else deg + i - 1
-      b = deg + i
-  in if k == 5    -- ★mark
-    then
-      chgAdjmat adjmat i a b Backward
-    else let
-      c = 2 * deg + i
-      adjmat2 = chgAdjmat adjmat i a c Backward
-        in if k == 6
-          then
-            chgAdjmat adjmat2 i c b Backward
-          else let
-            d = 3 * deg + i
-            adjmat3 = chgAdjmat adjmat2 i c d Backward
-              in if k == 7
-                then
-                  chgAdjmat adjmat3 i d b Backward
-                else let
-                  e = 4 * deg + i
-                  adjmat4 = chgAdjmat adjmat3 i d e Backward
-                  adjmat5 = chgAdjmat adjmat4 i e b Backward
-                    in
-                      adjmat5
 
 
 getEdgelist :: (TpVertices, TpVertices, TpEdgelist) -> TpEdgelist
@@ -345,86 +335,65 @@ getEdgelist (bLow, bUpp, edgelist) =
     deg        = head bUpp
     f n x cont = cont $ getEdgelistSub bLow bUpp n deg x
   in myLoop f id edgelist23 [1..deg]
+-}
 
 getEdgelistSub :: TpVertices -> TpVertices -> TpEdgelist -> Int -> Int -> TpEdgelist
 getEdgelistSub bLow bUpp edgelist deg i =
   let
-    edgelist2 = addToList edgelist 0 i bUpp
-    h = if i == 1 then deg else i - 1
-    edgelist3 = addToList edgelist2 i h bUpp
-    a = deg + h
-    b = deg + i
-    edgelist4 = addToList edgelist3 i a bUpp
-    edgelist5 = addToList edgelist4 i b bUpp
-    bLowI = bLow !! i
-    bUppI = bUpp !! i
-  in if bLowI /= bUppI    -- ★mark
-    then
-      edgelist5
-    else
-      -- in this case we are not interested in the fan edges
-      if bUppI == 5
-        then
-          addToList edgelist5 a b bUpp
-        else let
-          c = 2 * deg + i
-          edgelist6 = addToList edgelist5 a c bUpp
-          edgelist7 = addToList edgelist6 i c bUpp
-            in if bUppI == 6
-              then
-                addToList edgelist7 b c bUpp
-              else let
-                d = 3 * deg + i;
-                edgelist8 = addToList edgelist7 c d bUpp
-                edgelist9 = addToList edgelist8 i d bUpp
-                  in if bUppI == 7
-                    then
-                      addToList edgelist9 b d bUpp
-                    else
-                      if bUppI == 8
-                        then let
-                          e = 4 * deg + i
-                          edgelist10 = addToList edgelist9 d e bUpp
-                          edgelist11 = addToList edgelist10 i e bUpp
-                            in
-                              addToList edgelist11 b e bUpp
-                        else
-                          error "Unexpected error in `GetEdgeList'"
+    edgelist2  = addToList edgelist   0 i bUpp
+    h          = if i == 1 then deg else i - 1
+    edgelist3  = addToList edgelist2  i h bUpp
+    a          = deg + h
+    b          = deg + i
+    edgelist4  = addToList edgelist3  i a bUpp
+    edgelist5  = addToList edgelist4  i b bUpp
+    bLowI      = bLow !! i
+    bUppI      = bUpp !! i
+    c          = 2 * deg + i
+    edgelist6  = addToList edgelist5  a c bUpp
+    edgelist7  = addToList edgelist6  i c bUpp
+    d          = 3 * deg + i;
+    edgelist8  = addToList edgelist7  c d bUpp
+    edgelist9  = addToList edgelist8  i d bUpp
+    e          = 4 * deg + i
+    edgelist10 = addToList edgelist9  d e bUpp
+    edgelist11 = addToList edgelist10 i e bUpp
+    ret
+      | bLowI /= bUppI = edgelist5
+      | bUppI == 5     = addToList edgelist5 a b bUpp
+      | bUppI == 6     = addToList edgelist5 b c bUpp
+      | bUppI == 7     = addToList edgelist5 b d bUpp
+      | bUppI == 8     = addToList edgelist5 b e bUpp
+      | otherwise      = error "Unexpected error in `GetEdgeList'"
+  in ret
 
 -- adds the pair u,v to edgelist
 addToList :: TpEdgelist -> Int -> Int -> TpVertices -> TpEdgelist
 addToList edgelist u v degree =
-  let a = degree !! u
-      b = degree !! v
-  in if a >= b && b <= 8 && a <= 11 && (a <= 8 || u == 0)   -- ★mark
-    then let
-      eHead  = (((edgelist ^?! ix a) ^?! ix b) ^?! ix 0)
-        in if eHead + 2 >= maxelist
-          then
-            error "More than %d entries in edgelist needed"
-          else let
-            edgelist2 = edgelist  & (ix a <<< ix b <<< ix 0)           .~ (eHead + 1)
-            edgelist3 = edgelist2 & (ix a <<< ix b <<< ix (eHead + 1)) .~ u
-            edgelist4 = edgelist3 & (ix a <<< ix b <<< ix 0)           .~ (eHead + 2)
-              in
-                edgelist4 & (ix a <<< ix b <<< ix (eHead + 2)) .~ v
-    else
-      if b >= a && a <= 8 && b <= 11 && (b <= 8 || v == 0)
-        then let
-          eHead  = (((edgelist ^?! ix b) ^?! ix a) ^?! ix 0)
-            in if eHead + 2 >= maxelist
-              then
-                error "More than %d entries in edgelist needed"
-              else let
-                edgelist2 = edgelist  & (ix b <<< ix a <<< ix 0)           .~ (eHead + 1)
-                edgelist3 = edgelist2 & (ix b <<< ix a <<< ix (eHead + 1)) .~ v
-                edgelist4 = edgelist3 & (ix b <<< ix a <<< ix 0)           .~ (eHead + 2)
-                  in
-                    edgelist4 & (ix b <<< ix a <<< ix (eHead + 2)) .~ u
-        else
-          edgelist
+  let
+    a           = degree !! u
+    b           = degree !! v
+    eHead1      = (((edgelist ^?! ix a) ^?! ix b) ^?! ix 0)
+    edgelist1_2 = edgelist    & (ix a <<< ix b <<< ix 0)            .~ (eHead1 + 1)
+    edgelist1_3 = edgelist1_2 & (ix a <<< ix b <<< ix (eHead1 + 1)) .~ u
+    edgelist1_4 = edgelist1_3 & (ix a <<< ix b <<< ix 0)            .~ (eHead1 + 2)
+    bool1       = a >= b && b <= 8 && a <= 11 && (a <= 8 || u == 0)
+    bool1_1     = eHead1 + 2 >= maxelist
+    eHead2      = (((edgelist ^?! ix b) ^?! ix a) ^?! ix 0)
+    edgelist2_2 = edgelist    & (ix b <<< ix a <<< ix 0)            .~ (eHead2 + 1)
+    edgelist2_3 = edgelist2_2 & (ix b <<< ix a <<< ix (eHead2 + 1)) .~ v
+    edgelist2_4 = edgelist2_3 & (ix b <<< ix a <<< ix 0)            .~ (eHead2 + 2)
+    bool2       = b >= a && a <= 8 && b <= 11 && (b <= 8 || v == 0)
+    bool2_1     = eHead2 + 2 >= maxelist
+    ret
+      | bool1 &&     bool1_1 = error "More than %d entries in edgelist needed"
+      | bool1 && not bool1_1 = edgelist1_4 & (ix a <<< ix b <<< ix (eHead1 + 2)) .~ v
+      | bool2 &&     bool2_1 = error "More than %d entries in edgelist needed"
+      | bool2 && not bool2_1 = edgelist2_4 & (ix b <<< ix a <<< ix (eHead2 + 2)) .~ u
+      | otherwise            = edgelist
+  in ret
 
-
+{-
 subConf :: TpAdjmat -> TpVertices -> TpGoodConf -> TpEdgelist -> TpConfPack -> TpConfPack
 subConf adjmat degree question@(_, _, _, qXi) edgelist confPack =
   let qXi0 = head qXi
