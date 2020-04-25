@@ -214,59 +214,10 @@ reflForced _ = 1
 --   Reduce
 -- ##################################################################################################################
 reduce :: MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
-reduce = return "reduce end."
-
-{-
-getAdjmat :: (TpVertices, TpVertices, TpAdjmat) -> TpAdjmat
-getAdjmat (bLow, bUpp, _) =
-  let deg        = head bLow
-      adjmat     = replicate cartvert $ replicate cartvert (-1)
-      f n x cont = cont $ getAdjmatSub deg bUpp n x
-  in myLoop f id adjmat [1..deg]
--}
-data Way = Forward | Backward deriving Eq
-chgAdjmat :: TpAdjmat -> Int -> Int -> Int -> Way -> TpAdjmat
-chgAdjmat adjmat a b c way =
-  if way == Forward then
-    let
-      adjmat2 = adjmat  & (ix a <<< ix b) .~ c
-      adjmat3 = adjmat2 & (ix c <<< ix a) .~ b
-      adjmat4 = adjmat3 & (ix b <<< ix c) .~ a
-    in adjmat4
-  else
-    let
-      adjmat2 = adjmat  & (ix a <<< ix b) .~ c
-      adjmat3 = adjmat2 & (ix b <<< ix c) .~ a
-      adjmat4 = adjmat3 & (ix c <<< ix a) .~ b
-    in adjmat4
-
-getAdjmatSub :: Int -> [Int] -> TpAdjmat -> Int -> TpAdjmat
-getAdjmatSub deg bUpp adjmat i =
-  let h       = if i == 1 then deg else i - 1
-      a       = deg + h
-      adjmat2 = chgAdjmat adjmat 0 h i Forward
-      adjmat3 = chgAdjmat adjmat2 i h a Forward
-  in if bUpp !! i < 9 then
-    doFan deg i (bUpp !! i) adjmat3
-  else
-    adjmat3
-
-doFan :: Int -> Int -> Int -> TpAdjmat -> TpAdjmat
-doFan deg i k adjmat =
-  let a       = if i == 1 then 2 * deg else deg + i - 1
-      b       = deg + i
-      c       = 2 * deg + i
-      adjmat2 = chgAdjmat adjmat i a c Backward
-      d       = 3 * deg + i
-      adjmat3 = chgAdjmat adjmat2 i c d Backward
-      e       = 4 * deg + i
-      adjmat4 = chgAdjmat adjmat3 i d e Backward
-      ret
-        | k == 5    = chgAdjmat adjmat  i a b Backward
-        | k == 6    = chgAdjmat adjmat2 i c b Backward
-        | k == 7    = chgAdjmat adjmat3 i d b Backward
-        | otherwise = chgAdjmat adjmat4 i e b Backward
-  in ret
+reduce = do
+  (gConfs, rules, deg)                                              <- lift ask
+  (((aSLow, aSUpp, aSLev), used, image, adjmat, edgelist), posoutX) <- lift get
+  return "reduce end."
 
 {-
 reduce :: TpReducePack -> TpAxle -> IO (Bool, TpAxle, [Bool], TpVertices)
@@ -304,38 +255,111 @@ reduceSub rP@(aStack@(aSLow, aSUpp, aSLev), bLow, bUpp, adjmat, edgelist, used, 
         putStrLn "    Not reducible"
         return (False, aStack, used', image')
 
-
-
-
-getEdgelist :: (TpVertices, TpVertices, TpEdgelist) -> TpEdgelist
-getEdgelist (bLow, bUpp, edgelist) =
-  let
-    edgelist2  =  edgelist  & (ix 5  <<< ix 5 <<< ix 0) .~ 0
-    edgelist3  =  edgelist2 & (ix 6  <<< ix 5 <<< ix 0) .~ 0
-    edgelist4  =  edgelist3 & (ix 6  <<< ix 6 <<< ix 0) .~ 0
-    edgelist5  =  edgelist4 & (ix 7  <<< ix 5 <<< ix 0) .~ 0
-    edgelist6  =  edgelist5 & (ix 7  <<< ix 6 <<< ix 0) .~ 0
-    edgelist7  =  edgelist6 & (ix 7  <<< ix 7 <<< ix 0) .~ 0
-    edgelist8  =  edgelist7 & (ix 8  <<< ix 5 <<< ix 0) .~ 0
-    edgelist9  =  edgelist8 & (ix 8  <<< ix 6 <<< ix 0) .~ 0
-    edgelist10 =  edgelist9 & (ix 8  <<< ix 7 <<< ix 0) .~ 0
-    edgelist11 = edgelist10 & (ix 8  <<< ix 8 <<< ix 0) .~ 0
-    edgelist12 = edgelist11 & (ix 9  <<< ix 5 <<< ix 0) .~ 0
-    edgelist13 = edgelist12 & (ix 9  <<< ix 6 <<< ix 0) .~ 0
-    edgelist14 = edgelist13 & (ix 9  <<< ix 7 <<< ix 0) .~ 0
-    edgelist15 = edgelist14 & (ix 9  <<< ix 8 <<< ix 0) .~ 0
-    edgelist16 = edgelist15 & (ix 10 <<< ix 5 <<< ix 0) .~ 0
-    edgelist17 = edgelist16 & (ix 10 <<< ix 6 <<< ix 0) .~ 0
-    edgelist18 = edgelist17 & (ix 10 <<< ix 7 <<< ix 0) .~ 0
-    edgelist19 = edgelist18 & (ix 10 <<< ix 8 <<< ix 0) .~ 0
-    edgelist20 = edgelist19 & (ix 11 <<< ix 5 <<< ix 0) .~ 0
-    edgelist21 = edgelist20 & (ix 11 <<< ix 6 <<< ix 0) .~ 0
-    edgelist22 = edgelist21 & (ix 11 <<< ix 7 <<< ix 0) .~ 0
-    edgelist23 = edgelist22 & (ix 11 <<< ix 8 <<< ix 0) .~ 0
-    deg        = head bUpp
-    f n x cont = cont $ getEdgelistSub bLow bUpp n deg x
-  in myLoop f id edgelist23 [1..deg]
+getReduceN :: Int -> Int -> Int -> TpVertices -> TpAxle -> [Int] -> [Int] -> (Int, TpAxle)
+getReduceN i redverts naxles image aStack@(aSLow, aSUpp, aSLev) bLow bUpp
+  | i > redverts = (naxles, aStack)
+  | otherwise    =
+    let v = image !! i
+    in if bLow !! v == bUpp !! v
+      then
+        getReduceN (i + 1) redverts naxles image aStack bLow bUpp
+      else
+        if naxles >= maxstack
+          then
+            error "More than %d elements in axle stack needed"
+          else
+            let aStack2Low = aSLow & ix naxles .~ bLow
+                aStack2Upp = aSUpp & ix naxles .~ bUpp
+                aStack3Upp = aStack2Upp & (ix naxles <<< ix v) .~ (bUpp ^?! ix v - 1)
+                aStack2    = (aStack2Low, aStack3Upp, aSLev)
+            in getReduceN (i + 1) redverts (naxles + 1) image aStack2 bLow bUpp
 -}
+
+
+getAdjmat :: TpAxleI -> Int -> TpAdjmat
+getAdjmat axL@(_, axUppL) deg =
+  let adjmat         = replicate cartvert $ replicate cartvert (-1)
+      loop1 i adjmat =
+        if i > deg then adjmat
+        else
+          let adjmat2 = getAdjmatSub deg axUppL adjmat i
+          in loop1 (i + 1) adjmat2
+  in loop1 1 adjmat
+
+data Way = Forward | Backward deriving Eq
+chgAdjmat :: TpAdjmat -> Int -> Int -> Int -> Way -> TpAdjmat
+chgAdjmat adjmat a b c way =
+  if way == Forward then
+    let adjmat2 = adjmat  & (ix a <<< ix b) .~ c
+        adjmat3 = adjmat2 & (ix c <<< ix a) .~ b
+        adjmat4 = adjmat3 & (ix b <<< ix c) .~ a
+    in adjmat4
+  else
+    let adjmat2 = adjmat  & (ix a <<< ix b) .~ c
+        adjmat3 = adjmat2 & (ix b <<< ix c) .~ a
+        adjmat4 = adjmat3 & (ix c <<< ix a) .~ b
+    in adjmat4
+
+getAdjmatSub :: Int -> [Int] -> TpAdjmat -> Int -> TpAdjmat
+getAdjmatSub deg bUpp adjmat i =
+  let h       = if i == 1 then deg else i - 1
+      a       = deg + h
+      adjmat2 = chgAdjmat adjmat 0 h i Forward
+      adjmat3 = chgAdjmat adjmat2 i h a Forward
+  in if bUpp !! i < 9 then
+    doFan deg i (bUpp !! i) adjmat3
+  else
+    adjmat3
+
+doFan :: Int -> Int -> Int -> TpAdjmat -> TpAdjmat
+doFan deg i k adjmat =
+  let a       = if i == 1 then 2 * deg else deg + i - 1
+      b       = deg + i
+      c       = 2 * deg + i
+      adjmat2 = chgAdjmat adjmat i a c Backward
+      d       = 3 * deg + i
+      adjmat3 = chgAdjmat adjmat2 i c d Backward
+      e       = 4 * deg + i
+      adjmat4 = chgAdjmat adjmat3 i d e Backward
+      ret
+        | k == 5    = chgAdjmat adjmat  i a b Backward
+        | k == 6    = chgAdjmat adjmat2 i c b Backward
+        | k == 7    = chgAdjmat adjmat3 i d b Backward
+        | otherwise = chgAdjmat adjmat4 i e b Backward
+  in ret
+
+
+getEdgelist :: TpAxleI -> TpEdgelist -> Int -> TpEdgelist
+getEdgelist axL@(axLowL, axUppL) edgelist deg =
+  let
+    edgelist2        =  edgelist  & (ix 5  <<< ix 5 <<< ix 0) .~ 0
+    edgelist3        =  edgelist2 & (ix 6  <<< ix 5 <<< ix 0) .~ 0
+    edgelist4        =  edgelist3 & (ix 6  <<< ix 6 <<< ix 0) .~ 0
+    edgelist5        =  edgelist4 & (ix 7  <<< ix 5 <<< ix 0) .~ 0
+    edgelist6        =  edgelist5 & (ix 7  <<< ix 6 <<< ix 0) .~ 0
+    edgelist7        =  edgelist6 & (ix 7  <<< ix 7 <<< ix 0) .~ 0
+    edgelist8        =  edgelist7 & (ix 8  <<< ix 5 <<< ix 0) .~ 0
+    edgelist9        =  edgelist8 & (ix 8  <<< ix 6 <<< ix 0) .~ 0
+    edgelist10       =  edgelist9 & (ix 8  <<< ix 7 <<< ix 0) .~ 0
+    edgelist11       = edgelist10 & (ix 8  <<< ix 8 <<< ix 0) .~ 0
+    edgelist12       = edgelist11 & (ix 9  <<< ix 5 <<< ix 0) .~ 0
+    edgelist13       = edgelist12 & (ix 9  <<< ix 6 <<< ix 0) .~ 0
+    edgelist14       = edgelist13 & (ix 9  <<< ix 7 <<< ix 0) .~ 0
+    edgelist15       = edgelist14 & (ix 9  <<< ix 8 <<< ix 0) .~ 0
+    edgelist16       = edgelist15 & (ix 10 <<< ix 5 <<< ix 0) .~ 0
+    edgelist17       = edgelist16 & (ix 10 <<< ix 6 <<< ix 0) .~ 0
+    edgelist18       = edgelist17 & (ix 10 <<< ix 7 <<< ix 0) .~ 0
+    edgelist19       = edgelist18 & (ix 10 <<< ix 8 <<< ix 0) .~ 0
+    edgelist20       = edgelist19 & (ix 11 <<< ix 5 <<< ix 0) .~ 0
+    edgelist21       = edgelist20 & (ix 11 <<< ix 6 <<< ix 0) .~ 0
+    edgelist22       = edgelist21 & (ix 11 <<< ix 7 <<< ix 0) .~ 0
+    edgelist23       = edgelist22 & (ix 11 <<< ix 8 <<< ix 0) .~ 0
+    loop1 i edgelist =
+      if i > deg then edgelist
+      else
+        let edgelist2 = getEdgelistSub axLowL axUppL edgelist deg i
+        in loop1 (i + 1) edgelist2
+  in loop1 1 edgelist23
 
 getEdgelistSub :: TpVertices -> TpVertices -> TpEdgelist -> Int -> Int -> TpEdgelist
 getEdgelistSub bLow bUpp edgelist deg i =
@@ -480,26 +504,6 @@ rootedSubConfSub2 used deg j =
       usedD = used !! (deg + j);
       usedC = used !! cc
   in not usedJ && usedD && usedC
-
-
-getReduceN :: Int -> Int -> Int -> TpVertices -> TpAxle -> [Int] -> [Int] -> (Int, TpAxle)
-getReduceN i redverts naxles image aStack@(aSLow, aSUpp, aSLev) bLow bUpp
-  | i > redverts = (naxles, aStack)
-  | otherwise    =
-    let v = image !! i
-    in if bLow !! v == bUpp !! v
-      then
-        getReduceN (i + 1) redverts naxles image aStack bLow bUpp
-      else
-        if naxles >= maxstack
-          then
-            error "More than %d elements in axle stack needed"
-          else
-            let aStack2Low = aSLow & ix naxles .~ bLow
-                aStack2Upp = aSUpp & ix naxles .~ bUpp
-                aStack3Upp = aStack2Upp & (ix naxles <<< ix v) .~ (bUpp ^?! ix v - 1)
-                aStack2    = (aStack2Low, aStack3Upp, aSLev)
-            in getReduceN (i + 1) redverts (naxles + 1) image aStack2 bLow bUpp
 -}
 -- ##################################################################################################################
 --   Hubcap
