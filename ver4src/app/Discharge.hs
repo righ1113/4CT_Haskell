@@ -23,6 +23,7 @@ import Lib (myLoop)
 import Control.Applicative       (empty)
 import Control.Arrow             ((<<<))
 import Control.Lens              ((&), (.~), ix, (^?!), _1, _2, _3, _4, _5, _6, (^.))
+--import Data.Maybe                (fromJust)
 import Control.Monad.IO.Class    (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Maybe (MaybeT(..))
@@ -36,7 +37,7 @@ cartvert   = 5 * maxval + 2 -- domain of l_A, u_A, where A is an axle
 infty      = 12             -- the "12" in the definition of limited part
 maxoutlets = 110            -- max number of outlets
 maxelist   = 134            -- length of edgelist[a][b]
-maxstack   = 5              -- max height of Astack (see "Reduce")
+maxastack  = 5              -- max height of Astack (see "Reduce")
 maxlev     = 12             -- max level of an input line + 1
 difNouts   = [0, 0, 0, 0, 0, 0, 0, 103, 103, 103, 103, 103]
 
@@ -217,7 +218,71 @@ reduce :: MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO
 reduce = do
   (gConfs, rules, deg)                                              <- lift ask
   (((aSLow, aSUpp, aSLev), used, image, adjmat, edgelist), posoutX) <- lift get
-  return "reduce end."
+
+  -- 1.
+  let noconf = 633
+      loop1 naxles --型がMaybeT
+        | naxles <= 0 || naxles >= maxastack      = return "1. end."
+        | otherwise = do
+
+          -- 1.1.
+          (liftIO . putStr) "Axle from stack:"
+          let naxles2   = naxles - 1
+              adjmat2   = getAdjmat   (aSLow !! aSLev, aSUpp !! aSLev)          deg
+              edgelist2 = getEdgelist (aSLow !! aSLev, aSUpp !! aSLev) edgelist deg
+          (lift . put) (((aSLow, aSUpp, aSLev), used, image, adjmat2, edgelist2), posoutX)
+
+          -- 1.2.
+          let loop1_2 h k = --型がMaybeT
+                if h >= noconf then do
+                  -- どのみち、ループ終了後異常終了だから、ここで落とす
+                  (liftIO . putStrLn) "Not reducible."
+                  (return . show) h --empty
+                else do
+                  retSC <- (lift . runMaybeT) subConf
+                  if retSC == Nothing then
+                    (return . show) h -- 正常終了
+                  else
+                    loop1_2 (h + 1) k -- 再帰
+          ret1_2         <- loop1_2 0 7
+          let h           = read ret1_2 :: Int
+              redverts    = ((gConfs !! h) ^. _1) !! 1
+              redring     = ((gConfs !! h) ^. _2) !! 1
+
+          -- 1.3. omitted
+          --if (conf != NULL)
+          --  CheckIso(conf[h], B, image, lineno);
+          -- Double-check isomorphism
+
+          -- 1.4.
+          let loop1_4 i n up = -- IO
+                let v      = image !! i
+                    aSLowV = aSLow !! aSLev !! v
+                    aSUppV =    up !! aSLev !! v
+                in if i > redverts then
+                  return (n, up)
+                else
+                  if aSLowV == aSUppV then
+                    loop1_4 (i + 1) n up
+                  else do
+                    putStr     "Lowering upper bound of vertex "
+                    putStrLn $ show v
+                                ++ " to "
+                                ++ show aSUppV
+                                ++ " and adding to stack"
+                    if n >= maxastack then
+                      error "More than %d elements in axle stack needed"
+                    else
+                      loop1_4 (i + 1) (n + 1) (aSUpp & (ix aSLev <<< ix v) .~ (aSUppV - 1))
+          (naxles3, aSUpp2) <- liftIO $ loop1_4 (redring + 1) naxles2 aSUpp
+          (lift . put) (((aSLow, aSUpp2, aSLev), used, image, adjmat2, edgelist2), posoutX)
+
+          -- 1.5. 再帰
+          loop1 naxles3
+  loop1 1
+
+  -- 2.
+  return "reduce end." -- 正常終了
 
 {-
 reduce :: TpReducePack -> TpAxle -> IO (Bool, TpAxle, [Bool], TpVertices)
@@ -264,7 +329,7 @@ getReduceN i redverts naxles image aStack@(aSLow, aSUpp, aSLev) bLow bUpp
       then
         getReduceN (i + 1) redverts naxles image aStack bLow bUpp
       else
-        if naxles >= maxstack
+        if naxles >= maxastack
           then
             error "More than %d elements in axle stack needed"
           else
@@ -417,6 +482,9 @@ addToList edgelist u v degree =
       | otherwise            = edgelist
   in ret
 
+
+subConf :: MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
+subConf = return "subConf end."
 {-
 subConf :: TpAdjmat -> TpVertices -> TpGoodConf -> TpEdgelist -> TpConfPack -> TpConfPack
 subConf adjmat degree question@(_, _, _, qXi) edgelist confPack =
@@ -673,7 +741,6 @@ checkBound axL@(axLowL, axUppL) s0 maxch pos depth = do
 -- ##################################################################################################################
 --   Condition
 -- ##################################################################################################################
-
 {-
 checkCondition1 :: TpCond -> Int -> TpAxle -> Int -> Int -> Int -> IO Int
 checkCondition1 (nn, mm) deg aA@(low, upp, lev) n m nosym =
