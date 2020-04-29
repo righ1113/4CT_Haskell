@@ -160,6 +160,7 @@ mainLoop (nn, mm) sym nosym ax@(axLow, axUpp, axLev) tactics
         _   -> error "Invalid instruction"
 
 
+
 -- ##################################################################################################################
 --   Symmetry
 -- ##################################################################################################################
@@ -169,7 +170,6 @@ getPosoutI (num, nol, val, pos, low, upp) i
 
 outletForced :: TpAxleI -> TpPosoutI -> Int -> Int
 outletForced axL@(axLowL, axUppL) (numI, nolI, valI, posI, lowI, uppI) pXI = 66
-
 
 outletPermitted :: TpAxleI -> TpPosoutI -> Int -> Int
 outletPermitted axL@(axLowL, axUppL) (numI, nolI, valI, posI, lowI, uppI) pXI = 67
@@ -211,6 +211,8 @@ reflForced :: TpAxle -> Int
 reflForced _ = 1
 -}
 
+
+
 -- ##################################################################################################################
 --   Reduce
 -- ##################################################################################################################
@@ -239,15 +241,15 @@ reduce = do
                   (liftIO . putStrLn) "Not reducible."
                   (return . show) h --empty
                 else do
-                  retSC <- (lift . runMaybeT) subConf
+                  retSC <- lift . runMaybeT $ subConf (aSLow !! aSLev, aSUpp !! aSLev) (gConfs !! h)
                   if retSC == Nothing then
                     (return . show) h -- 正常終了
                   else
                     loop1_2 (h + 1) k -- 再帰
-          ret1_2         <- loop1_2 0 7
-          let h           = read ret1_2 :: Int
-              redverts    = ((gConfs !! h) ^. _1) !! 1
-              redring     = ((gConfs !! h) ^. _2) !! 1
+          ret1_2      <- loop1_2 0 7
+          let h        = read ret1_2 :: Int
+              redverts = ((gConfs !! h) ^. _1) !! 1
+              redring  = ((gConfs !! h) ^. _2) !! 1
 
           -- 1.3. omitted
           --if (conf != NULL)
@@ -283,62 +285,6 @@ reduce = do
 
   -- 2.
   return "reduce end." -- 正常終了
-
-{-
-reduce :: TpReducePack -> TpAxle -> IO (Bool, TpAxle, [Bool], TpVertices)
-reduce rP@(aStack@(aSLow, aSUpp, aSLev), _, _, _, _, _, _, _) aA@(low, upp, lev) =
-  let aStack2Low = aSLow & ix 0 .~ (low ^?! ix lev)
-      aStack2Upp = aSUpp & ix 0 .~ (upp ^?! ix lev)
-      aStack2    = (aStack2Low, aStack2Upp, aSLev)
-  in do {putStrLn "  Testing reducibility. Putting input axle on stack."; reduceSub (rP & _1 .~ aStack2) aA 1}
-
-reduceSub :: TpReducePack -> TpAxle -> Int -> IO (Bool, TpAxle, [Bool], TpVertices)
-reduceSub rP@(aStack@(aSLow, aSUpp, aSLev), bLow, bUpp, adjmat, edgelist, used, image, redquestions) aA naxles
-  | naxles <= 0 = do {putStrLn "  All possibilities for lower degrees tested"; return (True, aStack, used, image)}
-  | otherwise   = do
-    let noconf    = 633 -- 好配置の個数
-    let bLow2     = aSLow !! (naxles - 1)
-    let bUpp2     = aSUpp !! (naxles - 1)
-    let adjmat2   = getAdjmat (bLow2, bUpp2, adjmat)
-    let edgelist2 = getEdgelist (bLow2, bUpp2, edgelist)
-    -- subConfが一度もTrueを返さなかったら、Not reducible
-    let f n@(retB, retH, _, _, _) x cont
-          | retB      = n
-          | otherwise = cont $ subConf adjmat2 bUpp2 (redquestions !! x) edgelist2 (n & _2 .~ (retH+1))
-    let (retB, retH, used', image', _) = myLoop f id (False, 0, used, image, 0) [0..(noconf-1)]
-    if retB
-      then do
-        putStrLn "    pass subConf."
-        -- Semi-reducibility test found h-th configuration, say K, appearing
-        let redverts = ((redquestions !! retH) ^. _1) !! 1
-        let redring  = ((redquestions !! retH) ^. _2) !! 1
-        -- the above are no vertices and ring-size of free completion of K
-        -- could not use conf[h][0][0], because conf may be NULL
-        let (retN, aStack') = getReduceN (redring + 1) redverts (naxles - 1) image' aStack bLow2 bUpp2
-        reduceSub (((((rP & _1 .~ aStack') & _4 .~ adjmat2) & _5 .~ edgelist2) & _6 .~ used') & _7 .~ image') aA retN
-      else do
-        putStrLn "    Not reducible"
-        return (False, aStack, used', image')
-
-getReduceN :: Int -> Int -> Int -> TpVertices -> TpAxle -> [Int] -> [Int] -> (Int, TpAxle)
-getReduceN i redverts naxles image aStack@(aSLow, aSUpp, aSLev) bLow bUpp
-  | i > redverts = (naxles, aStack)
-  | otherwise    =
-    let v = image !! i
-    in if bLow !! v == bUpp !! v
-      then
-        getReduceN (i + 1) redverts naxles image aStack bLow bUpp
-      else
-        if naxles >= maxastack
-          then
-            error "More than %d elements in axle stack needed"
-          else
-            let aStack2Low = aSLow & ix naxles .~ bLow
-                aStack2Upp = aSUpp & ix naxles .~ bUpp
-                aStack3Upp = aStack2Upp & (ix naxles <<< ix v) .~ (bUpp ^?! ix v - 1)
-                aStack2    = (aStack2Low, aStack3Upp, aSLev)
-            in getReduceN (i + 1) redverts (naxles + 1) image aStack2 bLow bUpp
--}
 
 
 getAdjmat :: TpAxleI -> Int -> TpAdjmat
@@ -483,96 +429,87 @@ addToList edgelist u v degree =
   in ret
 
 
-subConf :: MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
-subConf = return "subConf end."
-{-
-subConf :: TpAdjmat -> TpVertices -> TpGoodConf -> TpEdgelist -> TpConfPack -> TpConfPack
-subConf adjmat degree question@(_, _, _, qXi) edgelist confPack =
-  let qXi0 = head qXi
-      qXi1 = qXi !! 1
+subConf :: TpAxleI -> TpGoodConf -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
+subConf axL@(_, axUppL) gC@(_, _, _, qXi) = do
+
+  (gConfs, rules, deg)                                              <- lift ask
+  (((aSLow, aSUpp, aSLev), used, image, adjmat, edgelist), posoutX) <- lift get
+
+  -- 1.
+  let qXi0      = head qXi
+      qXi1      = qXi !! 1
       pedgeHead = ((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix 0
-  in trace ("    (qXi0,qXi1,pedgeHead) = " ++ show (qXi0,qXi1,pedgeHead)) $ subConf' adjmat degree question edgelist confPack pedgeHead 1
+      loop1 i   = -- MaybeT
+        if i >= pedgeHead + 1 then
+          return "subConf end." -- 失敗終了
+        else do
+          let x = ((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix (i + 1)
+              y = ((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix (i + 1)
+          ret1 <- lift . runMaybeT $ rootedSubConf axUppL gC x y 1 1
+          ret2 <- lift . runMaybeT $ rootedSubConf axUppL gC x y 0 1
+          if ret1 == Nothing && ret2 == Nothing then loop1 (i + 2) -- 再帰
+          else empty            -- 正常終了
+  loop1 1
 
-subConf' :: TpAdjmat -> TpVertices -> TpGoodConf -> TpEdgelist -> TpConfPack -> Int -> Int -> TpConfPack
-subConf' adjmat degree question@(qU, qV, qZ, qXi) edgelist (retB, retH, used, image, _) pedgeHead i
-  | i == pedgeHead + 1 = (False, retH, used, image, 0)
-  | otherwise          =
-    let qXi0                          = head qXi
-        qXi1                          = qXi !! 1
-        x                             = (((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix (i + 1))
-        y                             = (((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix i)
-        headD                         = head degree
-        (retB1, retH1, used1, image1, _) = rootedSubConf degree headD adjmat question x y 1 1 (retB,  retH,  used,  image , 0)
-        (retB2, retH2, used2, image2, _) = rootedSubConf degree headD adjmat question x y 0 1 (retB1, retH1, used1, image1, 0)
-    in if retB1
-      then
-        (True, retH, used1, image1, 0)
-      else if retB2
-        then
-          (True, retH, used2, image2, 0)
-        else
-          subConf' adjmat degree question edgelist (retB2, retH, used2, image2, 0) pedgeHead (i+1)
+rootedSubConf :: TpVertices -> TpGoodConf -> Int -> Int -> Int -> Int
+  -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
+rootedSubConf degree (qU, qV, qZ, qXi) x y clockwise j = do
 
-rootedSubConf :: TpVertices -> Int -> TpAdjmat -> TpGoodConf -> Int -> Int -> Int -> Int -> TpConfPack -> TpConfPack
-rootedSubConf degree deg adjmat question@(qU, qV, qZ, qXi) x y clockwise j (retB, retH, used, image, _) = -- (True,  retH, used, image, 0)
+  (gConfs, rules, deg)                                              <- lift ask
+  (((aSLow, aSUpp, aSLev), used, image, adjmat, edgelist), posoutX) <- lift get
+
+  -- 1.
   let used2  = replicate cartvert False
       image2 = replicate cartvert (-1) -- !!
       image3 = image & ix 0 .~ clockwise
-      qZ0 = head qZ
-      qZ1 = qZ !! 1
+      qZ0    = head qZ
+      qZ1    = qZ !! 1
       image4 = image3 & ix qZ0 .~ x
       image5 = image4 & ix qZ1 .~ y
-      used3 = used2 & ix x .~ True
-      used4 = used3 & ix y .~ True
+      used3  = used2 & ix x .~ True
+      used4  = used3 & ix y .~ True
 
-      f n@(retB, _, _, _, qUQ) x cont
-        | qUQ < 0   = n
-        | not retB  = n
-        | otherwise = cont $ rootedSubConfSub1 adjmat degree question clockwise n x
-      retPack@(retB', retH', used', image', _) = myLoop f id (True, retH, used4, image5, 0) [2, 3 .. 26]
-  in if not retB'
-    then
-      retPack
-    else
-      -- test if image is well-positioned
-      let f2 n x cont
-            | n         = n
-            | otherwise = cont $ rootedSubConfSub2 used' deg x
-      in if myLoop f2 id False [1, 2 .. deg]
-        then
-          (False, retH', used', image', 0)
+  -- 2.
+  let loop2 j used image =
+        let qUQ = qU !! j
+        in if qUQ < 0 then
+          (True, used, image, qUQ)
+        else let
+          qVQ      = qV    !! j
+          qZQ      = qZ    !! j
+          qXiQ     = qXi   !! j
+          imageQUQ = image !! qUQ
+          imageQVQ = image !! qVQ
+          w        = if clockwise == 0 then (adjmat ^?! ix imageQVQ) ^?! ix imageQUQ
+                     else                   (adjmat ^?! ix imageQUQ) ^?! ix imageQVQ
+          degreeW  = degree !! w
+          usedW    = used   !! w
+        in if (w == -1) || (qXiQ /= 0 && qXiQ /= degreeW) || usedW then
+          (False, used, image, qUQ)
         else
-          (True,  retH', used', image', 0)
+          loop2 (j + 1) (used & ix w .~ True) (image & ix qZQ .~ w)
+      (retB, used6, image6, qUQ) = loop2 2 used4 image5
+  (lift . put) (((aSLow, aSUpp, aSLev), used6, image6, adjmat, edgelist), posoutX)
+  if retB then
+    (liftIO . putStr) ""
+  else
+    empty -- 失敗終了
 
-rootedSubConfSub1 :: TpAdjmat -> TpVertices -> TpGoodConf -> Int -> TpConfPack -> Int -> TpConfPack
-rootedSubConfSub1 adjmat degree question@(qU, qV, qZ, qXi) clockwise (_, retH, used, image, _) q =
-  let qUQ      = qU !! q
-  in if qUQ < 0
-    then (True,  retH, used, image, qUQ)
-    else let
-      qVQ      = qV !! q
-      qZQ      = qZ !! q
-      qXiQ     = qXi !! q
-      imageQUQ = image !! qUQ
-      imageQVQ = image !! qVQ
-      w        = if clockwise == 0
-                  then (adjmat ^?! ix imageQVQ) ^?! ix imageQUQ
-                  else (adjmat ^?! ix imageQUQ) ^?! ix imageQVQ
-      degreeW  = degree !! w
-      usedW    = used !! w
---      in trace ("(qUQ,w,qXiQ,degreeW,usedW) = " ++ show (qUQ,w,qXiQ,degreeW,usedW)) $ if (w == -1) || (qXiQ /= 0 && qXiQ /= degreeW) || usedW
-      in trace ("    (qUQ,w,qXiQ,degreeW,usedW) = " ++ show (qUQ,w,qXiQ,degreeW,usedW)) $ if (w == -1) || usedW
-        then (False, retH, used,                image,               qUQ)
-        else (True,  retH, used & ix w .~ True, image & ix qZQ .~ w, qUQ)
+  -- 3. test if image is well-positioned
+  let loop3 j =
+        let degJ = if j == 1 then 2 * deg else deg + j - 1
+            ret
+              | j > deg                                              = return "loop3 end."
+              | not (used !! j) && used !! (deg + j) && used !! degJ = empty -- 失敗終了
+              | otherwise                                            = loop3 (j + 1)
+        in ret
+  loop3 1
 
-rootedSubConfSub2 :: [Bool] -> Int -> Int -> Bool
-rootedSubConfSub2 used deg j =
-  let cc    = if j == 1 then 2 * deg else deg + j - 1;
-      usedJ = used !! j;
-      usedD = used !! (deg + j);
-      usedC = used !! cc
-  in not usedJ && usedD && usedC
--}
+  -- 4.
+  return "rootedSubConf end." -- 正常終了
+
+
+
 -- ##################################################################################################################
 --   Hubcap
 -- ##################################################################################################################
@@ -738,6 +675,7 @@ checkBound axL@(axLowL, axUppL) s0 maxch pos depth = do
   return "checkBound end." -- error "Unexpected error 101"
 
 
+
 -- ##################################################################################################################
 --   Condition
 -- ##################################################################################################################
@@ -775,8 +713,6 @@ checkCondition2 (nn, mm) aA@(low, upp, lev) n m =
               nnn = (nn & ix lev .~ n) & ix (lev+1) .~ 0
               mmm = (mm & ix lev .~ m) & ix (lev+1) .~ 0
           in return ((nnn, mmm), (low3, upp3, lev))
-
-
 -}
 
 
