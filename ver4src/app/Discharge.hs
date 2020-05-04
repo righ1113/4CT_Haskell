@@ -15,7 +15,6 @@ module Main where
 
 
 {-
-import Data.List (find)
 import Data.Maybe (fromJust, isJust)
 import Debug.Trace (trace)
 import Lib (myLoop)
@@ -23,11 +22,11 @@ import Lib (myLoop)
 import Control.Applicative       (empty)
 import Control.Arrow             ((<<<))
 import Control.Lens              ((&), (.~), ix, (^?!), _1, _2, _3, _4, _5, _6, (^.))
---import Data.Maybe                (fromJust)
 import Control.Monad.IO.Class    (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 import Control.Monad.Trans.RWS   (RWST(..), ask, get, put)
+import Data.List                 (find)
 
 
 verts      = 27             -- max number of vertices in a free completion + 1
@@ -51,7 +50,6 @@ type TpGoodConf      = ([Int], [Int], [Int], [Int])
 type TpEdgelist      = [[[Int]]]
 type TpPosout        = ([Int], [Int], [Int], [[Int]], [[Int]], [[Int]])
 type TpPosoutI       = (Int, Int, Int, [Int], [Int], [Int])
--- type TpReducePack    = ([Int], [Int], TpAdjmat, TpEdgelist, [TpGoodConf])
 type TpReducePack    = (TpAxle, [Bool], TpVertices, TpAdjmat, TpEdgelist)
 type TpConfPack      = (Bool, Int, [Bool], TpVertices, Int)
 
@@ -121,13 +119,12 @@ main = do
 
   putStrLn "プログラムは正常終了しました。"
 
-
 mainLoop :: TpCond -> TpPosout -> Int -> TpAxle -> [[String]]
   -> RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO String
 mainLoop (nn, mm) sym nosym ax@(axLow, axUpp, axLev) tactics
   | axLev >= maxlev = error "More than %d levels"
   | axLev < 0       = return $ head $ head tactics
-  | otherwise     = let nowTac = head tactics in
+  | otherwise       = let nowTac = head tactics in
       case nowTac !! 1 of
         "S" -> do
                 liftIO $ putStrLn $ "Symmetry  " ++ show nowTac
@@ -679,41 +676,54 @@ checkBound axL@(axLowL, axUppL) s0 maxch pos depth = do
 -- ##################################################################################################################
 --   Condition
 -- ##################################################################################################################
-{-
-checkCondition1 :: TpCond -> Int -> TpAxle -> Int -> Int -> Int -> IO Int
-checkCondition1 (nn, mm) deg aA@(low, upp, lev) n m nosym =
-  let ret = find (\x-> 1 <= x && x <= 2*deg) nn
-  in if isJust ret then return (nosym+1) else return nosym
-
-
-checkCondition2 :: TpCond -> TpAxle -> Int -> Int -> IO (TpCond, TpAxle)
-checkCondition2 (nn, mm) aA@(low, upp, lev) n m =
-  let low2 = low & ix (lev+1) .~ (low ^?! ix lev)
-      upp2 = upp & ix (lev+1) .~ (upp ^?! ix lev)
+checkCondition1 :: TpCond -> TpAxle -> Int -> Int -> (TpCond, TpAxle)
+checkCondition1 (nn, mm) aA@(low, upp, lev) n m =
+  let low2  = low & ix (lev + 1) .~ (low ^?! ix lev)
+      upp2  = upp & ix (lev + 1) .~ (upp ^?! ix lev)
       aLowN = (low2 ^?! ix lev) ^?! ix n
       aUppN = (upp2 ^?! ix lev) ^?! ix n
-  in if m > 0     -- ★mark
-    then -- new lower bound
-      if aLowN >= m || m > aUppN
-        then
-          error "Invalid lower bound in condition"
-        else
-          let upp3 = upp2 & (ix lev     <<< ix n) .~ (m-1)
-              low3 = low2 & (ix (lev+1) <<< ix n) .~ m
-              nnn = (nn & ix lev .~ n) & ix (lev+1) .~ 0
-              mmm = (mm & ix lev .~ m) & ix (lev+1) .~ 0
-          in return ((nnn, mmm), (low3, upp3, lev))
-    else -- new upper bound
-      if aLowN > -m || -m >= aUppN
-        then
-          error "Invalid upper bound in condition"
-        else
-          let low3 = low2 & (ix lev     <<< ix n) .~ (1-m)
-              upp3 = upp2 & (ix (lev+1) <<< ix n) .~ (-m)
-              nnn = (nn & ix lev .~ n) & ix (lev+1) .~ 0
-              mmm = (mm & ix lev .~ m) & ix (lev+1) .~ 0
-          in return ((nnn, mmm), (low3, upp3, lev))
--}
+      ret
+        | m > 0 &&     (aLowN >= m || m > aUppN)   = error "Invalid lower bound in condition"
+        | m > 0 && not (aLowN >= m || m > aUppN)   =
+            -- new lower bound
+            ( ( (nn & ix lev .~ n) & ix (lev + 1) .~ 0
+               ,(mm & ix lev .~ m) & ix (lev + 1) .~ 0 )
+             ,( upp2 & (ix lev       <<< ix n) .~ (m - 1)
+               ,low2 & (ix (lev + 1) <<< ix n) .~ m
+               ,lev ) )
+        | m <= 0 &&    (aLowN > -m || -m >= aUppN) = error "Invalid upper bound in condition"
+        | otherwise                                =
+            -- new upper bound
+            ( ( (nn & ix lev .~ n) & ix (lev + 1) .~ 0
+               ,(mm & ix lev .~ m) & ix (lev + 1) .~ 0 )
+             ,( low2 & (ix lev       <<< ix n) .~ (1 - m)
+               ,upp2 & (ix (lev + 1) <<< ix n) .~ (-m)
+               ,lev ) )
+  in ret
+
+checkCondition2 :: TpCond -> TpAxle -> Int -> TpPosout -> Int -> Int -> (TpPosout, Int)
+checkCondition2 (nn, mm) aA@(_, _, lev) deg sym@(symNum, symNol, symVal, symPos, symLow, symUpp) nosym lineno =
+  let bad = find (\x -> x > 2 * deg || x < 1) nn
+      num = symNum & ix nosym .~ lineno
+      val = symVal & ix nosym .~ 1
+      nol = symNol & ix nosym .~ (lev + 1)
+      loop1 :: Int -> ([[Int]], [[Int]], [[Int]]) -> ([[Int]], [[Int]], [[Int]])
+      loop1 i (pos, low, upp)
+        | i > lev   = (pos, low, upp)
+        | otherwise =
+            let pos2 = pos & (ix nosym <<< ix i) .~ (nn !! i)
+                low2
+                  | mm !! i > 0 = low & (ix nosym <<< ix i) .~ (mm !! i)
+                  | otherwise   = low & (ix nosym <<< ix i) .~ 5
+                upp2
+                  | mm !! i > 0 = upp & (ix nosym <<< ix i) .~ infty
+                  | otherwise   = upp & (ix nosym <<< ix i) .~ -(mm !! i)
+            in loop1 (i + 1) (pos2, low2, upp2)
+      (pos, low, upp) = loop1 0 (symPos, symLow, symUpp)
+  in if bad == Nothing then
+    ((num, nol, val, pos, low, upp), nosym + 1)
+  else
+    (sym, nosym)
 
 
 
