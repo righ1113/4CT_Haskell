@@ -127,12 +127,12 @@ mainLoop (nn, mm) sym nosym ax@(axLow, axUpp, axLev) tactics
   | otherwise       = let nowTac = head tactics in
       case nowTac !! 1 of
         "S" -> do
-                liftIO $ putStrLn $ "Symmetry  " ++ show nowTac
+                liftIO . putStrLn $ "Symmetry  " ++ show nowTac
                 --checkSymmetry (tail (tail (head tactics))) axles posout nosym
                 --mainLoop rP posout (nn, mm) deg nosym (low, upp, lev - 1) (tail tactics)
                 return "Q.E.D."
         "R" -> do
-                liftIO $ putStrLn $ "Reduce  " ++ show nowTac
+                liftIO . putStrLn $ "Reduce  " ++ show nowTac
                 (((aSLow, aSUpp, aSLev), used, image, adjmat, edgelist), posoutX) <- get
                 put ( ( (aSLow & ix 0 .~ axLow !! axLev, aSUpp & ix 0 .~ axUpp !! axLev, aSLev),
                         used, image, adjmat, edgelist ),
@@ -143,17 +143,20 @@ mainLoop (nn, mm) sym nosym ax@(axLow, axUpp, axLev) tactics
                 else
                   mainLoop (nn, mm) sym nosym (axLow, axUpp, axLev - 1) (tail tactics)
         "H" -> do
-                liftIO $ putStrLn $ "Hubcap  " ++ show nowTac
+                liftIO . putStrLn $ "Hubcap  " ++ show nowTac
                 checkHubcap (tail (tail (head tactics))) ax
                 --mainLoop rP posout' (nn, mm) deg nosym (low, upp, lev - 1) (tail tactics)
                 return "Q.E.D."
         "C" -> do
-                liftIO $ putStrLn $ "Condition  " ++ show nowTac
-                {-let n = read (head tactics !! 2) :: Int
-                let m = read (head tactics !! 3) :: Int
-                nosym2                   <- checkCondition1 (nn, mm) deg axles n m nosym
-                (cond2, (low2, upp2, _)) <- checkCondition2 (nn, mm) axles n m-}
-                mainLoop (nn, mm) sym nosym (axLow, axUpp, axLev + 1) (tail tactics)
+                liftIO . putStrLn $ "Condition  " ++ show nowTac
+                (_, _, deg)        <- ask
+                let n               = read (head tactics !! 2) :: Int
+                    m               = read (head tactics !! 3) :: Int
+                    (low2, upp2, _) = checkCondition1 (nn, mm) ax n m
+                    (sym2, nosym2)  = checkCondition2 (nn, mm) ax deg sym nosym 7
+                    nn2             = (nn & ix axLev .~ n) & ix (axLev + 1) .~ 0
+                    mm2             = (mm & ix axLev .~ m) & ix (axLev + 1) .~ 0
+                mainLoop (nn2, mm2) sym2 nosym2 (low2, upp2, axLev + 1) (tail tactics)
         _   -> error "Invalid instruction"
 
 
@@ -230,20 +233,22 @@ reduce = do
               adjmat2   = getAdjmat   (aSLow !! aSLev, aSUpp !! aSLev)          deg
               edgelist2 = getEdgelist (aSLow !! aSLev, aSUpp !! aSLev) edgelist deg
           (lift . put) (((aSLow, aSUpp, aSLev), used, image, adjmat2, edgelist2), posoutX)
+          -- (liftIO . print) adjmat2
+          (liftIO . print) $ (edgelist2 !! 5) !! 5
 
           -- 1.2.
-          let loop1_2 h k = --型がMaybeT
+          let loop1_2 h = --型がMaybeT
                 if h >= noconf then do
-                  -- どのみち、ループ終了後異常終了だから、ここで落とす
+                  -- どのみち、ループ終了後失敗終了だから、ここで落とす
                   (liftIO . putStrLn) "Not reducible."
-                  (return . show) h --empty
+                  empty -- 失敗終了
                 else do
                   retSC <- lift . runMaybeT $ subConf (aSLow !! aSLev, aSUpp !! aSLev) (gConfs !! h)
                   if retSC == Nothing then
                     (return . show) h -- 正常終了
                   else
-                    loop1_2 (h + 1) k -- 再帰
-          ret1_2      <- loop1_2 0 7
+                    loop1_2 (h + 1) -- 再帰
+          ret1_2      <- loop1_2 0
           let h        = read ret1_2 :: Int
               redverts = ((gConfs !! h) ^. _1) !! 1
               redring  = ((gConfs !! h) ^. _2) !! 1
@@ -312,7 +317,7 @@ getAdjmatSub :: Int -> [Int] -> TpAdjmat -> Int -> TpAdjmat
 getAdjmatSub deg bUpp adjmat i =
   let h       = if i == 1 then deg else i - 1
       a       = deg + h
-      adjmat2 = chgAdjmat adjmat 0 h i Forward
+      adjmat2 = chgAdjmat adjmat  0 h i Forward
       adjmat3 = chgAdjmat adjmat2 i h a Forward
   in if bUpp !! i < 9 then
     doFan deg i (bUpp !! i) adjmat3
@@ -392,36 +397,45 @@ getEdgelistSub bLow bUpp edgelist deg i =
     edgelist11 = addToList edgelist10 i e bUpp
     ret
       | bLowI /= bUppI = edgelist5
-      | bUppI == 5     = addToList edgelist5 a b bUpp
-      | bUppI == 6     = addToList edgelist5 b c bUpp
-      | bUppI == 7     = addToList edgelist5 b d bUpp
-      | bUppI == 8     = addToList edgelist5 b e bUpp
+      | bUppI == 5     = addToList edgelist5  a b bUpp
+      | bUppI == 6     = addToList edgelist7  b c bUpp
+      | bUppI == 7     = addToList edgelist9  b d bUpp
+      | bUppI == 8     = addToList edgelist11 b e bUpp
       | otherwise      = error "Unexpected error in `GetEdgeList'"
   in ret
 
+--[5][5]	0x002c0ec0 {12, 2, 1, 1, 2, 3, 2, 2, 3, 4, 3, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...}
 -- adds the pair u,v to edgelist
+-- この関数の実装はひどい
 addToList :: TpEdgelist -> Int -> Int -> TpVertices -> TpEdgelist
 addToList edgelist u v degree =
   let
     a           = degree !! u
     b           = degree !! v
     eHead1      = (((edgelist ^?! ix a) ^?! ix b) ^?! ix 0)
-    edgelist1_2 = edgelist    & (ix a <<< ix b <<< ix 0)            .~ (eHead1 + 1)
-    edgelist1_3 = edgelist1_2 & (ix a <<< ix b <<< ix (eHead1 + 1)) .~ u
+    edgelist1_2 = edgelist    & (ix a <<< ix b <<< ix (eHead1 + 1)) .~ u
+    edgelist1_3 = edgelist1_2 & (ix a <<< ix b <<< ix (eHead1 + 2)) .~ v
     edgelist1_4 = edgelist1_3 & (ix a <<< ix b <<< ix 0)            .~ (eHead1 + 2)
     bool1       = a >= b && b <= 8 && a <= 11 && (a <= 8 || u == 0)
     bool1_1     = eHead1 + 2 >= maxelist
     eHead2      = (((edgelist ^?! ix b) ^?! ix a) ^?! ix 0)
-    edgelist2_2 = edgelist    & (ix b <<< ix a <<< ix 0)            .~ (eHead2 + 1)
-    edgelist2_3 = edgelist2_2 & (ix b <<< ix a <<< ix (eHead2 + 1)) .~ v
+    edgelist2_2 = edgelist    & (ix b <<< ix a <<< ix (eHead2 + 1)) .~ v
+    edgelist2_3 = edgelist2_2 & (ix b <<< ix a <<< ix (eHead2 + 2)) .~ u 
     edgelist2_4 = edgelist2_3 & (ix b <<< ix a <<< ix 0)            .~ (eHead2 + 2)
+    edgelist2_2_2 = if a == b then edgelist1_4   & (ix b <<< ix a <<< ix (eHead2 + 3)) .~ v
+                              else edgelist1_4   & (ix b <<< ix a <<< ix (eHead2 + 1)) .~ v
+    edgelist2_3_2 = if a == b then edgelist2_2_2 & (ix b <<< ix a <<< ix (eHead2 + 4)) .~ u
+                              else edgelist2_2_2 & (ix b <<< ix a <<< ix (eHead2 + 2)) .~ u
+    edgelist2_4_2 = if a == b then edgelist2_3_2 & (ix b <<< ix a <<< ix 0)            .~ (eHead2 + 4)
+                              else edgelist2_3_2 & (ix b <<< ix a <<< ix 0)            .~ (eHead2 + 2)
     bool2       = b >= a && a <= 8 && b <= 11 && (b <= 8 || v == 0)
     bool2_1     = eHead2 + 2 >= maxelist
     ret
-      | bool1 &&     bool1_1 = error "More than %d entries in edgelist needed"
-      | bool1 && not bool1_1 = edgelist1_4 & (ix a <<< ix b <<< ix (eHead1 + 2)) .~ v
-      | bool2 &&     bool2_1 = error "More than %d entries in edgelist needed"
-      | bool2 && not bool2_1 = edgelist2_4 & (ix b <<< ix a <<< ix (eHead2 + 2)) .~ u
+      | bool1 &&     bool1_1 = error "More than %d entries in edgelist needed 1"
+      | bool1 && not bool1_1 && not (bool2 && not bool2_1) = edgelist1_4
+      | bool1 && not bool1_1 &&     (bool2 && not bool2_1) = edgelist2_4_2
+      | bool2 &&     bool2_1 = error "More than %d entries in edgelist needed 2"
+      | bool2 && not bool2_1 = edgelist2_4
       | otherwise            = edgelist
   in ret
 
@@ -437,20 +451,20 @@ subConf axL@(_, axUppL) gC@(_, _, _, qXi) = do
       qXi1      = qXi !! 1
       pedgeHead = ((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix 0
       loop1 i   = -- MaybeT
-        if i >= pedgeHead + 1 then
+        if i > pedgeHead then
           return "subConf end." -- 失敗終了
         else do
           let x = ((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix (i + 1)
               y = ((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix (i + 1)
-          ret1 <- lift . runMaybeT $ rootedSubConf axUppL gC x y 1 1
-          ret2 <- lift . runMaybeT $ rootedSubConf axUppL gC x y 0 1
+          ret1 <- lift . runMaybeT $ rootedSubConf axUppL gC x y 1
+          ret2 <- lift . runMaybeT $ rootedSubConf axUppL gC x y 0
           if ret1 == Nothing && ret2 == Nothing then loop1 (i + 2) -- 再帰
           else empty            -- 正常終了
   loop1 1
 
-rootedSubConf :: TpVertices -> TpGoodConf -> Int -> Int -> Int -> Int
+rootedSubConf :: TpVertices -> TpGoodConf -> Int -> Int -> Int
   -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
-rootedSubConf degree (qU, qV, qZ, qXi) x y clockwise j = do
+rootedSubConf degree (qU, qV, qZ, qXi) x y clockwise = do
 
   (gConfs, rules, deg)                                              <- lift ask
   (((aSLow, aSUpp, aSLev), used, image, adjmat, edgelist), posoutX) <- lift get
@@ -458,7 +472,7 @@ rootedSubConf degree (qU, qV, qZ, qXi) x y clockwise j = do
   -- 1.
   let used2  = replicate cartvert False
       image2 = replicate cartvert (-1) -- !!
-      image3 = image & ix 0 .~ clockwise
+      image3 = image2 & ix 0 .~ clockwise
       qZ0    = head qZ
       qZ1    = qZ !! 1
       image4 = image3 & ix qZ0 .~ x
@@ -472,11 +486,11 @@ rootedSubConf degree (qU, qV, qZ, qXi) x y clockwise j = do
         in if qUQ < 0 then
           (True, used, image, qUQ)
         else let
-          qVQ      = qV    !! j
-          qZQ      = qZ    !! j
-          qXiQ     = qXi   !! j
-          imageQUQ = image !! qUQ
-          imageQVQ = image !! qVQ
+          qVQ      = qV     !! j
+          qZQ      = qZ     !! j
+          qXiQ     = qXi    !! j
+          imageQUQ = image  !! qUQ
+          imageQVQ = image  !! qVQ
           w        = if clockwise == 0 then (adjmat ^?! ix imageQVQ) ^?! ix imageQUQ
                      else                   (adjmat ^?! ix imageQUQ) ^?! ix imageQVQ
           degreeW  = degree !! w
@@ -488,7 +502,7 @@ rootedSubConf degree (qU, qV, qZ, qXi) x y clockwise j = do
       (retB, used6, image6, qUQ) = loop2 2 used4 image5
   (lift . put) (((aSLow, aSUpp, aSLev), used6, image6, adjmat, edgelist), posoutX)
   if retB then
-    (liftIO . putStr) ""
+    (liftIO . putStr) "aaa"
   else
     empty -- 失敗終了
 
@@ -496,9 +510,9 @@ rootedSubConf degree (qU, qV, qZ, qXi) x y clockwise j = do
   let loop3 j =
         let degJ = if j == 1 then 2 * deg else deg + j - 1
             ret
-              | j > deg                                              = return "loop3 end."
-              | not (used !! j) && used !! (deg + j) && used !! degJ = empty -- 失敗終了
-              | otherwise                                            = loop3 (j + 1)
+              | j > deg                                                 = return "loop3 end."
+              | not (used6 !! j) && used6 !! (deg + j) && used6 !! degJ = empty -- 失敗終了
+              | otherwise                                               = loop3 (j + 1)
         in ret
   loop3 1
 
@@ -676,7 +690,7 @@ checkBound axL@(axLowL, axUppL) s0 maxch pos depth = do
 -- ##################################################################################################################
 --   Condition
 -- ##################################################################################################################
-checkCondition1 :: TpCond -> TpAxle -> Int -> Int -> (TpCond, TpAxle)
+checkCondition1 :: TpCond -> TpAxle -> Int -> Int -> TpAxle
 checkCondition1 (nn, mm) aA@(low, upp, lev) n m =
   let low2  = low & ix (lev + 1) .~ (low ^?! ix lev)
       upp2  = upp & ix (lev + 1) .~ (upp ^?! ix lev)
@@ -686,19 +700,15 @@ checkCondition1 (nn, mm) aA@(low, upp, lev) n m =
         | m > 0 &&     (aLowN >= m || m > aUppN)   = error "Invalid lower bound in condition"
         | m > 0 && not (aLowN >= m || m > aUppN)   =
             -- new lower bound
-            ( ( (nn & ix lev .~ n) & ix (lev + 1) .~ 0
-               ,(mm & ix lev .~ m) & ix (lev + 1) .~ 0 )
-             ,( upp2 & (ix lev       <<< ix n) .~ (m - 1)
-               ,low2 & (ix (lev + 1) <<< ix n) .~ m
-               ,lev ) )
+            ( upp2 & (ix lev       <<< ix n) .~ (m - 1)
+             ,low2 & (ix (lev + 1) <<< ix n) .~ m
+             ,lev )
         | m <= 0 &&    (aLowN > -m || -m >= aUppN) = error "Invalid upper bound in condition"
         | otherwise                                =
             -- new upper bound
-            ( ( (nn & ix lev .~ n) & ix (lev + 1) .~ 0
-               ,(mm & ix lev .~ m) & ix (lev + 1) .~ 0 )
-             ,( low2 & (ix lev       <<< ix n) .~ (1 - m)
-               ,upp2 & (ix (lev + 1) <<< ix n) .~ (-m)
-               ,lev ) )
+            ( low2 & (ix lev       <<< ix n) .~ (1 - m)
+             ,upp2 & (ix (lev + 1) <<< ix n) .~ (-m)
+             ,lev )
   in ret
 
 checkCondition2 :: TpCond -> TpAxle -> Int -> TpPosout -> Int -> Int -> (TpPosout, Int)
