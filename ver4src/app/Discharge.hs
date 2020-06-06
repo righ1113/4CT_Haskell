@@ -228,18 +228,26 @@ reduce = do
         | otherwise = do
 
           -- 1.1.
-          (liftIO . putStr) "Axle from stack:"
+          (liftIO . putStrLn) "Axle from stack:"
           let naxles2   = naxles - 1
               adjmat2   = getAdjmat   (aSLow !! aSLev, aSUpp !! aSLev)          deg
               edgelist2 = getEdgelist (aSLow !! aSLev, aSUpp !! aSLev) edgelist deg
           (lift . put) (((aSLow, aSUpp, aSLev), used, image, adjmat2, edgelist2), posoutX)
+          -- ##### printf debug #####
           -- (liftIO . print) adjmat2
-          (liftIO . print) $ (edgelist2 !! 5) !! 5
+          -- (liftIO . print) $ (edgelist2 !! 5) !! 5
+          -- (liftIO . print) $ aSUpp !! aSLev
+          -- (liftIO . print) image -- 最初はall 0
+          -- ##### printf debug #####
 
           -- 1.2.
           let loop1_2 h = --型がMaybeT
                 if h >= noconf then do
-                  -- どのみち、ループ終了後失敗終了だから、ここで落とす
+                  -- ##### printf debug #####
+                  -- ((_, _, imageZ, _, _), _) <- lift get
+                  -- (liftIO . print) imageZ
+                  -- ##### printf debug #####
+                  --   どのみち、ループ終了後失敗終了だから、ここで落とす
                   (liftIO . putStrLn) "Not reducible."
                   empty -- 失敗終了
                 else do
@@ -454,7 +462,7 @@ subConf axL@(_, axUppL) gC@(_, _, _, qXi) = do
         if i > pedgeHead then
           return "subConf end." -- 失敗終了
         else do
-          let x = ((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix (i + 1)
+          let x = ((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix i
               y = ((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix (i + 1)
           ret1 <- lift . runMaybeT $ rootedSubConf axUppL gC x y 1
           ret2 <- lift . runMaybeT $ rootedSubConf axUppL gC x y 0
@@ -484,25 +492,36 @@ rootedSubConf degree (qU, qV, qZ, qXi) x y clockwise = do
   let loop2 j used image =
         let qUQ = qU !! j
         in if qUQ < 0 then
-          (True, used, image, qUQ)
-        else let
-          qVQ      = qV     !! j
-          qZQ      = qZ     !! j
-          qXiQ     = qXi    !! j
-          imageQUQ = image  !! qUQ
-          imageQVQ = image  !! qVQ
-          w        = if clockwise == 0 then (adjmat ^?! ix imageQVQ) ^?! ix imageQUQ
-                     else                   (adjmat ^?! ix imageQUQ) ^?! ix imageQVQ
-          degreeW  = degree !! w
-          usedW    = used   !! w
-        in if (w == -1) || (qXiQ /= 0 && qXiQ /= degreeW) || usedW then
-          (False, used, image, qUQ)
-        else
-          loop2 (j + 1) (used & ix w .~ True) (image & ix qZQ .~ w)
-      (retB, used6, image6, qUQ) = loop2 2 used4 image5
+          return (True, used, image, qUQ)
+        else do
+          let
+            qVQ      = qV     !! j
+            qZQ      = qZ     !! j
+            qXiQ     = qXi    !! j
+            imageQUQ = image  !! qUQ
+            imageQVQ = image  !! qVQ
+            w        = if clockwise == 0 then (adjmat ^?! ix imageQVQ) ^?! ix imageQUQ
+                       else                   (adjmat ^?! ix imageQUQ) ^?! ix imageQVQ
+            degreeW  = degree !! w
+            usedW    = used   !! w
+
+          -- ##### printf debug #####
+          -- (liftIO . print) x
+          -- (liftIO . print) y
+          -- (liftIO . print) w
+          -- (liftIO . print) qXiQ
+          -- (liftIO . print) degreeW
+          -- (liftIO . print) usedW
+          -- ##### printf debug #####
+
+          if (w == -1) || (qXiQ /= 0 && qXiQ /= degreeW) || usedW then
+            return (False, used, image, qUQ)
+          else
+            loop2 (j + 1) (used & ix w .~ True) (image & ix qZQ .~ w)
+  (retB, used6, image6, qUQ) <- loop2 2 used4 image5
   (lift . put) (((aSLow, aSUpp, aSLev), used6, image6, adjmat, edgelist), posoutX)
   if retB then
-    (liftIO . putStr) "aaa"
+    (liftIO . putStr) ""
   else
     empty -- 失敗終了
 
