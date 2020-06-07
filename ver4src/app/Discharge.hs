@@ -148,14 +148,15 @@ mainLoop (nn, mm) sym nosym ax@(axLow, axUpp, axLev) tactics
                 --mainLoop rP posout' (nn, mm) deg nosym (low, upp, lev - 1) (tail tactics)
                 return "Q.E.D."
         "C" -> do
-                liftIO . putStrLn $ "Condition  " ++ show nowTac
-                (_, _, deg)        <- ask
-                let n               = read (head tactics !! 2) :: Int
-                    m               = read (head tactics !! 3) :: Int
-                    (low2, upp2, _) = checkCondition1 (nn, mm) ax n m
-                    (sym2, nosym2)  = checkCondition2 (nn, mm) ax deg sym nosym 7
-                    nn2             = (nn & ix axLev .~ n) & ix (axLev + 1) .~ 0
-                    mm2             = (mm & ix axLev .~ m) & ix (axLev + 1) .~ 0
+                liftIO . putStr $ "Condition  " ++ show nowTac
+                (_, _, deg)             <- ask
+                let n                    = read (head tactics !! 2) :: Int
+                    m                    = read (head tactics !! 3) :: Int
+                    ax2@(low2, upp2, axLev2) = checkCondition1 (nn, mm) ax n m
+                    (sym2, nosym2)       = checkCondition2 (nn, mm) ax deg sym nosym 7
+                    nn2                  = (nn & ix axLev .~ n) & ix (axLev + 1) .~ 0
+                    mm2                  = (mm & ix axLev .~ m) & ix (axLev + 1) .~ 0
+                (liftIO . print) axLev2
                 mainLoop (nn2, mm2) sym2 nosym2 (low2, upp2, axLev + 1) (tail tactics)
         _   -> error "Invalid instruction"
 
@@ -169,10 +170,34 @@ getPosoutI (num, nol, val, pos, low, upp) i
   = (num !! i, nol !! i, val !! i, pos !! i, low !! i, upp !! i)
 
 outletForced :: TpAxleI -> TpPosoutI -> Int -> Int
-outletForced axL@(axLowL, axUppL) (numI, nolI, valI, posI, lowI, uppI) pXI = 66
+outletForced axL@(axLowL, axUppL) (numI, nolI, valI, posI, lowI, uppI) pXI =
+  let deg = head lowI
+      xxI = pXI - 1
+      loop1 i
+        | i >= nolI = valI
+        | otherwise =
+            let p1 = posI !! i
+                p2 = if xxI + ((p1 - 1) `mod` deg) < deg then p1 + xxI else p1 + xxI - deg
+            in if lowI !! i > axLowL !! p2 || uppI !! i < axUppL !! p2 then
+              0
+            else
+              loop1 (i + 1)
+  in loop1 0
 
 outletPermitted :: TpAxleI -> TpPosoutI -> Int -> Int
-outletPermitted axL@(axLowL, axUppL) (numI, nolI, valI, posI, lowI, uppI) pXI = 67
+outletPermitted axL@(axLowL, axUppL) (numI, nolI, valI, posI, lowI, uppI) pXI =
+  let deg = head lowI
+      xxI = pXI - 1
+      loop1 i
+        | i >= nolI = valI
+        | otherwise =
+            let p1 = posI !! i
+                p2 = if xxI + ((p1 - 1) `mod` deg) < deg then p1 + xxI else p1 + xxI - deg
+            in if lowI !! i > axUppL !! p2 || uppI !! i < axLowL !! p2 then
+              0
+            else
+              loop1 (i + 1)
+  in loop1 0
 
 {-
 checkSymmetry :: [String] -> TpAxle -> TpPosout -> Int -> IO ()
@@ -719,8 +744,8 @@ checkCondition1 (nn, mm) aA@(low, upp, lev) n m =
         | m > 0 &&     (aLowN >= m || m > aUppN)   = error "Invalid lower bound in condition"
         | m > 0 && not (aLowN >= m || m > aUppN)   =
             -- new lower bound
-            ( upp2 & (ix lev       <<< ix n) .~ (m - 1)
-             ,low2 & (ix (lev + 1) <<< ix n) .~ m
+            ( low2 & (ix (lev + 1) <<< ix n) .~ m
+             ,upp2 & (ix lev       <<< ix n) .~ (m - 1)
              ,lev )
         | m <= 0 &&    (aLowN > -m || -m >= aUppN) = error "Invalid upper bound in condition"
         | otherwise                                =
