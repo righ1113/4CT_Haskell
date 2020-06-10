@@ -171,7 +171,7 @@ getPosoutI (num, nol, val, pos, low, upp) i
 
 outletForced :: TpAxleI -> TpPosoutI -> Int -> Int
 outletForced axL@(axLowL, axUppL) (numI, nolI, valI, posI, lowI, uppI) pXI =
-  let deg = head lowI
+  let deg = head axLowL
       xxI = pXI - 1
       loop1 i
         | i >= nolI = valI
@@ -186,7 +186,7 @@ outletForced axL@(axLowL, axUppL) (numI, nolI, valI, posI, lowI, uppI) pXI =
 
 outletPermitted :: TpAxleI -> TpPosoutI -> Int -> Int
 outletPermitted axL@(axLowL, axUppL) (numI, nolI, valI, posI, lowI, uppI) pXI =
-  let deg = head lowI
+  let deg = head axLowL
       xxI = pXI - 1
       loop1 i
         | i >= nolI = valI
@@ -624,6 +624,8 @@ checkBound axL@(axLowL, axUppL) s0 maxch pos depth = do
                 | otherwise      = (forcedch2,       allowedch,       retS)
           in loop1 (i + 1) forcedch3 allowedch2 retS2
       (forcedch, allowedch, s) = loop1 0 0 0 s0
+  -- (liftIO . print) axL
+  liftIO . putStrLn $ "f, a = " ++ show forcedch ++ ", " ++ show allowedch
 
   -- 2.
   liftIO . putStr $ show depth ++ " POs: "
