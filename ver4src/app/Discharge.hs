@@ -3,9 +3,9 @@
 ◆動かし方
 1. $ stack run discharge-exe
 2. > 「07」を入力してEnter。
-3. 中心の次数07のグラフは、電荷が負になるか、近くに好配置があらわれるかです
+3. 中心の次数 07 のグラフは、電荷が負になるか、近くに好配置があらわれるかです
    プログラムは正常終了しました
-   が表示されたらOK（今は表示されない）
+   が表示されたら OK （今は表示されない）
 1. $ stack ghci --main-is ver4src:exe:discharge-exe
 2. > main
  . > :l app/Discharge
@@ -58,7 +58,7 @@ main :: IO ()
 main = do
 
   putStrLn "これは四色定理の放電法をおこなうプログラムです。"
-  putStrLn "中心の次数07, 08, 09, 10, 11のいずれかを入力してください。"
+  putStrLn "中心の次数 07, 08, 09, 10, 11 のいずれかを入力してください。"
 
   -- deg
   degStr <- getLine
@@ -107,21 +107,22 @@ main = do
                          (symNum, symNol, symVal, symPos, symLow, symUpp)
                          0
                          (axLow, axUpp, 0)
-                         (tail (map words (lines inStr))) )
+                         (tail (map words (lines inStr)))
+                         2 )
                (gConfs, rules, deg)                                          -- read
                (((aSLow, aSUpp, 0), used, image, adjmat, edgelist), posoutX) -- state
 
   -- final check
   if ret == "Q.E.D." then
-    putStrLn $ "中心の次数" ++ degStr -- ++ "のグラフは、電荷が負になるか、近くに好配置があらわれるかです。"
+    putStrLn $ "中心の次数 " ++ degStr -- ++ " のグラフは、電荷が負になるか、近くに好配置があらわれるかです。"
   else
     putStrLn "失敗です。"
 
   putStrLn "プログラムは正常終了しました。"
 
-mainLoop :: TpCond -> TpPosout -> Int -> TpAxle -> [[String]]
+mainLoop :: TpCond -> TpPosout -> Int -> TpAxle -> [[String]] -> Int
   -> RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO String
-mainLoop (nn, mm) sym nosym ax@(axLow, axUpp, axLev) tactics
+mainLoop (nn, mm) sym@(_, symNol, _, _, _, _) nosym ax@(axLow, axUpp, axLev) tactics lineno
   | axLev >= maxlev = error "More than %d levels"
   | axLev < 0       = return $ head $ head tactics
   | otherwise       = let nowTac = head tactics in
@@ -129,7 +130,10 @@ mainLoop (nn, mm) sym nosym ax@(axLow, axUpp, axLev) tactics
         "S" -> do
                 liftIO . putStrLn $ "Symmetry  " ++ show nowTac
                 --checkSymmetry (tail (tail (head tactics))) axles posout nosym
-                --mainLoop rP posout (nn, mm) deg nosym (low, upp, lev - 1) (tail tactics)
+                let nosym2 =
+                      if nosym == 0 then 0
+                      else delSym nosym symNol axLev
+                --mainLoop rP posout (nn, mm) deg nosym2 (low, upp, lev - 1) (tail tactics) (lineno + 1)
                 return "Q.E.D."
         "R" -> do
                 liftIO . putStrLn $ "Reduce  " ++ show nowTac
@@ -140,13 +144,18 @@ mainLoop (nn, mm) sym nosym ax@(axLow, axUpp, axLev) tactics
                 ret <- runMaybeT reduce
                 if ret == Nothing then
                   error "Reducibility failed"
-                else
-                  mainLoop (nn, mm) sym nosym (axLow, axUpp, axLev - 1) (tail tactics)
+                else do
+                  let nosym2 =
+                        if nosym == 0 then 0
+                        else delSym nosym symNol axLev
+                  mainLoop (nn, mm) sym nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
         "H" -> do
                 liftIO . putStrLn $ "Hubcap  " ++ show nowTac
                 checkHubcap (tail (tail (head tactics))) ax
-                --mainLoop rP posout' (nn, mm) deg nosym (low, upp, lev - 1) (tail tactics)
-                return "Q.E.D."
+                let nosym2 =
+                      if nosym == 0 then 0
+                      else delSym nosym symNol axLev
+                mainLoop (nn, mm) sym nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
         "C" -> do
                 liftIO . putStr $ "Condition  " ++ show nowTac
                 (_, _, deg)             <- ask
@@ -157,7 +166,7 @@ mainLoop (nn, mm) sym nosym ax@(axLow, axUpp, axLev) tactics
                     nn2                  = (nn & ix axLev .~ n) & ix (axLev + 1) .~ 0
                     mm2                  = (mm & ix axLev .~ m) & ix (axLev + 1) .~ 0
                 (liftIO . print) axLev2
-                mainLoop (nn2, mm2) sym2 nosym2 (low2, upp2, axLev + 1) (tail tactics)
+                mainLoop (nn2, mm2) sym2 nosym2 (low2, upp2, axLev + 1) (tail tactics) (lineno + 1)
         _   -> error "Invalid instruction"
 
 
@@ -165,6 +174,13 @@ mainLoop (nn, mm) sym nosym ax@(axLow, axUpp, axLev) tactics
 -- ##################################################################################################################
 --   Symmetry
 -- ##################################################################################################################
+delSym :: Int -> [Int] -> Int -> Int
+delSym nosym nolines lev =
+  let loop1 i
+        | i < 1 || nolines !! (nosym - 1) - 1 < lev = i
+        | otherwise                                 = loop1 (i - 1)
+  in loop1 nosym
+
 getPosoutI :: TpPosout -> Int -> TpPosoutI
 getPosoutI (num, nol, val, pos, low, upp) i
   = (num !! i, nol !! i, val !! i, pos !! i, low !! i, upp !! i)
@@ -589,13 +605,13 @@ checkHubcap strs ax@(axLow, axUpp, axLev) = do
           if xi /= yi then do
             let posX = replicate nouts xi ++ replicate nouts yi
             put (rP, posX)
-            ret <- runMaybeT $ checkBound (axLow !! axLev, axUpp !! axLev) (s & ix (2 * nouts) .~ 99) vi 0 0
-            liftIO $ print ret
+            runMaybeT $ checkBound (axLow !! axLev, axUpp !! axLev) (s & ix (2 * nouts) .~ 99) vi 0 0
+            -- liftIO $ print ret
           else do
             let posX = replicate nouts xi ++ replicate nouts 0
             put (rP, posX)
-            ret <- runMaybeT $ checkBound (axLow !! axLev, axUpp !! axLev) (s & ix      nouts  .~ 99) vi 0 0
-            liftIO $ print ret
+            runMaybeT $ checkBound (axLow !! axLev, axUpp !! axLev) (s & ix      nouts  .~ 99) vi 0 0
+            -- liftIO $ print ret
           loop1 (i + 1)
   loop1 0
   return "checkHubcap end."
