@@ -4,14 +4,13 @@
 1. $ stack run discharge-exe
 2. > 「07」を入力してEnter。
 3. 中心の次数 07 のグラフは、電荷が負になるか、近くに好配置があらわれるかです
-   プログラムは正常終了しました
-   が表示されたら OK （今は表示されない）
+    プログラムは正常終了しました
+    が表示されたら OK （今は表示されない）
 1. $ stack ghci --main-is ver4src:exe:discharge-exe
 2. > main
- . > :l app/Discharge
+2. > :l app/Discharge
 -}
 module Main where
--- module Discharge where
 
 
 {-
@@ -27,6 +26,7 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 import Control.Monad.Trans.RWS   (RWST(..), ask, get, put)
 import Data.List                 (find)
+import Data.Maybe                (isNothing)
 
 
 verts      = 27             -- max number of vertices in a free completion + 1
@@ -89,8 +89,8 @@ main = do
   -- TpReducePack
   let aSLow    = replicate (maxlev + 1) $ replicate cartvert 0
   let aSUpp    = replicate (maxlev + 1) $ replicate cartvert 0
-  let bLow     = replicate cartvert 0
-  let bUpp     = replicate cartvert 0
+  --let bLow     = replicate cartvert 0
+  --let bUpp     = replicate cartvert 0
   let adjmat   = replicate cartvert $ replicate cartvert 0
   let edgelist = replicate 12 $ replicate 9 $ replicate maxelist 0
   let used     = replicate cartvert False
@@ -102,15 +102,15 @@ main = do
   inStr <- readFile $ "4ctdata/DiTactics" ++ degStr ++ ".txt"
 
   -- mainLoop
-  (ret, s, w)
+  (ret, _, _)
     <- runRWST (mainLoop (nn, mm)
-                         (symNum, symNol, symVal, symPos, symLow, symUpp)
-                         0
-                         (axLow, axUpp, 0)
-                         (tail (map words (lines inStr)))
-                         2 )
-               (gConfs, rules, deg)                                          -- read
-               (((aSLow, aSUpp, 0), used, image, adjmat, edgelist), posoutX) -- state
+                          (symNum, symNol, symVal, symPos, symLow, symUpp)
+                          0
+                          (axLow, axUpp, 0)
+                          (tail (map words (lines inStr)))
+                          2 )
+                (gConfs, rules, deg)                                          -- read
+                (((aSLow, aSUpp, 0), used, image, adjmat, edgelist), posoutX) -- state
 
   -- final check
   if ret == "Q.E.D." then
@@ -130,7 +130,7 @@ mainLoop (nn, mm) sym@(_, symNol, _, _, _, _) nosym ax@(axLow, axUpp, axLev) tac
         "S" -> do
                 liftIO . putStrLn $ "Symmetry  " ++ show nowTac
                 --checkSymmetry (tail (tail (head tactics))) axles posout nosym
-                let nosym2 =
+                let _ =
                       if nosym == 0 then 0
                       else delSym nosym symNol axLev
                 --mainLoop rP posout (nn, mm) deg nosym2 (low, upp, lev - 1) (tail tactics) (lineno + 1)
@@ -142,7 +142,7 @@ mainLoop (nn, mm) sym@(_, symNol, _, _, _, _) nosym ax@(axLow, axUpp, axLev) tac
                         used, image, adjmat, edgelist ),
                       posoutX )
                 ret <- runMaybeT reduce
-                if ret == Nothing then
+                if isNothing ret then
                   error "Reducibility failed"
                 else do
                   let nosym2 =
@@ -161,7 +161,7 @@ mainLoop (nn, mm) sym@(_, symNol, _, _, _, _) nosym ax@(axLow, axUpp, axLev) tac
                 (_, _, deg)             <- ask
                 let n                    = read (head tactics !! 2) :: Int
                     m                    = read (head tactics !! 3) :: Int
-                    ax2@(low2, upp2, axLev2) = checkCondition1 (nn, mm) ax n m
+                    (low2, upp2, axLev2) = checkCondition1 (nn, mm) ax n m
                     (sym2, nosym2)       = checkCondition2 (nn, mm) ax deg sym nosym 7
                     nn2                  = (nn & ix axLev .~ n) & ix (axLev + 1) .~ 0
                     mm2                  = (mm & ix axLev .~ m) & ix (axLev + 1) .~ 0
@@ -186,7 +186,7 @@ getPosoutI (num, nol, val, pos, low, upp) i
   = (num !! i, nol !! i, val !! i, pos !! i, low !! i, upp !! i)
 
 outletForced :: TpAxleI -> TpPosoutI -> Int -> Int
-outletForced axL@(axLowL, axUppL) (numI, nolI, valI, posI, lowI, uppI) pXI =
+outletForced (axLowL, axUppL) (_, nolI, valI, posI, lowI, uppI) pXI =
   let deg = head axLowL
       xxI = pXI - 1
       loop1 i
@@ -201,7 +201,7 @@ outletForced axL@(axLowL, axUppL) (numI, nolI, valI, posI, lowI, uppI) pXI =
   in loop1 0
 
 outletPermitted :: TpAxleI -> TpPosoutI -> Int -> Int
-outletPermitted axL@(axLowL, axUppL) (numI, nolI, valI, posI, lowI, uppI) pXI =
+outletPermitted (axLowL, axUppL) (_, nolI, valI, posI, lowI, uppI) pXI =
   let deg = head axLowL
       xxI = pXI - 1
       loop1 i
@@ -223,11 +223,11 @@ checkSymmetry str aA@(low, upp, lev) posout@(number, nolines, value, pos, plow, 
       pI                        = (number !! i, nolines !! i, value !! i, pos !! i, plow !! i, pupp !! i, xx !! i)
     -- ★mark
   in if k < 0 || k > head (low !! lev) || epsilon < 0 || epsilon > 1 then                       error "Illegal symmetry"
-     else if i >= nosym then                                                                    error "No symmetry as requested"
+      else if i >= nosym then                                                                    error "No symmetry as requested"
           else if nolines !! i /= level + 1 then                                                error "Level mismatch"
-               else if epsilon == 0 && outletForced (low !! lev, upp !! lev) pI (k+1) /= 1 then error "Invalid symmetry"
+                else if epsilon == 0 && outletForced (low !! lev, upp !! lev) pI (k+1) /= 1 then error "Invalid symmetry"
                     else if reflForced aA /= 1 then                                             error "Invalid reflected symmetry"
-                                               else                                             putStrLn "  checkSymmetry OK."
+                                                else                                             putStrLn "  checkSymmetry OK."
 
 outletForced :: TpAxleI -> TpPosoutI -> Int -> Int
 outletForced aAI@(lowI, uppI) (numberI, nolinesI, valueI, posI, plowI, puppI, xxI) y =
@@ -259,8 +259,8 @@ reflForced _ = 1
 -- ##################################################################################################################
 reduce :: MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
 reduce = do
-  (gConfs, rules, deg)                                              <- lift ask
-  (((aSLow, aSUpp, aSLev), used, image, adjmat, edgelist), posoutX) <- lift get
+  (gConfs, _, deg)                                              <- lift ask
+  (((aSLow, aSUpp, aSLev), used, image, _, edgelist), posoutX) <- lift get
 
   -- 1.
   let noconf = 633
@@ -293,7 +293,7 @@ reduce = do
                   empty -- 失敗終了
                 else do
                   retSC <- lift . runMaybeT $ subConf (aSLow !! aSLev, aSUpp !! aSLev) (gConfs !! h)
-                  if retSC == Nothing then
+                  if isNothing retSC then
                     (return . show) h -- 正常終了
                   else
                     loop1_2 (h + 1) -- 再帰
@@ -339,7 +339,7 @@ reduce = do
 
 
 getAdjmat :: TpAxleI -> Int -> TpAdjmat
-getAdjmat axL@(_, axUppL) deg =
+getAdjmat (_, axUppL) deg =
   let adjmat         = replicate cartvert $ replicate cartvert (-1)
       loop1 i adjmat =
         if i > deg then adjmat
@@ -392,7 +392,7 @@ doFan deg i k adjmat =
 
 
 getEdgelist :: TpAxleI -> TpEdgelist -> Int -> TpEdgelist
-getEdgelist axL@(axLowL, axUppL) edgelist deg =
+getEdgelist (axLowL, axUppL) edgelist deg =
   let
     edgelist2        =  edgelist  & (ix 5  <<< ix 5 <<< ix 0) .~ 0
     edgelist3        =  edgelist2 & (ix 6  <<< ix 5 <<< ix 0) .~ 0
@@ -490,10 +490,10 @@ addToList edgelist u v degree =
 
 
 subConf :: TpAxleI -> TpGoodConf -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
-subConf axL@(_, axUppL) gC@(_, _, _, qXi) = do
+subConf (_, axUppL) gC@(_, _, _, qXi) = do
 
-  (gConfs, rules, deg)                                              <- lift ask
-  (((aSLow, aSUpp, aSLev), used, image, adjmat, edgelist), posoutX) <- lift get
+  (_, _, _)                                              <- lift ask
+  ((_, _, _, _, edgelist), _) <- lift get
 
   -- 1.
   let qXi0      = head qXi
@@ -507,7 +507,7 @@ subConf axL@(_, axUppL) gC@(_, _, _, qXi) = do
               y = ((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix (i + 1)
           ret1 <- lift . runMaybeT $ rootedSubConf axUppL gC x y 1
           ret2 <- lift . runMaybeT $ rootedSubConf axUppL gC x y 0
-          if ret1 == Nothing && ret2 == Nothing then loop1 (i + 2) -- 再帰
+          if isNothing ret1 && isNothing ret2 then loop1 (i + 2) -- 再帰
           else empty            -- 正常終了
   loop1 1
 
@@ -515,8 +515,8 @@ rootedSubConf :: TpVertices -> TpGoodConf -> Int -> Int -> Int
   -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
 rootedSubConf degree (qU, qV, qZ, qXi) x y clockwise = do
 
-  (gConfs, rules, deg)                                              <- lift ask
-  (((aSLow, aSUpp, aSLev), used, image, adjmat, edgelist), posoutX) <- lift get
+  (_, _, deg)                                              <- lift ask
+  (((aSLow, aSUpp, aSLev), _, _, adjmat, edgelist), posoutX) <- lift get
 
   -- 1.
   let used2  = replicate cartvert False
@@ -542,7 +542,7 @@ rootedSubConf degree (qU, qV, qZ, qXi) x y clockwise = do
             imageQUQ = image  !! qUQ
             imageQVQ = image  !! qVQ
             w        = if clockwise == 0 then (adjmat ^?! ix imageQVQ) ^?! ix imageQUQ
-                       else                   (adjmat ^?! ix imageQUQ) ^?! ix imageQVQ
+                        else                   (adjmat ^?! ix imageQUQ) ^?! ix imageQVQ
             degreeW  = degree !! w
             usedW    = used   !! w
 
@@ -559,7 +559,7 @@ rootedSubConf degree (qU, qV, qZ, qXi) x y clockwise = do
             return (False, used, image, qUQ)
           else
             loop2 (j + 1) (used & ix w .~ True) (image & ix qZQ .~ w)
-  (retB, used6, image6, qUQ) <- loop2 2 used4 image5
+  (retB, used6, image6, _) <- loop2 2 used4 image5
   (lift . put) (((aSLow, aSUpp, aSLev), used6, image6, adjmat, edgelist), posoutX)
   if retB then
     (liftIO . putStr) ""
@@ -586,14 +586,14 @@ rootedSubConf degree (qU, qV, qZ, qXi) x y clockwise = do
 -- ##################################################################################################################
 checkHubcap :: [String] -> TpAxle
   -> RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO String
-checkHubcap strs ax@(axLow, axUpp, axLev) = do
+checkHubcap strs _ax@(axLow, axUpp, axLev) = do
   -- 1. omitted
   -- 2. omitted
   -- 3. omitted
   -- 4. omitted
   -- 5.
   (_, _, deg)     <- ask
-  (rP, posoutX)   <- get
+  (rP, _)   <- get
   let xyvList      = map read strs :: [(Int, Int, Int)]
       s            = replicate (2 * maxoutlets + 1) 0
       nouts        = difNouts !! deg
@@ -619,8 +619,8 @@ checkHubcap strs ax@(axLow, axUpp, axLev) = do
 
 checkBound :: TpAxleI -> [Int] -> Int -> Int -> Int
   -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
-checkBound axL@(axLowL, axUppL) s0 maxch pos depth = do
-  (gConfs, rules, deg)                                              <- lift ask
+checkBound axL@(axLowL, axUppL) s0 maxch _pos depth = do
+  (_, rules, deg)                                              <- lift ask
   (((aSLow, aSUpp, aSLev), used, image, adjmat, edgelist), posoutX) <- lift get
 
   -- 1. compute forced and permitted rules, allowedch, forcedch, update s
@@ -666,7 +666,7 @@ checkBound axL@(axLowL, axUppL) s0 maxch pos depth = do
   if forcedch > maxch then do
     lift $ put (((aSLow & ix 0 .~ axLowL, aSUpp & ix 0 .~ axUppL, aSLev), used, image, adjmat, edgelist), posoutX)
     ret <- lift $ runMaybeT reduce
-    if ret == Nothing then
+    if isNothing ret then
       error "Incorrect hubcap upper bound"
     else do
       liftIO . putStrLn $ show forcedch ++ " " ++ show allowedch ++ " " ++ show maxch
@@ -694,11 +694,11 @@ checkBound axL@(axLowL, axUppL) s0 maxch pos depth = do
                       (axLowL2, axUppL2)
                         |      lowPosI > axLowL !! p  &&      uppPosI < axUppL !! p
                             = (axLowL & ix p .~ lowPosI, axUppL & ix p .~ uppPosI)
-                        | not (lowPosI > axLowL !! p) &&      uppPosI < axUppL !! p
+                        | (lowPosI <= (axLowL !! p)) &&      uppPosI < axUppL !! p
                             = (axLowL                  , axUppL & ix p .~ uppPosI)
-                        |      lowPosI > axLowL !! p  && not (uppPosI < axUppL !! p)
+                        |      lowPosI > axLowL !! p  && (uppPosI >= (axUppL !! p))
                             = (axLowL & ix p .~ lowPosI, axUppL                  )
-                        | not (lowPosI > axLowL !! p) && not (uppPosI < axUppL !! p)
+                        | (lowPosI <= (axLowL !! p)) && (uppPosI >= (axUppL !! p))
                             = (axLowL                  , axUppL                  )
                   in if axLowL2 !! p > axUppL2 !! p then
                     error "Unexpected error 321"
@@ -720,7 +720,7 @@ checkBound axL@(axLowL, axUppL) s0 maxch pos depth = do
                     return 0
                   else
                     loop5_2 (i + 1)
-          good2 <- liftIO $ loop5_2 0
+          _good2 <- liftIO $ loop5_2 0
           let good = 0
           if good /= 0 then do
             -- recursion with PO forced
@@ -753,7 +753,7 @@ checkBound axL@(axLowL, axUppL) s0 maxch pos depth = do
 --   Condition
 -- ##################################################################################################################
 checkCondition1 :: TpCond -> TpAxle -> Int -> Int -> TpAxle
-checkCondition1 (nn, mm) aA@(low, upp, lev) n m =
+checkCondition1 _ (low, upp, lev) n m =
   let low2  = low & ix (lev + 1) .~ (low ^?! ix lev)
       upp2  = upp & ix (lev + 1) .~ (upp ^?! ix lev)
       aLowN = (low2 ^?! ix lev) ^?! ix n
@@ -763,18 +763,18 @@ checkCondition1 (nn, mm) aA@(low, upp, lev) n m =
         | m > 0 && not (aLowN >= m || m > aUppN)   =
             -- new lower bound
             ( low2 & (ix (lev + 1) <<< ix n) .~ m
-             ,upp2 & (ix lev       <<< ix n) .~ (m - 1)
-             ,lev )
+              ,upp2 & (ix lev       <<< ix n) .~ (m - 1)
+              ,lev )
         | m <= 0 &&    (aLowN > -m || -m >= aUppN) = error "Invalid upper bound in condition"
         | otherwise                                =
             -- new upper bound
             ( low2 & (ix lev       <<< ix n) .~ (1 - m)
-             ,upp2 & (ix (lev + 1) <<< ix n) .~ (-m)
-             ,lev )
+              ,upp2 & (ix (lev + 1) <<< ix n) .~ (-m)
+              ,lev )
   in ret
 
 checkCondition2 :: TpCond -> TpAxle -> Int -> TpPosout -> Int -> Int -> (TpPosout, Int)
-checkCondition2 (nn, mm) aA@(_, _, lev) deg sym@(symNum, symNol, symVal, symPos, symLow, symUpp) nosym lineno =
+checkCondition2 (nn, mm) (_, _, lev) deg sym@(symNum, symNol, symVal, symPos, symLow, symUpp) nosym lineno =
   let bad = find (\x -> x > 2 * deg || x < 1) nn
       num = symNum & ix nosym .~ lineno
       val = symVal & ix nosym .~ 1
@@ -792,7 +792,7 @@ checkCondition2 (nn, mm) aA@(_, _, lev) deg sym@(symNum, symNol, symVal, symPos,
                   | otherwise   = upp & (ix nosym <<< ix i) .~ -(mm !! i)
             in loop1 (i + 1) (pos2, low2, upp2)
       (pos, low, upp) = loop1 0 (symPos, symLow, symUpp)
-  in if bad == Nothing then
+  in if isNothing bad then
     ((num, nol, val, pos, low, upp), nosym + 1)
   else
     (sym, nosym)
