@@ -13,6 +13,24 @@
 module Main where
 
 
+import DiLibConst
+    ( TpReducePack,
+      TpPosoutI,
+      TpPosout,
+      TpEdgelist,
+      TpGoodConf,
+      TpVertices,
+      TpAdjmat,
+      TpCond,
+      TpAxleI,
+      TpAxle,
+      cartvert,
+      infty,
+      maxoutlets,
+      maxelist,
+      maxastack,
+      maxlev,
+      difNouts )
 {-
 import Data.Maybe (fromJust, isJust)
 import Debug.Trace (trace)
@@ -27,31 +45,6 @@ import Control.Monad.Trans.Maybe (MaybeT(..))
 import Control.Monad.Trans.RWS   (RWST(..), ask, get, put)
 import Data.List                 (find)
 import Data.Maybe                (isNothing)
-
-
-verts      = 27             -- max number of vertices in a free completion + 1
-confs      = 640            -- max number of configurations
-maxval     = 12
-cartvert   = 5 * maxval + 2 -- domain of l_A, u_A, where A is an axle
-infty      = 12             -- the "12" in the definition of limited part
-maxoutlets = 110            -- max number of outlets
-maxelist   = 134            -- length of edgelist[a][b]
-maxastack  = 5              -- max height of Astack (see "Reduce")
-maxlev     = 12             -- max level of an input line + 1
-difNouts   = [0, 0, 0, 0, 0, 0, 0, 103, 103, 103, 103, 103]
-
-
-type TpAxle          = ([[Int]], [[Int]], Int)
-type TpAxleI         = ([Int], [Int])
-type TpCond          = ([Int], [Int])
-type TpAdjmat        = [[Int]]
-type TpVertices      = [Int]
-type TpGoodConf      = ([Int], [Int], [Int], [Int])
-type TpEdgelist      = [[[Int]]]
-type TpPosout        = ([Int], [Int], [Int], [[Int]], [[Int]], [[Int]])
-type TpPosoutI       = (Int, Int, Int, [Int], [Int], [Int])
-type TpReducePack    = (TpAxle, [Bool], TpVertices, TpAdjmat, TpEdgelist)
-type TpConfPack      = (Bool, Int, [Bool], TpVertices, Int)
 
 
 main :: IO ()
@@ -127,14 +120,24 @@ mainLoop (nn, mm) sym@(_, symNol, _, _, _, _) nosym ax@(axLow, axUpp, axLev) tac
   | axLev < 0       = return $ head $ head tactics
   | otherwise       = let nowTac = head tactics in
       case nowTac !! 1 of
-        "S" -> do
-                liftIO . putStrLn $ "Symmetry  " ++ show nowTac
-                --checkSymmetry (tail (tail (head tactics))) axles posout nosym
-                let _ =
+        "C" -> do
+                liftIO . putStr $ "Condition  " ++ show nowTac
+                (_, _, deg)             <- ask
+                let n                    = read (head tactics !! 2) :: Int
+                    m                    = read (head tactics !! 3) :: Int
+                    (low2, upp2, axLev2) = checkCondition1 (nn, mm) ax n m
+                    (sym2, nosym2)       = checkCondition2 (nn, mm) ax deg sym nosym 7
+                    nn2                  = (nn & ix axLev .~ n) & ix (axLev + 1) .~ 0
+                    mm2                  = (mm & ix axLev .~ m) & ix (axLev + 1) .~ 0
+                (liftIO . print) axLev2
+                mainLoop (nn2, mm2) sym2 nosym2 (low2, upp2, axLev + 1) (tail tactics) (lineno + 1)
+        "H" -> do
+                liftIO . putStrLn $ "Hubcap  " ++ show nowTac
+                checkHubcap (tail (tail (head tactics))) ax
+                let nosym2 =
                       if nosym == 0 then 0
                       else delSym nosym symNol axLev
-                --mainLoop rP posout (nn, mm) deg nosym2 (low, upp, lev - 1) (tail tactics) (lineno + 1)
-                return "Q.E.D."
+                mainLoop (nn, mm) sym nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
         "R" -> do
                 liftIO . putStrLn $ "Reduce  " ++ show nowTac
                 (((aSLow, aSUpp, aSLev), used, image, adjmat, edgelist), posoutX) <- get
@@ -149,24 +152,14 @@ mainLoop (nn, mm) sym@(_, symNol, _, _, _, _) nosym ax@(axLow, axUpp, axLev) tac
                         if nosym == 0 then 0
                         else delSym nosym symNol axLev
                   mainLoop (nn, mm) sym nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
-        "H" -> do
-                liftIO . putStrLn $ "Hubcap  " ++ show nowTac
-                checkHubcap (tail (tail (head tactics))) ax
-                let nosym2 =
+        "S" -> do
+                liftIO . putStrLn $ "Symmetry  " ++ show nowTac
+                --checkSymmetry (tail (tail (head tactics))) axles posout nosym
+                let _ =
                       if nosym == 0 then 0
                       else delSym nosym symNol axLev
-                mainLoop (nn, mm) sym nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
-        "C" -> do
-                liftIO . putStr $ "Condition  " ++ show nowTac
-                (_, _, deg)             <- ask
-                let n                    = read (head tactics !! 2) :: Int
-                    m                    = read (head tactics !! 3) :: Int
-                    (low2, upp2, axLev2) = checkCondition1 (nn, mm) ax n m
-                    (sym2, nosym2)       = checkCondition2 (nn, mm) ax deg sym nosym 7
-                    nn2                  = (nn & ix axLev .~ n) & ix (axLev + 1) .~ 0
-                    mm2                  = (mm & ix axLev .~ m) & ix (axLev + 1) .~ 0
-                (liftIO . print) axLev2
-                mainLoop (nn2, mm2) sym2 nosym2 (low2, upp2, axLev + 1) (tail tactics) (lineno + 1)
+                --mainLoop rP posout (nn, mm) deg nosym2 (low, upp, lev - 1) (tail tactics) (lineno + 1)
+                return "Q.E.D."
         _   -> error "Invalid instruction"
 
 
