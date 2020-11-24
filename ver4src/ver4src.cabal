@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 06a0897c65477f66f8cb374ca517c4681475eb6392b5ee13e21469890af9996a
+-- hash: 0f12673fcae1f3390d32d145853edad89e3121e3ac9f3a95fc09f74e07738f51
 
 name:           ver4src
 version:        0.1.0.0
@@ -26,7 +26,11 @@ source-repository head
 
 library
   exposed-modules:
-      DiLibConst
+      DiLibCConst
+      DiLibCondition
+      DiLibHubcap
+      DiLibReduce
+      DiLibSymmetry
       Lib
   other-modules:
       Paths_ver4src

@@ -1,4 +1,4 @@
-module DiLibConst where
+module DiLibCConst where
 
 type TpAxle          = ([[Int]], [[Int]], Int)
 type TpAxleI         = ([Int], [Int])
