@@ -38,7 +38,7 @@ checkHubcap strs _ax@(axLow, axUpp, axLev) = do
   -- 4. omitted
   -- 5.
   (_, _, deg)     <- ask
-  (rP, _)   <- get
+  (rP, _)         <- get
   let xyvList      = map read strs :: [(Int, Int, Int)]
       s            = replicate (2 * maxoutlets + 1) 0
       nouts        = difNouts !! deg
@@ -75,8 +75,8 @@ checkBound axL@(axLowL, axUppL) s0 maxch _pos depth = do
         else
           let rVi       = (rules ^. _3) !! i
               forcedch2 = if retS !! i > 0 then forcedch + rVi else forcedch
-              retF      = outletForced    axL (getPosoutI rules i) (posoutX !! i)
-              retP      = outletPermitted axL (getPosoutI rules i) (posoutX !! i)
+              retF      = outletForced    axL (getPosoutI rules i) (posoutX !! i) deg
+              retP      = outletPermitted axL (getPosoutI rules i) (posoutX !! i) deg
               (forcedch3, allowedch2, retS2)
                 | retS !! i /= 0 = (forcedch2,       allowedch,       retS)
                 | retF /= 0      = (forcedch2 + rVi, allowedch,       retS & ix i .~ 1)
@@ -156,7 +156,7 @@ checkBound axL@(axLowL, axUppL) s0 maxch _pos depth = do
                 if i >= pos then
                   return 1
                 else do
-                  let retF = outletForced (axLowL2, axUppL2) (getPosoutI rules i) (posoutX !! i)
+                  let retF = outletForced (axLowL2, axUppL2) (getPosoutI rules i) (posoutX !! i) deg
                   if s !! i == -1 && retF /= 0 then do
                     putStr $ show depth ++ " Positioned outlet "
                     putStrLn $ show ((rules ^. _1) !! pos) ++ "," ++ show x

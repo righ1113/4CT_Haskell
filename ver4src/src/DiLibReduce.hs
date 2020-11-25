@@ -105,12 +105,13 @@ reduce = do
 
 getAdjmat :: TpAxleI -> Int -> TpAdjmat
 getAdjmat (_, axUppL) deg =
-  let adjmat         = replicate cartvert $ replicate cartvert (-1)
-      loop1 i adjmat =
-        if i > deg then adjmat
-        else
-          let adjmat2 = getAdjmatSub deg axUppL adjmat i
-          in loop1 (i + 1) adjmat2
+  let
+    adjmat         = replicate cartvert $ replicate cartvert (-1)
+    loop1 i adjmat =
+      if i > deg then adjmat
+      else
+        let adjmat2 = getAdjmatSub deg axUppL adjmat i
+        in loop1 (i + 1) adjmat2
   in loop1 1 adjmat
 
 data Way = Forward | Backward deriving Eq
@@ -129,10 +130,11 @@ chgAdjmat adjmat a b c way =
 
 getAdjmatSub :: Int -> [Int] -> TpAdjmat -> Int -> TpAdjmat
 getAdjmatSub deg bUpp adjmat i =
-  let h       = if i == 1 then deg else i - 1
-      a       = deg + h
-      adjmat2 = chgAdjmat adjmat  0 h i Forward
-      adjmat3 = chgAdjmat adjmat2 i h a Forward
+  let
+    h       = if i == 1 then deg else i - 1
+    a       = deg + h
+    adjmat2 = chgAdjmat adjmat  0 h i Forward
+    adjmat3 = chgAdjmat adjmat2 i h a Forward
   in if bUpp !! i < 9 then
     doFan deg i (bUpp !! i) adjmat3
   else
@@ -140,47 +142,27 @@ getAdjmatSub deg bUpp adjmat i =
 
 doFan :: Int -> Int -> Int -> TpAdjmat -> TpAdjmat
 doFan deg i k adjmat =
-  let a       = if i == 1 then 2 * deg else deg + i - 1
-      b       = deg + i
-      c       = 2 * deg + i
-      adjmat2 = chgAdjmat adjmat i a c Backward
-      d       = 3 * deg + i
-      adjmat3 = chgAdjmat adjmat2 i c d Backward
-      e       = 4 * deg + i
-      adjmat4 = chgAdjmat adjmat3 i d e Backward
-      ret
-        | k == 5    = chgAdjmat adjmat  i a b Backward
-        | k == 6    = chgAdjmat adjmat2 i c b Backward
-        | k == 7    = chgAdjmat adjmat3 i d b Backward
-        | otherwise = chgAdjmat adjmat4 i e b Backward
+  let
+    a       = if i == 1 then 2 * deg else deg + i - 1
+    b       =     deg + i
+    c       = 2 * deg + i
+    adjmat2 = chgAdjmat adjmat  i a c Backward
+    d       = 3 * deg + i
+    adjmat3 = chgAdjmat adjmat2 i c d Backward
+    e       = 4 * deg + i
+    adjmat4 = chgAdjmat adjmat3 i d e Backward
+    ret
+      | k == 5    = chgAdjmat adjmat  i a b Backward
+      | k == 6    = chgAdjmat adjmat2 i c b Backward
+      | k == 7    = chgAdjmat adjmat3 i d b Backward
+      | otherwise = chgAdjmat adjmat4 i e b Backward
   in ret
 
 
 getEdgelist :: TpAxleI -> TpEdgelist -> Int -> TpEdgelist
-getEdgelist (axLowL, axUppL) edgelist deg =
+getEdgelist (axLowL, axUppL) _edgelist deg =
   let
-    edgelist2        =  edgelist  & (ix 5  <<< ix 5 <<< ix 0) .~ 0
-    edgelist3        =  edgelist2 & (ix 6  <<< ix 5 <<< ix 0) .~ 0
-    edgelist4        =  edgelist3 & (ix 6  <<< ix 6 <<< ix 0) .~ 0
-    edgelist5        =  edgelist4 & (ix 7  <<< ix 5 <<< ix 0) .~ 0
-    edgelist6        =  edgelist5 & (ix 7  <<< ix 6 <<< ix 0) .~ 0
-    edgelist7        =  edgelist6 & (ix 7  <<< ix 7 <<< ix 0) .~ 0
-    edgelist8        =  edgelist7 & (ix 8  <<< ix 5 <<< ix 0) .~ 0
-    edgelist9        =  edgelist8 & (ix 8  <<< ix 6 <<< ix 0) .~ 0
-    edgelist10       =  edgelist9 & (ix 8  <<< ix 7 <<< ix 0) .~ 0
-    edgelist11       = edgelist10 & (ix 8  <<< ix 8 <<< ix 0) .~ 0
-    edgelist12       = edgelist11 & (ix 9  <<< ix 5 <<< ix 0) .~ 0
-    edgelist13       = edgelist12 & (ix 9  <<< ix 6 <<< ix 0) .~ 0
-    edgelist14       = edgelist13 & (ix 9  <<< ix 7 <<< ix 0) .~ 0
-    edgelist15       = edgelist14 & (ix 9  <<< ix 8 <<< ix 0) .~ 0
-    edgelist16       = edgelist15 & (ix 10 <<< ix 5 <<< ix 0) .~ 0
-    edgelist17       = edgelist16 & (ix 10 <<< ix 6 <<< ix 0) .~ 0
-    edgelist18       = edgelist17 & (ix 10 <<< ix 7 <<< ix 0) .~ 0
-    edgelist19       = edgelist18 & (ix 10 <<< ix 8 <<< ix 0) .~ 0
-    edgelist20       = edgelist19 & (ix 11 <<< ix 5 <<< ix 0) .~ 0
-    edgelist21       = edgelist20 & (ix 11 <<< ix 6 <<< ix 0) .~ 0
-    edgelist22       = edgelist21 & (ix 11 <<< ix 7 <<< ix 0) .~ 0
-    edgelist23       = edgelist22 & (ix 11 <<< ix 8 <<< ix 0) .~ 0
+    edgelist23       = replicate 12 $ replicate 9 $ replicate maxelist 0 --edgelist22 & (ix 11 <<< ix 8 <<< ix 0) .~ 0
     loop1 i edgelist =
       if i > deg then edgelist
       else
@@ -257,7 +239,6 @@ addToList edgelist u v degree =
 subConf :: TpAxleI -> TpGoodConf -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
 subConf (_, axUppL) gC@(_, _, _, qXi) = do
 
-  (_, _, _)                                              <- lift ask
   ((_, _, _, _, edgelist), _) <- lift get
 
   -- 1.
@@ -278,9 +259,9 @@ subConf (_, axUppL) gC@(_, _, _, qXi) = do
 
 rootedSubConf :: TpVertices -> TpGoodConf -> Int -> Int -> Int
   -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
-rootedSubConf degree (qU, qV, qZ, qXi) x y clockwise = do
+rootedSubConf degree gConf@(_, _, qZ, _) x y clockwise = do
 
-  (_, _, deg)                                              <- lift ask
+  (_, _, deg)                                                <- lift ask
   (((aSLow, aSUpp, aSLev), _, _, adjmat, edgelist), posoutX) <- lift get
 
   -- 1.
@@ -295,36 +276,7 @@ rootedSubConf degree (qU, qV, qZ, qXi) x y clockwise = do
       used4  = used3 & ix y .~ True
 
   -- 2.
-  let loop2 j used image =
-        let qUQ = qU !! j
-        in if qUQ < 0 then
-          return (True, used, image, qUQ)
-        else do
-          let
-            qVQ      = qV     !! j
-            qZQ      = qZ     !! j
-            qXiQ     = qXi    !! j
-            imageQUQ = image  !! qUQ
-            imageQVQ = image  !! qVQ
-            w        = if clockwise == 0 then (adjmat ^?! ix imageQVQ) ^?! ix imageQUQ
-                        else                   (adjmat ^?! ix imageQUQ) ^?! ix imageQVQ
-            degreeW  = degree !! w
-            usedW    = used   !! w
-
-          -- ##### printf debug #####
-          -- (liftIO . print) x
-          -- (liftIO . print) y
-          -- (liftIO . print) w
-          -- (liftIO . print) qXiQ
-          -- (liftIO . print) degreeW
-          -- (liftIO . print) usedW
-          -- ##### printf debug #####
-
-          if (w == -1) || (qXiQ /= 0 && qXiQ /= degreeW) || usedW then
-            return (False, used, image, qUQ)
-          else
-            loop2 (j + 1) (used & ix w .~ True) (image & ix qZQ .~ w)
-  (retB, used6, image6, _) <- loop2 2 used4 image5
+  (retB, used6, image6, _) <- rootedSubConfSub2 2 used4 image5 gConf adjmat clockwise degree
   (lift . put) (((aSLow, aSUpp, aSLev), used6, image6, adjmat, edgelist), posoutX)
   if retB then
     (liftIO . putStr) ""
@@ -332,17 +284,45 @@ rootedSubConf degree (qU, qV, qZ, qXi) x y clockwise = do
     empty -- 失敗終了
 
   -- 3. test if image is well-positioned
-  let loop3 j =
-        let degJ = if j == 1 then 2 * deg else deg + j - 1
-            ret
-              | j > deg                                                 = return "loop3 end."
-              | not (used6 !! j) && used6 !! (deg + j) && used6 !! degJ = empty -- 失敗終了
-              | otherwise                                               = loop3 (j + 1)
-        in ret
-  loop3 1
+  rootedSubConfSub3 1 used6 deg -- empty 失敗終了の可能性もある
 
   -- 4.
   return "rootedSubConf end." -- 正常終了
+
+
+rootedSubConfSub2 :: Int -> [Bool] -> [Int] -> TpGoodConf -> TpAdjmat -> Int -> TpVertices
+  -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) (Bool, [Bool], [Int], Int)
+rootedSubConfSub2 j used image (qU, qV, qZ, qXi) adjmat clockwise degree =
+  let qUQ = qU !! j
+  in if qUQ < 0 then
+    return (True, used, image, qUQ)
+  else do
+    let
+      qVQ      = qV     !! j
+      qZQ      = qZ     !! j
+      qXiQ     = qXi    !! j
+      imageQUQ = image  !! qUQ
+      imageQVQ = image  !! qVQ
+      w        = if clockwise == 0 then  (adjmat ^?! ix imageQVQ) ^?! ix imageQUQ
+                  else                   (adjmat ^?! ix imageQUQ) ^?! ix imageQVQ
+      degreeW  = degree !! w
+      usedW    = used   !! w
+    if (w == -1) || (qXiQ /= 0 && qXiQ /= degreeW) || usedW then
+      return (False, used, image, qUQ)
+    else
+      rootedSubConfSub2 (j + 1) (used & ix w .~ True) (image & ix qZQ .~ w) (qU, qV, qZ, qXi) adjmat clockwise degree
+
+
+rootedSubConfSub3 :: Int -> [Bool] -> Int
+  -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
+rootedSubConfSub3 j used6 deg =
+  let
+    degJ = if j == 1 then 2 * deg else deg + j - 1
+    ret
+      | j > deg                                                 = return "loop3 end."
+      | not (used6 !! j) && used6 !! (deg + j) && used6 !! degJ = empty -- 失敗終了
+      | otherwise                                               = rootedSubConfSub3 (j + 1) used6 deg
+  in ret
 
 
 

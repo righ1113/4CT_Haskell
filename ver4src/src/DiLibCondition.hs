@@ -18,12 +18,12 @@ checkCondition1 _ (low, upp, lev) n m =
         | m > 0 && not (aLowN >= m || m > aUppN)   =
             -- new lower bound
             ( low2 & (ix (lev + 1) <<< ix n) .~ m
-              ,upp2 & (ix lev       <<< ix n) .~ (m - 1)
+              ,upp2 & (ix lev      <<< ix n) .~ (m - 1)
               ,lev )
         | m <= 0 &&    (aLowN > -m || -m >= aUppN) = error "Invalid upper bound in condition"
         | otherwise                                =
             -- new upper bound
-            ( low2 & (ix lev       <<< ix n) .~ (1 - m)
+            ( low2 & (ix lev        <<< ix n) .~ (1 - m)
               ,upp2 & (ix (lev + 1) <<< ix n) .~ (-m)
               ,lev )
   in ret

@@ -127,9 +127,7 @@ mainLoop (nn, mm) sym@(_, symNol, _, _, _, _) nosym ax@(axLow, axUpp, axLev) tac
         "H" -> do
                 liftIO . putStrLn $ "Hubcap  " ++ show nowTac
                 checkHubcap (tail (tail (head tactics))) ax
-                let nosym2 =
-                      if nosym == 0 then 0
-                      else delSym nosym symNol axLev
+                let nosym2 = if nosym == 0 then 0 else delSym nosym symNol axLev
                 mainLoop (nn, mm) sym nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
         "R" -> do
                 liftIO . putStrLn $ "Reduce  " ++ show nowTac
@@ -141,16 +139,12 @@ mainLoop (nn, mm) sym@(_, symNol, _, _, _, _) nosym ax@(axLow, axUpp, axLev) tac
                 if isNothing ret then
                   error "Reducibility failed"
                 else do
-                  let nosym2 =
-                        if nosym == 0 then 0
-                        else delSym nosym symNol axLev
+                  let nosym2 = if nosym == 0 then 0 else delSym nosym symNol axLev
                   mainLoop (nn, mm) sym nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
         "S" -> do
                 liftIO . putStrLn $ "Symmetry  " ++ show nowTac
                 --checkSymmetry (tail (tail (head tactics))) axles posout nosym
-                let _ =
-                      if nosym == 0 then 0
-                      else delSym nosym symNol axLev
+                let _ = if nosym == 0 then 0 else delSym nosym symNol axLev
                 --mainLoop rP posout (nn, mm) deg nosym2 (low, upp, lev - 1) (tail tactics) (lineno + 1)
                 return "Q.E.D."
         _   -> error "Invalid instruction"
