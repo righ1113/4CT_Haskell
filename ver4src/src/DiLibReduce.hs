@@ -1,16 +1,17 @@
 module DiLibReduce where
 
 import DiLibCConst
-    ( TpReducePack,
-      TpPosout,
+    ( cartvert,
+      maxastack,
+      maxelist,
+      TpAdjmat,
+      TpAxle,
+      TpAxleI,
       TpEdgelist,
       TpGoodConf,
-      TpVertices,
-      TpAdjmat,
-      TpAxleI,
-      cartvert,
-      maxelist,
-      maxastack )
+      TpPosout,
+      TpReducePack,
+      TpVertices )
 import Control.Applicative       (empty)
 import Control.Arrow             ((<<<))
 import Control.Lens
@@ -24,8 +25,8 @@ import Data.Maybe                (isNothing)
 
 reduce :: MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
 reduce = do
-  (gConfs, _, deg)                                              <- lift ask
-  (((aSLow, aSUpp, aSLev), used, image, _, edgelist), posoutX) <- lift get
+  (gConfs, _, deg)                                                <- lift ask
+  ((aS@(aSLow, aSUpp, aSLev), used, image, _, edgelist), posoutX) <- lift get
 
   -- 1.
   let noconf = 633
@@ -39,30 +40,9 @@ reduce = do
               adjmat2   = getAdjmat   (aSLow !! aSLev, aSUpp !! aSLev)          deg
               edgelist2 = getEdgelist (aSLow !! aSLev, aSUpp !! aSLev) edgelist deg
           (lift . put) (((aSLow, aSUpp, aSLev), used, image, adjmat2, edgelist2), posoutX)
-          -- ##### printf debug #####
-          -- (liftIO . print) adjmat2
-          -- (liftIO . print) $ (edgelist2 !! 5) !! 5
-          -- (liftIO . print) $ aSUpp !! aSLev
-          -- (liftIO . print) image -- 最初はall 0
-          -- ##### printf debug #####
 
           -- 1.2.
-          let loop1_2 h = --型がMaybeT
-                if h >= noconf then do
-                  -- ##### printf debug #####
-                  -- ((_, _, imageZ, _, _), _) <- lift get
-                  -- (liftIO . print) imageZ
-                  -- ##### printf debug #####
-                  --   どのみち、ループ終了後失敗終了だから、ここで落とす
-                  (liftIO . putStrLn) "Not reducible."
-                  empty -- 失敗終了
-                else do
-                  retSC <- lift . runMaybeT $ subConf (aSLow !! aSLev, aSUpp !! aSLev) (gConfs !! h)
-                  if isNothing retSC then
-                    (return . show) h -- 正常終了
-                  else
-                    loop1_2 (h + 1) -- 再帰
-          ret1_2      <- loop1_2 0
+          ret1_2      <- reduceSub2 0 noconf
           let h        = read ret1_2 :: Int
               redverts = ((gConfs !! h) ^. _1) !! 1
               redring  = ((gConfs !! h) ^. _2) !! 1
@@ -73,26 +53,7 @@ reduce = do
           -- Double-check isomorphism
 
           -- 1.4.
-          let loop1_4 i n up = -- IO
-                let v      = image !! i
-                    aSLowV = aSLow !! aSLev !! v
-                    aSUppV =    up !! aSLev !! v
-                in if i > redverts then
-                  return (n, up)
-                else
-                  if aSLowV == aSUppV then
-                    loop1_4 (i + 1) n up
-                  else do
-                    putStr     "Lowering upper bound of vertex "
-                    putStrLn $ show v
-                                ++ " to "
-                                ++ show aSUppV
-                                ++ " and adding to stack"
-                    if n >= maxastack then
-                      error "More than %d elements in axle stack needed"
-                    else
-                      loop1_4 (i + 1) (n + 1) (aSUpp & (ix aSLev <<< ix v) .~ (aSUppV - 1))
-          (naxles3, aSUpp2) <- liftIO $ loop1_4 (redring + 1) naxles2 aSUpp
+          (naxles3, aSUpp2) <- liftIO $ reduceSub4 (redring + 1) naxles2 aS image redverts
           (lift . put) (((aSLow, aSUpp2, aSLev), used, image, adjmat2, edgelist2), posoutX)
 
           -- 1.5. 再帰
@@ -101,6 +62,44 @@ reduce = do
 
   -- 2.
   return "reduce end." -- 正常終了
+
+
+reduceSub2 :: Int -> Int -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
+reduceSub2 h noconf =
+  if h >= noconf then do
+    --   どのみち、ループ終了後失敗終了だから、ここで落とす
+    (liftIO . putStrLn) "Not reducible."
+    empty -- 失敗終了
+  else do
+    (gConfs, _, _)                           <- lift ask
+    (((aSLow, aSUpp, aSLev), _, _, _, _), _) <- lift get
+    retSC <- lift . runMaybeT $ subConf (aSLow !! aSLev, aSUpp !! aSLev) (gConfs !! h)
+    if isNothing retSC then
+      (return . show) h -- 正常終了
+    else
+      reduceSub2 (h + 1) noconf -- 再帰
+
+
+reduceSub4 :: Int -> Int -> TpAxle -> [Int] -> Int -> IO (Int, [[Int]])
+reduceSub4 i n aS@(aSLow, up, aSLev) image redverts =
+  let v      = image !! i
+      aSLowV = aSLow !! aSLev !! v
+      aSUppV =    up !! aSLev !! v
+  in if i > redverts then
+    return (n, up)
+  else
+    if aSLowV == aSUppV then
+      reduceSub4 (i + 1) n aS image redverts
+    else do
+      putStr     "Lowering upper bound of vertex "
+      putStrLn $ show v
+                  ++ " to "
+                  ++ show aSUppV
+                  ++ " and adding to stack"
+      if n >= maxastack then
+        error "More than %d elements in axle stack needed"
+      else
+        reduceSub4 (i + 1) (n + 1) (aSLow, up & (ix aSLev <<< ix v) .~ (aSUppV - 1), aSLev) image redverts
 
 
 getAdjmat :: TpAxleI -> Int -> TpAdjmat
@@ -113,6 +112,7 @@ getAdjmat (_, axUppL) deg =
         let adjmat2 = getAdjmatSub deg axUppL adjmat i
         in loop1 (i + 1) adjmat2
   in loop1 1 adjmat
+
 
 data Way = Forward | Backward deriving Eq
 chgAdjmat :: TpAdjmat -> Int -> Int -> Int -> Way -> TpAdjmat
@@ -128,6 +128,7 @@ chgAdjmat adjmat a b c way =
         adjmat4 = adjmat3 & (ix c <<< ix a) .~ b
     in adjmat4
 
+
 getAdjmatSub :: Int -> [Int] -> TpAdjmat -> Int -> TpAdjmat
 getAdjmatSub deg bUpp adjmat i =
   let
@@ -139,6 +140,7 @@ getAdjmatSub deg bUpp adjmat i =
     doFan deg i (bUpp !! i) adjmat3
   else
     adjmat3
+
 
 doFan :: Int -> Int -> Int -> TpAdjmat -> TpAdjmat
 doFan deg i k adjmat =
@@ -170,6 +172,7 @@ getEdgelist (axLowL, axUppL) _edgelist deg =
         in loop1 (i + 1) edgelist2
   in loop1 1 edgelist23
 
+
 getEdgelistSub :: TpVertices -> TpVertices -> TpEdgelist -> Int -> Int -> TpEdgelist
 getEdgelistSub bLow bUpp edgelist deg i =
   let
@@ -185,7 +188,7 @@ getEdgelistSub bLow bUpp edgelist deg i =
     c          = 2 * deg + i
     edgelist6  = addToList edgelist5  a c bUpp
     edgelist7  = addToList edgelist6  i c bUpp
-    d          = 3 * deg + i;
+    d          = 3 * deg + i
     edgelist8  = addToList edgelist7  c d bUpp
     edgelist9  = addToList edgelist8  i d bUpp
     e          = 4 * deg + i
@@ -199,6 +202,7 @@ getEdgelistSub bLow bUpp edgelist deg i =
       | bUppI == 8     = addToList edgelist11 b e bUpp
       | otherwise      = error "Unexpected error in `GetEdgeList'"
   in ret
+
 
 --[5][5]	0x002c0ec0 {12, 2, 1, 1, 2, 3, 2, 2, 3, 4, 3, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...}
 -- adds the pair u,v to edgelist
@@ -257,10 +261,10 @@ subConf (_, axUppL) gC@(_, _, _, qXi) = do
           else empty            -- 正常終了
   loop1 1
 
+
 rootedSubConf :: TpVertices -> TpGoodConf -> Int -> Int -> Int
   -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
 rootedSubConf degree gConf@(_, _, qZ, _) x y clockwise = do
-
   (_, _, deg)                                                <- lift ask
   (((aSLow, aSUpp, aSLev), _, _, adjmat, edgelist), posoutX) <- lift get
 
