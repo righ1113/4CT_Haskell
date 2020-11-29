@@ -110,14 +110,14 @@ mainLoop (nn, mm) sym@(_, symNol, _, _, _, _) nosym ax@(axLow, axUpp, axLev) tac
       case nowTac !! 1 of
         "C" -> do
                 liftIO . putStrLn $ "Condition  " ++ show nowTac
-                (_, _, deg)             <- ask
-                let n                    = read (head tactics !! 2) :: Int
-                    m                    = read (head tactics !! 3) :: Int
-                    (low2, upp2, axLev2) = checkCondition1 (nn, mm) ax n m
-                    (sym2, nosym2)       = checkCondition2 (nn, mm) ax deg sym nosym lineno
-                    nn2                  = (nn & ix axLev .~ n) & ix (axLev + 1) .~ 0
-                    mm2                  = (mm & ix axLev .~ m) & ix (axLev + 1) .~ 0
-                (liftIO . print) axLev2
+                (_, _, deg)              <- ask
+                let n                     = read (head tactics !! 2) :: Int
+                    m                     = read (head tactics !! 3) :: Int
+                    (low2, upp2, _axLev2) = checkCondition1 (nn, mm) ax n m
+                    (sym2, nosym2)        = checkCondition2 (nn, mm) ax deg sym nosym lineno
+                    nn2                   = (nn & ix axLev .~ n) & ix (axLev + 1) .~ 0
+                    mm2                   = (mm & ix axLev .~ m) & ix (axLev + 1) .~ 0
+                -- (liftIO . print) axLev2
                 mainLoop (nn2, mm2) sym2 nosym2 (low2, upp2, axLev + 1) (tail tactics) (lineno + 1)
         "H" -> do
                 liftIO . putStrLn $ "Hubcap  " ++ show nowTac
@@ -140,8 +140,8 @@ mainLoop (nn, mm) sym@(_, symNol, _, _, _, _) nosym ax@(axLow, axUpp, axLev) tac
                 liftIO . putStrLn $ "Symmetry  " ++ show nowTac
                 (_, _, deg)             <- ask
                 liftIO $ checkSymmetry (tail (tail (head tactics))) ax sym nosym deg
-                let _ = delSym nosym symNol axLev
-                --mainLoop rP posout (nn, mm) deg nosym2 (low, upp, lev - 1) (tail tactics) (lineno + 1)
+                let _nosym2 = delSym nosym symNol axLev
+                -- mainLoop (nn, mm) sym nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
                 return "Q.E.D."
         _   -> error "Invalid instruction"
 
