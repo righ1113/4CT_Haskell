@@ -27,12 +27,7 @@ import DiLibCConst
 import DiLibCondition            ( checkCondition1, checkCondition2 )
 import DiLibHubcap               ( checkHubcap )
 import DiLibReduce               ( reduce )
-import DiLibSymmetry             ( delSym )
-{-
-import Data.Maybe (fromJust, isJust)
-import Debug.Trace (trace)
-import Lib (myLoop)
--}
+import DiLibSymmetry             ( delSym, checkSymmetry )
 import Control.Lens              ( (&), (.~), Ixed(ix) )
 import Control.Monad.IO.Class    ( liftIO )
 import Control.Monad.Trans.Maybe ( MaybeT(..) )
@@ -114,12 +109,12 @@ mainLoop (nn, mm) sym@(_, symNol, _, _, _, _) nosym ax@(axLow, axUpp, axLev) tac
   | otherwise       = let nowTac = head tactics in
       case nowTac !! 1 of
         "C" -> do
-                liftIO . putStr $ "Condition  " ++ show nowTac
+                liftIO . putStrLn $ "Condition  " ++ show nowTac
                 (_, _, deg)             <- ask
                 let n                    = read (head tactics !! 2) :: Int
                     m                    = read (head tactics !! 3) :: Int
                     (low2, upp2, axLev2) = checkCondition1 (nn, mm) ax n m
-                    (sym2, nosym2)       = checkCondition2 (nn, mm) ax deg sym nosym 7
+                    (sym2, nosym2)       = checkCondition2 (nn, mm) ax deg sym nosym lineno
                     nn2                  = (nn & ix axLev .~ n) & ix (axLev + 1) .~ 0
                     mm2                  = (mm & ix axLev .~ m) & ix (axLev + 1) .~ 0
                 (liftIO . print) axLev2
@@ -127,7 +122,7 @@ mainLoop (nn, mm) sym@(_, symNol, _, _, _, _) nosym ax@(axLow, axUpp, axLev) tac
         "H" -> do
                 liftIO . putStrLn $ "Hubcap  " ++ show nowTac
                 checkHubcap (tail (tail (head tactics))) ax
-                let nosym2 = if nosym == 0 then 0 else delSym nosym symNol axLev
+                let nosym2 = delSym nosym symNol axLev
                 mainLoop (nn, mm) sym nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
         "R" -> do
                 liftIO . putStrLn $ "Reduce  " ++ show nowTac
@@ -139,12 +134,13 @@ mainLoop (nn, mm) sym@(_, symNol, _, _, _, _) nosym ax@(axLow, axUpp, axLev) tac
                 if isNothing ret then
                   error "Reducibility failed"
                 else do
-                  let nosym2 = if nosym == 0 then 0 else delSym nosym symNol axLev
+                  let nosym2 = delSym nosym symNol axLev
                   mainLoop (nn, mm) sym nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
         "S" -> do
                 liftIO . putStrLn $ "Symmetry  " ++ show nowTac
-                --checkSymmetry (tail (tail (head tactics))) axles posout nosym
-                let _ = if nosym == 0 then 0 else delSym nosym symNol axLev
+                (_, _, deg)             <- ask
+                liftIO $ checkSymmetry (tail (tail (head tactics))) ax sym nosym deg
+                let _ = delSym nosym symNol axLev
                 --mainLoop rP posout (nn, mm) deg nosym2 (low, upp, lev - 1) (tail tactics) (lineno + 1)
                 return "Q.E.D."
         _   -> error "Invalid instruction"
