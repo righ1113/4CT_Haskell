@@ -30,7 +30,8 @@ checkCondition1 _ (low, upp, lev) n m =
 
 checkCondition2 :: TpCond -> TpAxle -> Int -> TpPosout -> Int -> Int -> (TpPosout, Int)
 checkCondition2 (nn, mm) (_, _, lev) deg sym@(symNum, symNol, symVal, symPos, symLow, symUpp) nosym lineno =
-  let good = find (\ x -> x > 2 * deg || x < 1) (take (lev+1) nn)
+  -- good : 更新する
+  let bad  = find (`notElem` [1..(2 * deg)]) (take (lev+1) nn)
       num  = symNum & ix nosym .~ lineno
       val  = symVal & ix nosym .~ 1
       nol  = symNol & ix nosym .~ (lev + 1)
@@ -47,7 +48,7 @@ checkCondition2 (nn, mm) (_, _, lev) deg sym@(symNum, symNol, symVal, symPos, sy
                   | otherwise   = upp & (ix nosym <<< ix i) .~ -(mm !! i)
             in loop1 (i + 1) (pos2, low2, upp2)
       (pos, low, upp) = loop1 0 (symPos, symLow, symUpp)
-  in if isNothing good then
+  in if isNothing bad then
     ((num, nol, val, pos, low, upp), nosym + 1)
   else
     (sym, nosym)
