@@ -95,7 +95,7 @@ main = do
 
   -- final check
   if ret == "Q.E.D." then
-    putStrLn $ "中心の次数 " ++ degStr -- ++ " のグラフは、電荷が負になるか、近くに好配置があらわれるかです。"
+    putStrLn $ "中心の次数 " ++ degStr ++ " のグラフは、電荷が負になるか、近くに好配置があらわれるかです。"
   else
     putStrLn "失敗です。"
 
@@ -141,8 +141,8 @@ mainLoop (nn, mm) sym@(_, symNol, _, _, _, _) nosym ax@(axLow, axUpp, axLev) tac
                 (_, _, deg)             <- ask
                 liftIO $ checkSymmetry (tail (tail (head tactics))) ax sym nosym deg
                 let _nosym2 = delSym nosym symNol axLev
-                -- mainLoop (nn, mm) sym nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
-                return "Q.E.D."
+                mainLoop (nn, mm) sym _nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
+                -- return "Q.E.D."
         _   -> error "Invalid instruction"
 
 

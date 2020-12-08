@@ -6,7 +6,7 @@ import Data.Maybe  ( fromJust )
 
 
 checkSymmetry :: [String] -> TpAxle -> TpPosout -> Int -> Int -> IO ()
-checkSymmetry str (low, upp, lev) posout@(number, nolines, _, _, _, _) nosym deg =
+checkSymmetry str (low, upp, lev) posout@(number, nolines, _, _, _, _) nosym deg = do
   let
     [k, epsilon, level, line] = map read str :: [Int]
     i                         = ((fromJust .) . findIndex) (== line) number
@@ -15,9 +15,10 @@ checkSymmetry str (low, upp, lev) posout@(number, nolines, _, _, _, _) nosym deg
       | i >= nosym                                                                                 = error "No symmetry as requested"
       | nolines !! i /= level + 1                                                                  = error "Level mismatch"
       | epsilon == 0 && outletForced (low !! lev, upp !! lev) (getPosoutI posout i) (k+1) deg /= 1 = error "Invalid symmetry"
-      |                   reflForced (low !! lev, upp !! lev) (getPosoutI posout i) (k+1) deg /= 1 = error "Invalid reflected symmetry"
+      | epsilon /= 0 &&   reflForced (low !! lev, upp !! lev) (getPosoutI posout i) (k+1) deg /= 1 = error "Invalid reflected symmetry"
       | otherwise                                                                                  = putStrLn "  checkSymmetry OK."
-  in ret
+  print posout
+  ret
 
 
 delSym :: Int -> [Int] -> Int -> Int
