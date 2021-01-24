@@ -43,6 +43,12 @@ reduce = do
 
           -- 1.2.
           ret1_2      <- reduceSub2 0 noconf
+          (liftIO . putStrLn) "##########################"
+          (liftIO . putStrLn) $ "naxles: " ++ show naxles ++ "   aSLev: " ++ show aSLev
+          (liftIO . print) $ aSLow !! aSLev
+          (liftIO . print) $ aSUpp !! aSLev
+          (liftIO . putStrLn) $ "gConfNo. " ++ ret1_2
+          (liftIO . putStrLn) "##########################"
           let h        = read ret1_2 :: Int
               redverts = ((gConfs !! h) ^. _1) !! 1
               redring  = ((gConfs !! h) ^. _2) !! 1

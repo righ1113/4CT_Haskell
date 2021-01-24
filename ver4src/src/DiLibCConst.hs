@@ -21,7 +21,7 @@ maxoutlets = 110 :: Int              -- max number of outlets
 maxelist   = 134 :: Int              -- length of edgelist[a][b]
 maxastack  = 5 :: Int                -- max height of Astack (see "Reduce")
 maxlev     = 12 :: Int               -- max level of an input line + 1
-difNouts   = [0, 0, 0, 0, 0, 0, 0, 103, 103, 103, 103, 103] :: [Int]
+difNouts   = [0, 0, 0, 0, 0, 0, 0, 103, 64, 53, 53, 53] :: [Int]
 
 
 

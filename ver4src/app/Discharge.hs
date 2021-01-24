@@ -5,10 +5,7 @@
 2. > 「07」を入力してEnter。
 3. 中心の次数 07 のグラフは、電荷が負になるか、近くに好配置があらわれるかです
     プログラムは正常終了しました
-    が表示されたら OK （今は表示されない）
-1. $ stack ghci --main-is ver4src:exe:discharge-exe
-2. > main
-2. > :l app/Discharge
+    が表示されたら OK
 -}
 module Main where
 
