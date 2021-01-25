@@ -72,7 +72,7 @@ checkBound axL@(axLowL, axUppL) s0 maxch _pos depth = do
   let (forcedch, allowedch, s) = checkBoundSub1 0 0 0 s0 axL rules posoutX deg
   liftIO . putStrLn $ "f, a = " ++ show forcedch ++ ", " ++ show allowedch
 
-  -- 2.
+  -- 2. print
   liftIO . putStr $ show depth ++ " POs: "
   liftIO $ checkBoundSub2 0 s rules posoutX
   liftIO $ putStrLn ""
@@ -91,8 +91,7 @@ checkBound axL@(axLowL, axUppL) s0 maxch _pos depth = do
     if isNothing ret then
       error "Incorrect hubcap upper bound"
     else do
-      liftIO . putStrLn $ show forcedch ++ " " ++ show allowedch ++ " " ++ show maxch
-                  ++ " Reducible. Case done."
+      liftIO . putStrLn $ show forcedch ++ " " ++ show allowedch ++ " " ++ show maxch ++ " Reducible. Case done."
       empty -- 正常終了
   else
     liftIO $ putStr ""
@@ -102,14 +101,13 @@ checkBound axL@(axLowL, axUppL) s0 maxch _pos depth = do
         | s !! pos >= 99                            = return "5. end."
         | s !! pos /= 0 || (rules ^. _3) !! pos < 0 = loop5 (pos + 1) allowedch s
         | otherwise = do
-          let x                  = posoutX !! pos
 
           -- 5.1. accepting positioned outlet PO, computing AA
-          let (axLowL2, axUppL2) = checkBoundSub5_1 0 x (axLowL, axUppL) rules pos deg
+          let x                  = posoutX !! pos
+              (axLowL2, axUppL2) = checkBoundSub5_1 0 x (axLowL, axUppL) rules pos deg
 
           -- 5.2. Check if a previously rejected positioned outlet is forced to apply
           good <- liftIO $ checkBoundSub5_2 0 x depth s pos rules (axLowL2, axUppL2) posoutX deg
-          -- let _good = True
           if good then
             liftIO $ putStr ""
           else do
@@ -129,6 +127,8 @@ checkBound axL@(axLowL, axUppL) s0 maxch _pos depth = do
             empty -- 正常終了
           else
             liftIO $ putStrLn ""
+          
+          -- 5.4. recursion
           loop5 (pos + 1) allowedch2 s2
   loop5 0 allowedch s
 
