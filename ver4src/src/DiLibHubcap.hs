@@ -27,6 +27,7 @@ import Control.Monad.Trans.Class ( lift )
 import Control.Monad.Trans.Maybe ( MaybeT(..) )
 import Control.Monad.Trans.RWS   ( RWST(..), ask, get, put )
 import Data.Maybe                ( isNothing )
+import Text.Printf               ( printf )
 
 
 {-
@@ -42,14 +43,14 @@ checkHubcap()
       checkBoundSub5()
     -- 6. error
 
-  checkBoundSub5()
-    -- 5.1. accepting positioned outlet PO, computing AA
-      checkBoundSub5Sub1()|
-    -- 5.2. Check if a previously rejected positioned outlet is forced to apply
-      checkBoundSub5Sub2()|
-      checkBound()| 相互再帰
-    -- 5.3. rejecting positioned outlet PO
-    -- 5.4. recursion
+    checkBoundSub5()
+      -- 5.1. accepting positioned outlet PO, computing AA
+        checkBoundSub5Sub1()|
+      -- 5.2. Check if a previously rejected positioned outlet is forced to apply
+        checkBoundSub5Sub2()|
+        checkBound()| 相互再帰
+      -- 5.3. rejecting positioned outlet PO
+      -- 5.4. recursion
 -}
 
 checkHubcap :: [String] -> TpAxle
@@ -69,7 +70,7 @@ checkHubcap strs _ax@(axLow, axUpp, axLev) = do
         if i >= length xyvList then return "1. end."
         else do
           let (xi, yi, vi) = xyvList !! i
-          liftIO . putStrLn $ "\n-->Checking hubcap member " ++ show (xyvList !! i)
+          liftIO $ printf "\n-->Checking hubcap member %d, %d, %d\n" xi yi vi
           if xi /= yi then do
             let posX = replicate nouts xi ++ replicate nouts yi
             put (rP, posX)
@@ -93,19 +94,18 @@ checkBound axL@(axLowL, axUppL) s0 maxch pos depth = do
 
   -- 1. compute forced and permitted rules, allowedch, forcedch, update s
   let (forcedch, allowedch, s) = checkBoundSub1 0 0 0 s0 axL rules posoutX deg
-  liftIO . putStrLn $ "f, a = " ++ show forcedch ++ ", " ++ show allowedch
+  liftIO $ printf "f, a = %d, %d\n" forcedch allowedch
 
   -- 2. print
-  liftIO . putStr $ show depth ++ " POs: "
+  liftIO $ printf "%d POs: " depth
   liftIO $ checkBoundSub2 0 s rules posoutX
-  liftIO $ putStrLn ""
 
   -- 3. check if inequality holds
   if forcedch + allowedch <= maxch then do
-    liftIO . putStrLn $ show depth ++ " Inequality holds. Case done."
+    liftIO $ printf "%d Inequality holds. Case done.\n" depth
     empty -- 正常終了
   else
-    liftIO $ putStr ""
+    liftIO $ printf ""
 
   -- 4. check reducibility
   if forcedch > maxch then do
@@ -114,10 +114,10 @@ checkBound axL@(axLowL, axUppL) s0 maxch pos depth = do
     if isNothing ret then
       error "Incorrect hubcap upper bound"
     else do
-      liftIO . putStrLn $ show forcedch ++ " " ++ show allowedch ++ " " ++ show maxch ++ " Reducible. Case done."
+      liftIO $ printf "%d, %d, %d Reducible. Case done.\n" forcedch allowedch maxch
       empty -- 正常終了
   else
-    liftIO $ putStr ""
+    liftIO $ printf ""
 
   -- 5.
   checkBoundSub5 forcedch allowedch s maxch pos depth axL posoutX rules deg
@@ -145,11 +145,11 @@ checkBoundSub1 i forcedch allowedch retS axL rules posoutX deg =
 
 checkBoundSub2 :: Int -> [Int] -> TpPosout -> [Int] -> IO ()
 checkBoundSub2 i s rules posoutX
-  | s !! i >= 99 = return ()
+  | s !! i >= 99 = printf "\n"
   | s !! i < 0   = checkBoundSub2 (i + 1) s rules posoutX
   | otherwise    = do
-      putStr $ if s !! i == 0 then "?" else ""
-      putStr $ show ((rules ^. _1) !! i) ++ "," ++ show (posoutX !! i) ++ " "
+      printf "%s" $ if s !! i == 0 then "?" else ""
+      printf "%d, %d " ((rules ^. _1) !! i) (posoutX !! i)
       checkBoundSub2 (i + 1) s rules posoutX
 
 
@@ -167,24 +167,24 @@ checkBoundSub5 forcedch allowedch s maxch pos depth (axLowL, axUppL) posoutX rul
       -- 5.2. Check if a previously rejected positioned outlet is forced to apply
       good <- liftIO $ checkBoundSub5Sub2 0 x depth s pos rules (axLowL2, axUppL2) posoutX deg
       if good then
-        liftIO $ putStr ""
+        liftIO $ printf ""
       else do
         -- recursion with PO forced
-        liftIO . putStrLn $ show depth ++ " Starting recursion with "
-        liftIO . putStrLn $ show ((rules ^. _1) !! pos) ++ ", " ++ show x ++ " forced"
+        liftIO $ printf "%d Starting recursion with \n" depth
+        liftIO $ printf "%d, %d forced\n" ((rules ^. _1) !! pos) x
         lift . runMaybeT $ checkBound (axLowL2, axUppL2) (s & ix pos .~ 1) maxch (pos + 1) (depth + 1)
-        liftIO $ putStr ""
+        liftIO $ printf ""
 
       -- 5.3. rejecting positioned outlet PO
-      liftIO . putStrLn $ show depth ++ " Rejecting positioned outlet "
-      liftIO . putStrLn $ show ((rules ^. _1) !! pos) ++ ", " ++ show x
+      liftIO $ printf "%d Rejecting positioned outlet \n" depth
+      liftIO $ printf "%d, %d\n" ((rules ^. _1) !! pos) x
       let s2         = s  & ix pos .~ (-1)
           allowedch2 = allowedch - ((rules ^. _3) !! pos)
       if allowedch2 + forcedch <= maxch then do
-        liftIO $ putStrLn "Inequality holds."
+        liftIO $ printf "Inequality holds.\n"
         empty -- 正常終了
       else
-        liftIO $ putStrLn ""
+        liftIO $ printf ""
       
       -- 5.4. recursion
       checkBoundSub5 forcedch allowedch2 s2 maxch (pos + 1) depth (axLowL, axUppL) posoutX rules deg
@@ -216,10 +216,8 @@ checkBoundSub5Sub2 i x depth s pos rules (axLowL2, axUppL2) posoutX deg =
   else do
     let retF = outletForced (axLowL2, axUppL2) (getPosoutI rules i) (posoutX !! i) deg
     if s !! i == -1 && retF /= 0 then do
-      putStr $ show depth ++ " Positioned outlet "
-      putStrLn $ show ((rules ^. _1) !! pos) ++ "," ++ show x
-                  ++ " can't be forced, because it forces "
-                  ++ show ((rules ^. _1) !! i)   ++ "," ++ show (posoutX !! i)
+      liftIO $ printf "%d Positioned outlet " depth
+      liftIO $ printf "%d, %d can't be forced, because it forces %d, %d\n" ((rules ^. _1) !! pos) x ((rules ^. _1) !! i) (posoutX !! i)
       return True -- 上で相互再帰しない
     else
       checkBoundSub5Sub2 (i + 1) x depth s pos rules (axLowL2, axUppL2) posoutX deg
