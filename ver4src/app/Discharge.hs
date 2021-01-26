@@ -81,7 +81,7 @@ main = do
 
   -- mainLoop
   (ret, _, _)
-    <- runRWST (mainLoop (nn, mm)
+    <- runRWST (mainLoop  (nn, mm)
                           (symNum, symNol, symVal, symPos, symLow, symUpp)
                           0
                           (axLow, axUpp, 0)
@@ -106,40 +106,37 @@ mainLoop (nn, mm) sym@(_, symNol, _, _, _, _) nosym ax@(axLow, axUpp, axLev) tac
   | otherwise       = let nowTac = head tactics in
       case nowTac !! 1 of
         "C" -> do
-                liftIO . putStrLn $ "Condition  " ++ show nowTac
-                (_, _, deg)              <- ask
-                let n                     = read (head tactics !! 2) :: Int
-                    m                     = read (head tactics !! 3) :: Int
-                    (low2, upp2, _axLev2) = checkCondition1 (nn, mm) ax n m
-                    (sym2, nosym2)        = checkCondition2 (nn, mm) ax deg sym nosym lineno
-                    nn2                   = (nn & ix axLev .~ n) & ix (axLev + 1) .~ 0
-                    mm2                   = (mm & ix axLev .~ m) & ix (axLev + 1) .~ 0
-                -- (liftIO . print) axLev2
-                mainLoop (nn2, mm2) sym2 nosym2 (low2, upp2, axLev + 1) (tail tactics) (lineno + 1)
+          liftIO . putStrLn $ "Condition  " ++ show nowTac
+          (_, _, deg)              <- ask
+          let n                     = read (head tactics !! 2) :: Int
+              m                     = read (head tactics !! 3) :: Int
+              (low2, upp2, _axLev2) = checkCondition1 (nn, mm) ax n m
+              (sym2, nosym2)        = checkCondition2 (nn, mm) ax deg sym nosym lineno
+              nn2                   = (nn & ix axLev .~ n) & ix (axLev + 1) .~ 0
+              mm2                   = (mm & ix axLev .~ m) & ix (axLev + 1) .~ 0
+          mainLoop (nn2, mm2) sym2 nosym2 (low2, upp2, axLev + 1) (tail tactics) (lineno + 1)
         "H" -> do
-                liftIO . putStrLn $ "Hubcap  " ++ show nowTac
-                checkHubcap (tail (tail (head tactics))) ax
-                let nosym2 = delSym nosym symNol axLev
-                mainLoop (nn, mm) sym nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
+          liftIO . putStrLn $ "Hubcap  " ++ show nowTac
+          checkHubcap (tail (tail (head tactics))) ax
+          let nosym2 = delSym nosym symNol axLev
+          mainLoop (nn, mm) sym nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
         "R" -> do
-                liftIO . putStrLn $ "Reduce  " ++ show nowTac
-                (((aSLow, aSUpp, aSLev), used, image, adjmat, edgelist), posoutX) <- get
-                put ( ( (aSLow & ix 0 .~ axLow !! axLev, aSUpp & ix 0 .~ axUpp !! axLev, aSLev),
-                        used, image, adjmat, edgelist ),
-                      posoutX )
-                ret <- runMaybeT reduce
-                if isNothing ret then
-                  error "Reducibility failed"
-                else do
-                  let nosym2 = delSym nosym symNol axLev
-                  mainLoop (nn, mm) sym nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
+          liftIO . putStrLn $ "Reduce  " ++ show nowTac
+          (((aSLow, aSUpp, aSLev), used, image, adjmat, elist), poX) <- get
+          put (((aSLow & ix 0 .~ axLow !! axLev, aSUpp & ix 0 .~ axUpp !! axLev, aSLev), used, image, adjmat, elist), poX)
+          ret <- runMaybeT reduce
+          if isNothing ret then
+            error "Reducibility failed"
+          else do
+            let nosym2 = delSym nosym symNol axLev
+            mainLoop (nn, mm) sym nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
         "S" -> do
-                liftIO . putStrLn $ "Symmetry  " ++ show nowTac
-                (_, _, deg)             <- ask
-                liftIO $ checkSymmetry (tail (tail (head tactics))) ax sym nosym deg
-                let _nosym2 = delSym nosym symNol axLev
-                mainLoop (nn, mm) sym _nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
-                -- return "Q.E.D."
+          liftIO . putStrLn $ "Symmetry  " ++ show nowTac
+          (_, _, deg) <- ask
+          liftIO $ checkSymmetry (tail (tail (head tactics))) ax sym nosym deg
+          let _nosym2 = delSym nosym symNol axLev
+          mainLoop (nn, mm) sym _nosym2 (axLow, axUpp, axLev - 1) (tail tactics) (lineno + 1)
+          -- return "Q.E.D."
         _   -> error "Invalid instruction"
 
 

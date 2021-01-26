@@ -29,6 +29,29 @@ import Control.Monad.Trans.RWS   ( RWST(..), ask, get, put )
 import Data.Maybe                ( isNothing )
 
 
+{-
+checkHubcap()
+  checkBound()
+    -- 1. compute forced and permitted rules, allowedch, forcedch, update s
+      checkBoundSub1()|
+    -- 2. print
+    -- 3. check if inequality holds
+    -- 4. check reducibility
+      reduce()|
+    -- 5.
+      checkBoundSub5()
+    -- 6. error
+
+  checkBoundSub5()
+    -- 5.1. accepting positioned outlet PO, computing AA
+      checkBoundSub5Sub1()|
+    -- 5.2. Check if a previously rejected positioned outlet is forced to apply
+      checkBoundSub5Sub2()|
+      checkBound()| 相互再帰
+    -- 5.3. rejecting positioned outlet PO
+    -- 5.4. recursion
+-}
+
 checkHubcap :: [String] -> TpAxle
   -> RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO String
 checkHubcap strs _ax@(axLow, axUpp, axLev) = do
@@ -64,7 +87,7 @@ checkHubcap strs _ax@(axLow, axUpp, axLev) = do
 
 checkBound :: TpAxleI -> [Int] -> Int -> Int -> Int
   -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
-checkBound axL@(axLowL, axUppL) s0 maxch _pos depth = do
+checkBound axL@(axLowL, axUppL) s0 maxch pos depth = do
   (_, rules, deg)                                                   <- lift ask
   (((aSLow, aSUpp, aSLev), used, image, adjmat, edgelist), posoutX) <- lift get
 
@@ -97,49 +120,15 @@ checkBound axL@(axLowL, axUppL) s0 maxch _pos depth = do
     liftIO $ putStr ""
 
   -- 5.
-  let loop5 pos allowedch s --型がMaybeT
-        | s !! pos >= 99                            = return "5. end."
-        | s !! pos /= 0 || (rules ^. _3) !! pos < 0 = loop5 (pos + 1) allowedch s
-        | otherwise = do
+  checkBoundSub5 forcedch allowedch s maxch pos depth axL posoutX rules deg
 
-          -- 5.1. accepting positioned outlet PO, computing AA
-          let x                  = posoutX !! pos
-              (axLowL2, axUppL2) = checkBoundSub5_1 0 x (axLowL, axUppL) rules pos deg
-
-          -- 5.2. Check if a previously rejected positioned outlet is forced to apply
-          good <- liftIO $ checkBoundSub5_2 0 x depth s pos rules (axLowL2, axUppL2) posoutX deg
-          if good then
-            liftIO $ putStr ""
-          else do
-            -- recursion with PO forced
-            liftIO . putStrLn $ show depth ++ " Starting recursion with "
-            liftIO . putStrLn $ show ((rules ^. _1) !! pos) ++ ", " ++ show x ++ " forced"
-            lift . runMaybeT $ checkBound (axLowL2, axUppL2) (s & ix pos .~ 1) maxch (pos + 1) (depth + 1)
-            liftIO $ putStr ""
-
-          -- 5.3. rejecting positioned outlet PO
-          liftIO . putStrLn $ show depth ++ " Rejecting positioned outlet "
-          liftIO . putStrLn $ show ((rules ^. _1) !! pos) ++ ", " ++ show x
-          let s2         = s  & ix pos .~ (-1)
-              allowedch2 = allowedch - ((rules ^. _3) !! pos)
-          if allowedch2 + forcedch <= maxch then do
-            liftIO $ putStrLn "Inequality holds."
-            empty -- 正常終了
-          else
-            liftIO $ putStrLn ""
-          
-          -- 5.4. recursion
-          loop5 (pos + 1) allowedch2 s2
-  loop5 0 allowedch s
-
-  -- 6.
+  -- 6. error
   error "Unexpected error 101"
 
 
 checkBoundSub1 :: Int -> Int -> Int -> [Int] -> TpAxleI -> TpPosout -> [Int] -> Int -> (Int, Int, [Int])
 checkBoundSub1 i forcedch allowedch retS axL rules posoutX deg =
-  if retS !! i >= 99 then
-    (forcedch, allowedch, retS)
+  if retS !! i >= 99 then (forcedch, allowedch, retS)
   else
     let rVi       = (rules ^. _3) !! i
         forcedch2 = if retS !! i > 0 then forcedch + rVi else forcedch
@@ -164,32 +153,64 @@ checkBoundSub2 i s rules posoutX
       checkBoundSub2 (i + 1) s rules posoutX
 
 
-checkBoundSub5_1 :: Int -> Int -> TpAxleI -> TpPosout -> Int -> Int -> ([Int], [Int])
-checkBoundSub5_1 i x (axLowL, axUppL) rules pos deg =
-  if i >= (rules ^. _2) !! pos then
-    (axLowL, axUppL)
+checkBoundSub5 :: Int -> Int -> [Int] -> Int -> Int -> Int -> TpAxleI -> [Int] -> TpPosout -> Int
+  -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
+checkBoundSub5 forcedch allowedch s maxch pos depth (axLowL, axUppL) posoutX rules deg
+  | s !! pos >= 99                            = return "5. end."
+  | s !! pos /= 0 || (rules ^. _3) !! pos < 0
+    = checkBoundSub5 forcedch allowedch s maxch (pos + 1) depth (axLowL, axUppL) posoutX rules deg
+  | otherwise = do
+      -- 5.1. accepting positioned outlet PO, computing AA
+      let x                  = posoutX !! pos
+          (axLowL2, axUppL2) = checkBoundSub5Sub1 0 x (axLowL, axUppL) rules pos deg
+
+      -- 5.2. Check if a previously rejected positioned outlet is forced to apply
+      good <- liftIO $ checkBoundSub5Sub2 0 x depth s pos rules (axLowL2, axUppL2) posoutX deg
+      if good then
+        liftIO $ putStr ""
+      else do
+        -- recursion with PO forced
+        liftIO . putStrLn $ show depth ++ " Starting recursion with "
+        liftIO . putStrLn $ show ((rules ^. _1) !! pos) ++ ", " ++ show x ++ " forced"
+        lift . runMaybeT $ checkBound (axLowL2, axUppL2) (s & ix pos .~ 1) maxch (pos + 1) (depth + 1)
+        liftIO $ putStr ""
+
+      -- 5.3. rejecting positioned outlet PO
+      liftIO . putStrLn $ show depth ++ " Rejecting positioned outlet "
+      liftIO . putStrLn $ show ((rules ^. _1) !! pos) ++ ", " ++ show x
+      let s2         = s  & ix pos .~ (-1)
+          allowedch2 = allowedch - ((rules ^. _3) !! pos)
+      if allowedch2 + forcedch <= maxch then do
+        liftIO $ putStrLn "Inequality holds."
+        empty -- 正常終了
+      else
+        liftIO $ putStrLn ""
+      
+      -- 5.4. recursion
+      checkBoundSub5 forcedch allowedch2 s2 maxch (pos + 1) depth (axLowL, axUppL) posoutX rules deg
+
+
+checkBoundSub5Sub1 :: Int -> Int -> TpAxleI -> TpPosout -> Int -> Int -> ([Int], [Int])
+checkBoundSub5Sub1 i x (axLowL, axUppL) rules pos deg =
+  if i >= (rules ^. _2) !! pos then (axLowL, axUppL)
   else
     let p0      = ((rules ^. _4) !! pos) !! i
         p       = if x - 1 + (p0 - 1) `mod` deg < deg then p0 + x - 1 else p0 + x - 1 - deg
         lowPosI = ((rules ^. _5) !! pos) !! i
         uppPosI = ((rules ^. _6) !! pos) !! i
         (axLowL2, axUppL2)
-          |      lowPosI > axLowL !! p  &&      uppPosI < axUppL !! p
-              = (axLowL & ix p .~ lowPosI, axUppL & ix p .~ uppPosI)
-          | (lowPosI <= (axLowL !! p)) &&      uppPosI < axUppL !! p
-              = (axLowL                  , axUppL & ix p .~ uppPosI)
-          |      lowPosI > axLowL !! p  && (uppPosI >= (axUppL !! p))
-              = (axLowL & ix p .~ lowPosI, axUppL                  )
-          | (lowPosI <= (axLowL !! p)) && (uppPosI >= (axUppL !! p))
-              = (axLowL                  , axUppL                  )
+          | lowPosI >  axLowL !! p && uppPosI <  axUppL !! p = (axLowL & ix p .~ lowPosI, axUppL & ix p .~ uppPosI)
+          | lowPosI <= axLowL !! p && uppPosI <  axUppL !! p = (axLowL                  , axUppL & ix p .~ uppPosI)
+          | lowPosI >  axLowL !! p && uppPosI >= axUppL !! p = (axLowL & ix p .~ lowPosI, axUppL                  )
+          | lowPosI <= axLowL !! p && uppPosI >= axUppL !! p = (axLowL                  , axUppL                  )
     in if axLowL2 !! p > axUppL2 !! p then
       error "Unexpected error 321"
     else
-      checkBoundSub5_1 (i + 1) x (axLowL2, axUppL2) rules pos deg
+      checkBoundSub5Sub1 (i + 1) x (axLowL2, axUppL2) rules pos deg
 
 
-checkBoundSub5_2 :: Int -> Int -> Int -> [Int] -> Int -> TpPosout -> TpAxleI -> [Int] -> Int -> IO Bool
-checkBoundSub5_2 i x depth s pos rules (axLowL2, axUppL2) posoutX deg =
+checkBoundSub5Sub2 :: Int -> Int -> Int -> [Int] -> Int -> TpPosout -> TpAxleI -> [Int] -> Int -> IO Bool
+checkBoundSub5Sub2 i x depth s pos rules (axLowL2, axUppL2) posoutX deg =
   if i >= pos then
     return False
   else do
@@ -197,11 +218,11 @@ checkBoundSub5_2 i x depth s pos rules (axLowL2, axUppL2) posoutX deg =
     if s !! i == -1 && retF /= 0 then do
       putStr $ show depth ++ " Positioned outlet "
       putStrLn $ show ((rules ^. _1) !! pos) ++ "," ++ show x
-              ++ " can't be forced, because it forces "
-              ++ show ((rules ^. _1) !! i)   ++ "," ++ show (posoutX !! i)
-      return True -- 後で再帰しない
+                  ++ " can't be forced, because it forces "
+                  ++ show ((rules ^. _1) !! i)   ++ "," ++ show (posoutX !! i)
+      return True -- 上で相互再帰しない
     else
-      checkBoundSub5_2 (i + 1) x depth s pos rules (axLowL2, axUppL2) posoutX deg
+      checkBoundSub5Sub2 (i + 1) x depth s pos rules (axLowL2, axUppL2) posoutX deg
 
 
 
