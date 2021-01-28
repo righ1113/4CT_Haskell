@@ -21,6 +21,7 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 import Control.Monad.Trans.RWS   (RWST(..), ask, get, put)
 import Data.Maybe                (isNothing)
+import Text.Printf               ( printf )
 
 
 {-
@@ -106,48 +107,37 @@ reduce = do
 
 
 reduceSub2 :: Int -> Int -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
-reduceSub2 h noconf =
-  if h >= noconf then do
-    --   どのみち、ループ終了後失敗終了だから、ここで落とす
-    (liftIO . putStrLn) "Not reducible."
-    empty -- 失敗終了
-  else do
-    (gConfs, _, _)                           <- lift ask
-    (((aSLow, aSUpp, aSLev), _, _, _, _), _) <- lift get
-    retSC <- lift . runMaybeT $ subConf (aSLow !! aSLev, aSUpp !! aSLev) (gConfs !! h)
-    if isNothing retSC then
-      (return . show) h -- 正常終了
-    else
-      reduceSub2 (h + 1) noconf -- 再帰
-
+reduceSub2 h noconf = do
+  (gConfs, _, _)                           <- lift ask
+  (((aSLow, aSUpp, aSLev), _, _, _, _), _) <- lift get
+  retSC <- lift . runMaybeT $ subConf (aSLow !! aSLev, aSUpp !! aSLev) (gConfs !! h)
+  let ret
+        | h >= noconf     = do
+            --   どのみち、ループ終了後失敗終了だから、ここで落とす
+            (liftIO . putStrLn) "Not reducible."
+            empty                                     -- 失敗終了
+        | isNothing retSC = (return . show) h         -- 正常終了
+        | otherwise       = reduceSub2 (h + 1) noconf -- 再帰
+  ret
 
 reduceSub4 :: Int -> Int -> TpAxle -> [Int] -> Int -> IO (Int, [[Int]])
-reduceSub4 i n aS@(aSLow, up, aSLev) image redverts =
-  let v      = image !! i
-      aSLowV = aSLow !! aSLev !! v
-      aSUppV =    up !! aSLev !! v
-  in if i > redverts then
-    return (n, up)
-  else
-    if aSLowV == aSUppV then
-      reduceSub4 (i + 1) n aS image redverts
-    else do
-      putStr     "Lowering upper bound of vertex "
-      putStrLn $ show v
-                  ++ " to "
-                  ++ show aSUppV
-                  ++ " and adding to stack"
-      if n >= maxastack then
-        error "More than %d elements in axle stack needed"
-      else
-        reduceSub4 (i + 1) (n + 1) (aSLow, up & (ix aSLev <<< ix v) .~ (aSUppV - 1), aSLev) image redverts
+reduceSub4 i n aS@(aSLow, up, aSLev) image redverts = ret
+  where
+    v      = image !! i
+    aSLowV = aSLow !! aSLev !! v
+    aSUppV =    up !! aSLev !! v
+    ret
+      | i > redverts     = return (n, up)
+      | aSLowV == aSUppV = reduceSub4 (i + 1) n aS image redverts
+      | n >= maxastack   = error "More than %d elements in axle stack needed"
+      | otherwise = do
+          printf "Lowering upper bound of vertex %d to %d and adding to stack\n" v aSUppV
+          reduceSub4 (i + 1) (n + 1) (aSLow, up & (ix aSLev <<< ix v) .~ (aSUppV - 1), aSLev) image redverts
 
 
 subConf :: TpAxleI -> TpGoodConf -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
 subConf (_, axUppL) gC@(_, _, _, qXi) = do
-
   ((_, _, _, _, edgelist), _) <- lift get
-
   -- 1.
   let qXi0      = head qXi
       qXi1      = qXi !! 1
@@ -199,37 +189,34 @@ rootedSubConf degree gConf@(_, _, qZ, _) x y clockwise = do
 
 rootedSubConfSub2 :: Int -> [Bool] -> [Int] -> TpGoodConf -> TpAdjmat -> Int -> TpVertices
   -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) (Bool, [Bool], [Int], Int)
-rootedSubConfSub2 j used image (qU, qV, qZ, qXi) adjmat clockwise degree =
-  let qUQ = qU !! j
-  in if qUQ < 0 then
-    return (True, used, image, qUQ)
-  else do
-    let
-      qVQ      = qV     !! j
-      qZQ      = qZ     !! j
-      qXiQ     = qXi    !! j
-      imageQUQ = image  !! qUQ
-      imageQVQ = image  !! qVQ
-      w        = if clockwise == 0 then  (adjmat ^?! ix imageQVQ) ^?! ix imageQUQ
-                  else                   (adjmat ^?! ix imageQUQ) ^?! ix imageQVQ
-      degreeW  = degree !! w
-      usedW    = used   !! w
-    if (w == -1) || (qXiQ /= 0 && qXiQ /= degreeW) || usedW then
-      return (False, used, image, qUQ)
-    else
-      rootedSubConfSub2 (j + 1) (used & ix w .~ True) (image & ix qZQ .~ w) (qU, qV, qZ, qXi) adjmat clockwise degree
+rootedSubConfSub2 j used image (qU, qV, qZ, qXi) adjmat clockwise degree = ret
+  where
+    qUQ = qU !! j
+    qVQ      = qV     !! j
+    qZQ      = qZ     !! j
+    qXiQ     = qXi    !! j
+    imageQUQ = image  !! qUQ
+    imageQVQ = image  !! qVQ
+    w        =  if clockwise == 0 then (adjmat ^?! ix imageQVQ) ^?! ix imageQUQ
+                else                   (adjmat ^?! ix imageQUQ) ^?! ix imageQVQ
+    degreeW  = degree !! w
+    usedW    = used   !! w
+    ret
+      | qUQ < 0                                              = return (True,  used, image, qUQ)
+      | (w == -1) || (qXiQ /= 0 && qXiQ /= degreeW) || usedW = return (False, used, image, qUQ)
+      | otherwise                                            =
+          rootedSubConfSub2 (j + 1) (used & ix w .~ True) (image & ix qZQ .~ w) (qU, qV, qZ, qXi) adjmat clockwise degree
 
 
 rootedSubConfSub3 :: Int -> [Bool] -> Int
   -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
-rootedSubConfSub3 j used6 deg =
-  let
+rootedSubConfSub3 j used6 deg = ret
+  where
     degJ = if j == 1 then 2 * deg else deg + j - 1
     ret
       | j > deg                                                 = return "loop3 end."
       | not (used6 !! j) && used6 !! (deg + j) && used6 !! degJ = empty -- 失敗終了
       | otherwise                                               = rootedSubConfSub3 (j + 1) used6 deg
-  in ret
 
 
 -- ~~~ pure function ~~~
@@ -259,8 +246,8 @@ getAdjmatSub deg bUpp adjmat i =
 
 
 doFan :: Int -> Int -> Int -> TpAdjmat -> TpAdjmat
-doFan deg i k adjmat =
-  let
+doFan deg i k adjmat = ret
+  where
     a       = if i == 1 then 2 * deg else deg + i - 1
     b       =     deg + i
     c       = 2 * deg + i
@@ -274,22 +261,20 @@ doFan deg i k adjmat =
       | k == 6    = chgAdjmat adjmat2 i c b Backward
       | k == 7    = chgAdjmat adjmat3 i d b Backward
       | otherwise = chgAdjmat adjmat4 i e b Backward
-  in ret
 
 
 data Way = Forward | Backward deriving Eq
 chgAdjmat :: TpAdjmat -> Int -> Int -> Int -> Way -> TpAdjmat
-chgAdjmat adjmat a b c way =
-  if way == Forward then
-    let adjmat2 = adjmat  & (ix a <<< ix b) .~ c
-        adjmat3 = adjmat2 & (ix c <<< ix a) .~ b
-        adjmat4 = adjmat3 & (ix b <<< ix c) .~ a
-    in adjmat4
-  else
-    let adjmat2 = adjmat  & (ix a <<< ix b) .~ c
-        adjmat3 = adjmat2 & (ix b <<< ix c) .~ a
-        adjmat4 = adjmat3 & (ix c <<< ix a) .~ b
-    in adjmat4
+chgAdjmat adjmat a b c Forward  = adjmat4
+  where
+    adjmat2 = adjmat  & (ix a <<< ix b) .~ c
+    adjmat3 = adjmat2 & (ix c <<< ix a) .~ b
+    adjmat4 = adjmat3 & (ix b <<< ix c) .~ a
+chgAdjmat adjmat a b c Backward = adjmat4
+  where
+    adjmat2 = adjmat  & (ix a <<< ix b) .~ c
+    adjmat3 = adjmat2 & (ix b <<< ix c) .~ a
+    adjmat4 = adjmat3 & (ix c <<< ix a) .~ b
 
 
 getEdgelist :: TpAxleI -> TpEdgelist -> Int -> TpEdgelist
@@ -305,8 +290,8 @@ getEdgelist (axLowL, axUppL) _edgelist deg =
 
 
 getEdgelistSub :: TpVertices -> TpVertices -> TpEdgelist -> Int -> Int -> TpEdgelist
-getEdgelistSub bLow bUpp edgelist deg i =
-  let
+getEdgelistSub bLow bUpp edgelist deg i = ret
+  where
     edgelist2  = addToList edgelist   0 i bUpp
     h          = if i == 1 then deg else i - 1
     edgelist3  = addToList edgelist2  i h bUpp
@@ -332,24 +317,21 @@ getEdgelistSub bLow bUpp edgelist deg i =
       | bUppI == 7     = addToList edgelist9  b d bUpp
       | bUppI == 8     = addToList edgelist11 b e bUpp
       | otherwise      = error "Unexpected error in `GetEdgeList'"
-  in ret
 
 
---[5][5]	0x002c0ec0 {12, 2, 1, 1, 2, 3, 2, 2, 3, 4, 3, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...}
--- adds the pair u,v to edgelist
 -- この関数の実装はひどい
 addToList :: TpEdgelist -> Int -> Int -> TpVertices -> TpEdgelist
-addToList edgelist u v degree =
-  let
+addToList edgelist u v degree = ret
+  where
     a           = degree !! u
     b           = degree !! v
-    eHead1      = (((edgelist ^?! ix a) ^?! ix b) ^?! ix 0)
+    eHead1      = ((edgelist ^?! ix a) ^?! ix b) ^?! ix 0
     edgelist1_2 = edgelist    & (ix a <<< ix b <<< ix (eHead1 + 1)) .~ u
     edgelist1_3 = edgelist1_2 & (ix a <<< ix b <<< ix (eHead1 + 2)) .~ v
     edgelist1_4 = edgelist1_3 & (ix a <<< ix b <<< ix 0)            .~ (eHead1 + 2)
     bool1       = a >= b && b <= 8 && a <= 11 && (a <= 8 || u == 0)
     bool1_1     = eHead1 + 2 >= maxelist
-    eHead2      = (((edgelist ^?! ix b) ^?! ix a) ^?! ix 0)
+    eHead2      = ((edgelist ^?! ix b) ^?! ix a) ^?! ix 0
     edgelist2_2 = edgelist    & (ix b <<< ix a <<< ix (eHead2 + 1)) .~ v
     edgelist2_3 = edgelist2_2 & (ix b <<< ix a <<< ix (eHead2 + 2)) .~ u 
     edgelist2_4 = edgelist2_3 & (ix b <<< ix a <<< ix 0)            .~ (eHead2 + 2)
@@ -368,7 +350,6 @@ addToList edgelist u v degree =
       | bool2 &&     bool2_1 = error "More than %d entries in edgelist needed 2"
       | bool2 && not bool2_1 = edgelist2_4
       | otherwise            = edgelist
-  in ret
 
 
 
