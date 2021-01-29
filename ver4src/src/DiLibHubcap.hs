@@ -32,25 +32,26 @@ import Text.Printf               ( printf )
 
 {-
 checkHubcap()
-  checkBound()
-    -- 1. compute forced and permitted rules, allowedch, forcedch, update s
-      checkBoundSub1()|
-    -- 2. print
-    -- 3. check if inequality holds
-    -- 4. check reducibility
-      reduce()|
-    -- 5.
-      checkBoundSub5()
-    -- 6. error
+  checkHubcapSub()
+    checkBound()
+      -- 1. compute forced and permitted rules, allowedch, forcedch, update s
+        checkBoundSub1()|
+      -- 2. print
+      -- 3. check if inequality holds
+      -- 4. check reducibility
+        reduce()|
+      -- 5.
+        checkBoundSub5()
+      -- 6. error
 
-    checkBoundSub5()
-      -- 5.1. accepting positioned outlet PO, computing AA
-        checkBoundSub5Sub1()|
-      -- 5.2. Check if a previously rejected positioned outlet is forced to apply
-        checkBoundSub5Sub2()|
-        checkBound()| 相互再帰
-      -- 5.3. rejecting positioned outlet PO
-      -- 5.4. recursion
+      checkBoundSub5()
+        -- 5.1. accepting positioned outlet PO, computing AA
+          checkBoundSub5Sub1()|
+        -- 5.2. Check if a previously rejected positioned outlet is forced to apply
+          checkBoundSub5Sub2()|
+          checkBound()| 相互再帰
+        -- 5.3. rejecting positioned outlet PO
+        -- 5.4. recursion
 -}
 
 checkHubcap :: [String] -> TpAxle
@@ -66,24 +67,24 @@ checkHubcap strs _ax@(axLow, axUpp, axLev) = do
   let xyvList      = map read strs :: [(Int, Int, Int)]
       s            = replicate (2 * maxoutlets + 1) 0
       nouts        = difNouts !! deg
-      loop1 i      =
-        if i >= length xyvList then return "1. end."
-        else do
-          let (xi, yi, vi) = xyvList !! i
-          liftIO $ printf "\n-->Checking hubcap member %d, %d, %d\n" xi yi vi
-          if xi /= yi then do
-            let posX = replicate nouts xi ++ replicate nouts yi
-            put (rP, posX)
-            runMaybeT $ checkBound (axLow !! axLev, axUpp !! axLev) (s & ix (2 * nouts) .~ 99) vi 0 0
-            -- liftIO $ print ret
-          else do
-            let posX = replicate nouts xi ++ replicate nouts 0
-            put (rP, posX)
-            runMaybeT $ checkBound (axLow !! axLev, axUpp !! axLev) (s & ix      nouts  .~ 99) vi 0 0
-            -- liftIO $ print ret
-          loop1 (i + 1)
-  loop1 0
+  checkHubcapSub 0 (axLow !! axLev, axUpp !! axLev) s xyvList rP nouts
   return "checkHubcap end."
+
+
+checkHubcapSub :: Int -> TpAxleI -> [Int] -> [(Int, Int, Int)] -> TpReducePack -> Int
+  -> RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO String
+checkHubcapSub i axL s xyvList rP nouts = ret
+  where
+    (xi, yi, vi) = xyvList !! i
+    posX1        = replicate nouts xi ++ replicate nouts yi
+    posX2        = replicate nouts xi ++ replicate nouts 0
+    ret
+      | i >= length xyvList = return "end checkHubcapSub"
+      | otherwise           = do
+          liftIO $ printf "\n-->Checking hubcap member %d, %d, %d\n" xi yi vi
+          put (rP, if xi /= yi then posX1 else posX2)
+          runMaybeT $ checkBound axL (s & ix (if xi /= yi then 2 * nouts else nouts) .~ 99) vi 0 0
+          checkHubcapSub (i + 1) axL s xyvList rP nouts
 
 
 checkBound :: TpAxleI -> [Int] -> Int -> Int -> Int
@@ -103,7 +104,7 @@ checkBound axL@(axLowL, axUppL) s0 maxch pos depth = do
   -- 3. check if inequality holds
   if forcedch + allowedch <= maxch then do
     liftIO $ printf "%d Inequality holds. Case done.\n" depth
-    empty -- 正常終了
+    empty -- true end
   else
     liftIO $ printf ""
 
@@ -115,7 +116,7 @@ checkBound axL@(axLowL, axUppL) s0 maxch pos depth = do
       error "Incorrect hubcap upper bound"
     else do
       liftIO $ printf "%d, %d, %d Reducible. Case done.\n" forcedch allowedch maxch
-      empty -- 正常終了
+      empty -- true end
   else
     liftIO $ printf ""
 
@@ -183,7 +184,7 @@ checkBoundSub5 forcedch allowedch s maxch pos depth (axLowL, axUppL) posoutX rul
           allowedch2 = allowedch - ((rules ^. _3) !! pos)
       if allowedch2 + forcedch <= maxch then do
         liftIO $ printf "Inequality holds.\n"
-        empty -- 正常終了
+        empty -- true end
       else
         liftIO $ printf ""
       
@@ -219,7 +220,7 @@ checkBoundSub5Sub2 i x depth s pos rules (axLowL2, axUppL2) posoutX deg = ret
       | s !! i == -1 && retF /= 0 = do
           printf "%d Positioned outlet " depth
           printf "%d, %d can't be forced, because it forces %d, %d\n" ((rules ^. _1) !! pos) x ((rules ^. _1) !! i) (posoutX !! i)
-          return True -- 上で相互再帰しない
+          return True -- 上位で相互再帰しない
       | otherwise                 =
           checkBoundSub5Sub2 (i + 1) x depth s pos rules (axLowL2, axUppL2) posoutX deg
 

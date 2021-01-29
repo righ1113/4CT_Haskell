@@ -110,14 +110,14 @@ reduceSub2 :: Int -> Int -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpRed
 reduceSub2 h noconf = do
   (gConfs, _, _)                           <- lift ask
   (((aSLow, aSUpp, aSLev), _, _, _, _), _) <- lift get
-  retSC <- lift . runMaybeT $ subConf (aSLow !! aSLev, aSUpp !! aSLev) (gConfs !! h)
+  retSC <- lift . runMaybeT $ subConf (aSLow !! aSLev, aSUpp !! aSLev) (gConfs !! h) 1
   let ret
         | h >= noconf     = do
             --   どのみち、ループ終了後失敗終了だから、ここで落とす
             (liftIO . putStrLn) "Not reducible."
-            empty                                     -- 失敗終了
-        | isNothing retSC = (return . show) h         -- 正常終了
-        | otherwise       = reduceSub2 (h + 1) noconf -- 再帰
+            empty                                     -- fail end
+        | isNothing retSC = (return . show) h         -- true end
+        | otherwise       = reduceSub2 (h + 1) noconf -- recursion
   ret
 
 reduceSub4 :: Int -> Int -> TpAxle -> [Int] -> Int -> IO (Int, [[Int]])
@@ -135,24 +135,23 @@ reduceSub4 i n aS@(aSLow, up, aSLev) image redverts = ret
           reduceSub4 (i + 1) (n + 1) (aSLow, up & (ix aSLev <<< ix v) .~ (aSUppV - 1), aSLev) image redverts
 
 
-subConf :: TpAxleI -> TpGoodConf -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
-subConf (_, axUppL) gC@(_, _, _, qXi) = do
+subConf :: TpAxleI -> TpGoodConf -> Int -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
+subConf axL@(_, axUppL) gC@(_, _, _, qXi) i = do
   ((_, _, _, _, edgelist), _) <- lift get
-  -- 1.
-  let qXi0      = head qXi
-      qXi1      = qXi !! 1
-      pedgeHead = ((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix 0
-      loop1 i   = -- MaybeT
-        if i > pedgeHead then
-          return "subConf end." -- 失敗終了
-        else do
-          let x = ((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix i
-              y = ((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix (i + 1)
-          ret1 <- lift . runMaybeT $ rootedSubConf axUppL gC x y 1
-          ret2 <- lift . runMaybeT $ rootedSubConf axUppL gC x y 0
-          if isNothing ret1 && isNothing ret2 then loop1 (i + 2) -- 再帰
-          else empty            -- 正常終了
-  loop1 1
+  let
+    qXi0      = head qXi
+    qXi1      = qXi !! 1
+    pedgeHead = ((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix 0
+    x         = ((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix i
+    y         = ((edgelist ^?! ix qXi0) ^?! ix qXi1) ^?! ix (i + 1)
+  ret1 <- lift . runMaybeT $ rootedSubConf axUppL gC x y 1
+  ret2 <- lift . runMaybeT $ rootedSubConf axUppL gC x y 0
+  let
+    ret
+      | i > pedgeHead                    = return "subConf end."  -- fail end
+      | isNothing ret1 && isNothing ret2 = subConf axL gC (i + 2) -- recursion
+      | otherwise                        = empty                  -- true end
+  ret
 
 
 rootedSubConf :: TpVertices -> TpGoodConf -> Int -> Int -> Int
@@ -176,15 +175,15 @@ rootedSubConf degree gConf@(_, _, qZ, _) x y clockwise = do
   (retB, used6, image6, _) <- rootedSubConfSub2 2 used4 image5 gConf adjmat clockwise degree
   (lift . put) (((aSLow, aSUpp, aSLev), used6, image6, adjmat, edgelist), posoutX)
   if retB then
-    (liftIO . putStr) ""
+    liftIO $ printf ""
   else
-    empty -- 失敗終了
+    empty -- fail end
 
   -- 3. test if image is well-positioned
   rootedSubConfSub3 1 used6 deg -- empty 失敗終了の可能性もある
 
   -- 4.
-  return "rootedSubConf end." -- 正常終了
+  return "rootedSubConf end." -- true end
 
 
 rootedSubConfSub2 :: Int -> [Bool] -> [Int] -> TpGoodConf -> TpAdjmat -> Int -> TpVertices
