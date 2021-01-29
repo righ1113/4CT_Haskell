@@ -124,7 +124,7 @@ mainLoop (nn, mm) sym@(_, symNol, _, _, _, _) nosym ax@(axLow, axUpp, axLev) tac
           liftIO . putStrLn $ "Reduce  " ++ show nowTac
           (((aSLow, aSUpp, aSLev), used, image, adjmat, elist), poX) <- get
           put (((aSLow & ix 0 .~ axLow !! axLev, aSUpp & ix 0 .~ axUpp !! axLev, aSLev), used, image, adjmat, elist), poX)
-          ret <- runMaybeT reduce
+          ret <- (runMaybeT . reduce) 1
           if isNothing ret then
             error "Reducibility failed"
           else do

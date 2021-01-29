@@ -59,51 +59,46 @@ reduce()
       addToList()!|
 -}
 
-reduce :: MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
-reduce = do
-  (gConfs, _, deg)                                                <- lift ask
-  ((aS@(aSLow, aSUpp, aSLev), used, image, _, edgelist), posoutX) <- lift get
+reduce :: Int -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
+reduce naxles
+  | naxles <= 0 || naxles >= maxastack = return "end reduce" -- true end
+  | otherwise                          = do
 
-  -- 1.
-  let noconf = 633
-      loop1 naxles --型がMaybeT
-        | naxles <= 0 || naxles >= maxastack      = return "1. end."
-        | otherwise = do
+      -- 0.
+      (gConfs, _, deg)                                                <- lift ask
+      ((aS@(aSLow, aSUpp, aSLev), used, image, _, edgelist), posoutX) <- lift get
 
-          -- 1.1.
-          (liftIO . putStrLn) "Axle from stack:"
-          let naxles2   = naxles - 1
-              adjmat2   = getAdjmat   (aSLow !! aSLev, aSUpp !! aSLev)          deg
-              edgelist2 = getEdgelist (aSLow !! aSLev, aSUpp !! aSLev) edgelist deg
-          (lift . put) (((aSLow, aSUpp, aSLev), used, image, adjmat2, edgelist2), posoutX)
+      -- 1.
+      (liftIO . putStrLn) "Axle from stack:"
+      let noconf    = 633
+          naxles2   = naxles - 1
+          adjmat2   = getAdjmat   (aSLow !! aSLev, aSUpp !! aSLev)          deg
+          edgelist2 = getEdgelist (aSLow !! aSLev, aSUpp !! aSLev) edgelist deg
+      (lift . put) (((aSLow, aSUpp, aSLev), used, image, adjmat2, edgelist2), posoutX)
 
-          -- 1.2.
-          ret1_2      <- reduceSub2 0 noconf
-          (liftIO . putStrLn) "##########################"
-          (liftIO . putStrLn) $ "naxles: " ++ show naxles ++ "   aSLev: " ++ show aSLev
-          (liftIO . print) $ aSLow !! aSLev
-          (liftIO . print) $ aSUpp !! aSLev
-          (liftIO . putStrLn) $ "gConfNo. " ++ ret1_2
-          (liftIO . putStrLn) "##########################"
-          let h        = read ret1_2 :: Int
-              redverts = ((gConfs !! h) ^. _1) !! 1
-              redring  = ((gConfs !! h) ^. _2) !! 1
+      -- 2.
+      ret1_2      <- reduceSub2 0 noconf
+      (liftIO . putStrLn) "##########################"
+      (liftIO . putStrLn) $ "naxles: " ++ show naxles ++ "   aSLev: " ++ show aSLev
+      (liftIO . print) $ aSLow !! aSLev
+      (liftIO . print) $ aSUpp !! aSLev
+      (liftIO . putStrLn) $ "gConfNo. " ++ ret1_2
+      (liftIO . putStrLn) "##########################"
+      let h        = read ret1_2 :: Int
+          redverts = ((gConfs !! h) ^. _1) !! 1
+          redring  = ((gConfs !! h) ^. _2) !! 1
 
-          -- 1.3. omitted
-          --if (conf != NULL)
-          --  CheckIso(conf[h], B, image, lineno);
-          -- Double-check isomorphism
+      -- 3. omitted
+      --if (conf != NULL)
+      --  CheckIso(conf[h], B, image, lineno);
+      -- Double-check isomorphism
 
-          -- 1.4.
-          (naxles3, aSUpp2) <- liftIO $ reduceSub4 (redring + 1) naxles2 aS image redverts
-          (lift . put) (((aSLow, aSUpp2, aSLev), used, image, adjmat2, edgelist2), posoutX)
+      -- 4.
+      (naxles3, aSUpp2) <- liftIO $ reduceSub4 (redring + 1) naxles2 aS image redverts
+      (lift . put) (((aSLow, aSUpp2, aSLev), used, image, adjmat2, edgelist2), posoutX)
 
-          -- 1.5. recursion
-          loop1 naxles3
-  loop1 1
-
-  -- 2.
-  return "reduce end." -- 正常終了
+      -- 5. recursion
+      reduce naxles3
 
 
 reduceSub2 :: Int -> Int -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
@@ -232,16 +227,14 @@ getAdjmat (_, axUppL) deg =
 
 
 getAdjmatSub :: Int -> [Int] -> TpAdjmat -> Int -> TpAdjmat
-getAdjmatSub deg bUpp adjmat i =
-  let
+getAdjmatSub deg bUpp adjmat i
+  | bUpp !! i < 9 = doFan deg i (bUpp !! i) adjmat3
+  | otherwise = adjmat3
+  where
     h       = if i == 1 then deg else i - 1
     a       = deg + h
     adjmat2 = chgAdjmat adjmat  0 h i Forward
     adjmat3 = chgAdjmat adjmat2 i h a Forward
-  in if bUpp !! i < 9 then
-    doFan deg i (bUpp !! i) adjmat3
-  else
-    adjmat3
 
 
 doFan :: Int -> Int -> Int -> TpAdjmat -> TpAdjmat

@@ -111,7 +111,7 @@ checkBound axL@(axLowL, axUppL) s0 maxch pos depth = do
   -- 4. check reducibility
   if forcedch > maxch then do
     lift $ put (((aSLow & ix 0 .~ axLowL, aSUpp & ix 0 .~ axUppL, aSLev), used, image, adjmat, edgelist), posoutX)
-    ret <- lift $ runMaybeT reduce
+    ret <- (lift . runMaybeT . reduce) 1
     if isNothing ret then
       error "Incorrect hubcap upper bound"
     else do
