@@ -26,17 +26,16 @@ import Text.Printf               ( printf )
 
 {-
 reduce()
+  -- 0.
   -- 1.
-    -- 1.1.
-      getAdjmat()
-      getEdgelist()
-    -- 1.2.
-      reduceSub2()
-    -- 1.3. omitted
-    -- 1.4.
-      reduceSub4()|
-    -- 1.5. recursion
+    getAdjmat()
+    getEdgelist()
   -- 2.
+    reduceSub2()
+  -- 3. omitted
+  -- 4.
+    reduceSub4()|
+  -- 5. recursion
 
   reduceSub2()
     subConf()
@@ -77,13 +76,11 @@ reduce naxles
       (lift . put) (((aSLow, aSUpp, aSLev), used, image, adjmat2, edgelist2), posoutX)
 
       -- 2.
-      ret1_2      <- reduceSub2 0 noconf
-      (liftIO . putStrLn) "##########################"
-      (liftIO . putStrLn) $ "naxles: " ++ show naxles ++ "   aSLev: " ++ show aSLev
-      (liftIO . print) $ aSLow !! aSLev
-      (liftIO . print) $ aSUpp !! aSLev
-      (liftIO . putStrLn) $ "gConfNo. " ++ ret1_2
-      (liftIO . putStrLn) "##########################"
+      ret1_2      <- reduceSub2 0 noconf -- empty 失敗終了の可能性もある
+      liftIO $ printf "##########################\n"
+      liftIO $ printf "naxles: %d   aSLev: %d\n" naxles aSLev
+      liftIO $ printf "gConfNo: %s\n" ret1_2
+      liftIO $ printf "##########################\n"
       let h        = read ret1_2 :: Int
           redverts = ((gConfs !! h) ^. _1) !! 1
           redring  = ((gConfs !! h) ^. _2) !! 1
@@ -109,7 +106,7 @@ reduceSub2 h noconf = do
   let ret
         | h >= noconf     = do
             --   どのみち、ループ終了後失敗終了だから、ここで落とす
-            (liftIO . putStrLn) "Not reducible."
+            (liftIO . printf) "Not reducible.\n"
             empty                                     -- fail end
         | isNothing retSC = (return . show) h         -- true end
         | otherwise       = reduceSub2 (h + 1) noconf -- recursion
@@ -143,7 +140,7 @@ subConf axL@(_, axUppL) gC@(_, _, _, qXi) i = do
   ret2 <- lift . runMaybeT $ rootedSubConf axUppL gC x y 0
   let
     ret
-      | i > pedgeHead                    = return "subConf end."  -- fail end
+      | i > pedgeHead                    = return "end subConf"   -- fail end
       | isNothing ret1 && isNothing ret2 = subConf axL gC (i + 2) -- recursion
       | otherwise                        = empty                  -- true end
   ret
@@ -178,7 +175,7 @@ rootedSubConf degree gConf@(_, _, qZ, _) x y clockwise = do
   rootedSubConfSub3 1 used6 deg -- empty 失敗終了の可能性もある
 
   -- 4.
-  return "rootedSubConf end." -- true end
+  return "end rootedSubConf" -- true end
 
 
 rootedSubConfSub2 :: Int -> [Bool] -> [Int] -> TpGoodConf -> TpAdjmat -> Int -> TpVertices
@@ -208,28 +205,26 @@ rootedSubConfSub3 j used6 deg = ret
   where
     degJ = if j == 1 then 2 * deg else deg + j - 1
     ret
-      | j > deg                                                 = return "loop3 end."
-      | not (used6 !! j) && used6 !! (deg + j) && used6 !! degJ = empty -- 失敗終了
+      | j > deg                                                 = return "end loop3"
+      | not (used6 !! j) && used6 !! (deg + j) && used6 !! degJ = empty -- fail end
       | otherwise                                               = rootedSubConfSub3 (j + 1) used6 deg
 
 
 -- ~~~ pure function ~~~
 getAdjmat :: TpAxleI -> Int -> TpAdjmat
-getAdjmat (_, axUppL) deg =
-  let
-    adjmat         = replicate cartvert $ replicate cartvert (-1)
-    loop1 i adjmat =
-      if i > deg then adjmat
-      else
-        let adjmat2 = getAdjmatSub deg axUppL adjmat i
-        in loop1 (i + 1) adjmat2
-  in loop1 1 adjmat
+getAdjmat (_, axUppL) deg = loop1 1 adjmat
+  where
+    adjmat        = replicate cartvert $ replicate cartvert (-1)
+    loop1 i adjmat
+      | i > deg   = adjmat
+      | otherwise = loop1 (i + 1) adjmat2 
+          where adjmat2 = getAdjmatSub deg axUppL adjmat i
 
 
 getAdjmatSub :: Int -> [Int] -> TpAdjmat -> Int -> TpAdjmat
 getAdjmatSub deg bUpp adjmat i
   | bUpp !! i < 9 = doFan deg i (bUpp !! i) adjmat3
-  | otherwise = adjmat3
+  | otherwise     = adjmat3
   where
     h       = if i == 1 then deg else i - 1
     a       = deg + h
@@ -270,15 +265,13 @@ chgAdjmat adjmat a b c Backward = adjmat4
 
 
 getEdgelist :: TpAxleI -> TpEdgelist -> Int -> TpEdgelist
-getEdgelist (axLowL, axUppL) _edgelist deg =
-  let
-    edgelist23       = replicate 12 $ replicate 9 $ replicate maxelist 0 --edgelist22 & (ix 11 <<< ix 8 <<< ix 0) .~ 0
-    loop1 i edgelist =
-      if i > deg then edgelist
-      else
-        let edgelist2 = getEdgelistSub axLowL axUppL edgelist deg i
-        in loop1 (i + 1) edgelist2
-  in loop1 1 edgelist23
+getEdgelist (axLowL, axUppL) _edgelist deg = loop1 1 edgelist23
+  where
+    edgelist23    = replicate 12 $ replicate 9 $ replicate maxelist 0 --edgelist22 & (ix 11 <<< ix 8 <<< ix 0) .~ 0
+    loop1 i edgelist
+      | i > deg   = edgelist
+      | otherwise = loop1 (i + 1) edgelist2
+          where edgelist2 = getEdgelistSub axLowL axUppL edgelist deg i
 
 
 getEdgelistSub :: TpVertices -> TpVertices -> TpEdgelist -> Int -> Int -> TpEdgelist
