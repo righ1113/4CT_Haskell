@@ -55,7 +55,8 @@ reduce()
         chgAdjmat()|
   getEdgelist()
     getEdgelistSub()
-      addToList()!|
+      addToList1()|
+      addToList2()|
 -}
 
 reduce :: Int -> MaybeT (RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO) String
@@ -277,36 +278,35 @@ getEdgelist (axLowL, axUppL) _edgelist deg = loop1 1 edgelist23
 getEdgelistSub :: TpVertices -> TpVertices -> TpEdgelist -> Int -> Int -> TpEdgelist
 getEdgelistSub bLow bUpp edgelist deg i = ret
   where
-    edgelist2  = addToList edgelist   0 i bUpp
+    edgelist2  = (addToList2 0 i bUpp . addToList1 0 i bUpp) edgelist
     h          = if i == 1 then deg else i - 1
-    edgelist3  = addToList edgelist2  i h bUpp
+    edgelist3  = (addToList2 i h bUpp . addToList1 i h bUpp) edgelist2
     a          = deg + h
     b          = deg + i
-    edgelist4  = addToList edgelist3  i a bUpp
-    edgelist5  = addToList edgelist4  i b bUpp
+    edgelist4  = (addToList2 i a bUpp . addToList1 i a bUpp) edgelist3
+    edgelist5  = (addToList2 i b bUpp . addToList1 i b bUpp) edgelist4
     bLowI      = bLow !! i
     bUppI      = bUpp !! i
     c          = 2 * deg + i
-    edgelist6  = addToList edgelist5  a c bUpp
-    edgelist7  = addToList edgelist6  i c bUpp
+    edgelist6  = (addToList2 a c bUpp . addToList1 a c bUpp) edgelist5
+    edgelist7  = (addToList2 i c bUpp . addToList1 i c bUpp) edgelist6
     d          = 3 * deg + i
-    edgelist8  = addToList edgelist7  c d bUpp
-    edgelist9  = addToList edgelist8  i d bUpp
+    edgelist8  = (addToList2 c d bUpp . addToList1 c d bUpp) edgelist7
+    edgelist9  = (addToList2 i d bUpp . addToList1 i d bUpp) edgelist8
     e          = 4 * deg + i
-    edgelist10 = addToList edgelist9  d e bUpp
-    edgelist11 = addToList edgelist10 i e bUpp
+    edgelist10 = (addToList2 d e bUpp . addToList1 d e bUpp) edgelist9
+    edgelist11 = (addToList2 i e bUpp . addToList1 i e bUpp) edgelist10
     ret
       | bLowI /= bUppI = edgelist5
-      | bUppI == 5     = addToList edgelist5  a b bUpp
-      | bUppI == 6     = addToList edgelist7  b c bUpp
-      | bUppI == 7     = addToList edgelist9  b d bUpp
-      | bUppI == 8     = addToList edgelist11 b e bUpp
+      | bUppI == 5     = (addToList2 a b bUpp . addToList1 a b bUpp) edgelist5
+      | bUppI == 6     = (addToList2 b c bUpp . addToList1 b c bUpp) edgelist7
+      | bUppI == 7     = (addToList2 b d bUpp . addToList1 b d bUpp) edgelist9
+      | bUppI == 8     = (addToList2 b e bUpp . addToList1 b e bUpp) edgelist11
       | otherwise      = error "Unexpected error in `GetEdgeList'"
 
 
--- この関数の実装はひどい
-addToList :: TpEdgelist -> Int -> Int -> TpVertices -> TpEdgelist
-addToList edgelist u v degree = ret
+addToList1 :: Int -> Int -> TpVertices -> TpEdgelist -> TpEdgelist
+addToList1 u v degree edgelist = ret
   where
     a           = degree !! u
     b           = degree !! v
@@ -316,22 +316,24 @@ addToList edgelist u v degree = ret
     edgelist1_4 = edgelist1_3 & (ix a <<< ix b <<< ix 0)            .~ (eHead1 + 2)
     bool1       = a >= b && b <= 8 && a <= 11 && (a <= 8 || u == 0)
     bool1_1     = eHead1 + 2 >= maxelist
+    ret
+      | bool1 &&     bool1_1 = error "More than %d entries in edgelist needed 1"
+      | bool1 && not bool1_1 = edgelist1_4
+      | otherwise            = edgelist
+
+
+addToList2 :: Int -> Int -> TpVertices -> TpEdgelist -> TpEdgelist
+addToList2 u v degree edgelist = ret
+  where
+    a           = degree !! u
+    b           = degree !! v
     eHead2      = ((edgelist ^?! ix b) ^?! ix a) ^?! ix 0
     edgelist2_2 = edgelist    & (ix b <<< ix a <<< ix (eHead2 + 1)) .~ v
     edgelist2_3 = edgelist2_2 & (ix b <<< ix a <<< ix (eHead2 + 2)) .~ u 
     edgelist2_4 = edgelist2_3 & (ix b <<< ix a <<< ix 0)            .~ (eHead2 + 2)
-    edgelist2_2_2 = if a == b then edgelist1_4   & (ix b <<< ix a <<< ix (eHead2 + 3)) .~ v
-                              else edgelist1_4   & (ix b <<< ix a <<< ix (eHead2 + 1)) .~ v
-    edgelist2_3_2 = if a == b then edgelist2_2_2 & (ix b <<< ix a <<< ix (eHead2 + 4)) .~ u
-                              else edgelist2_2_2 & (ix b <<< ix a <<< ix (eHead2 + 2)) .~ u
-    edgelist2_4_2 = if a == b then edgelist2_3_2 & (ix b <<< ix a <<< ix 0)            .~ (eHead2 + 4)
-                              else edgelist2_3_2 & (ix b <<< ix a <<< ix 0)            .~ (eHead2 + 2)
     bool2       = b >= a && a <= 8 && b <= 11 && (b <= 8 || v == 0)
     bool2_1     = eHead2 + 2 >= maxelist
     ret
-      | bool1 &&     bool1_1 = error "More than %d entries in edgelist needed 1"
-      | bool1 && not bool1_1 && not (bool2 && not bool2_1) = edgelist1_4
-      | bool1 && not bool1_1 &&     (bool2 && not bool2_1) = edgelist2_4_2
       | bool2 &&     bool2_1 = error "More than %d entries in edgelist needed 2"
       | bool2 && not bool2_1 = edgelist2_4
       | otherwise            = edgelist
