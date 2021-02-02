@@ -1,2 +1,9 @@
 cradle:
   stack:
+    - path: "app/Discharge.hs"
+      component: "ver4src:exe:discharge-exe"
+    - path: "app/Reduce.hs"
+      component: "ver4src:exe:reduce-exe"
+
+
+
