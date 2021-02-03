@@ -8,12 +8,16 @@
 -}
 module Main where
 
+import CoLibCConst ( readFileGoodConfsR )
+
+
 main :: IO ()
 main = do
   putStrLn "これは四色定理の可約性を調べるプログラムです"
-  {-graphs <- readFileGoodConfsR
-  mainLoop graphs-}
-  -- putStrLn "633個の好配置は全て、Ｄ可約orＣ可約です"
+  gConfs <- readFileGoodConfsR
+  print (((gConfs !! 1) !! 2) !! 1)
+  -- mainLoop graphs
+  -- putStrLn "633個の好配置は全て、Ｄ可約 or Ｃ可約です"
   putStrLn "プログラムは正常終了しました"
 
 

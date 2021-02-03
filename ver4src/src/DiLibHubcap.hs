@@ -1,6 +1,6 @@
 module DiLibHubcap where
 
-import DiLibCConst
+import CoLibCConst
     ( TpReducePack,
       TpPosout,
       TpGoodConf,

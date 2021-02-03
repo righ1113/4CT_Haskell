@@ -1,6 +1,6 @@
 module DiLibSymmetry where
 
-import DiLibCConst ( TpAxle, TpAxleI, TpPosout, TpPosoutI )
+import CoLibCConst ( TpAxle, TpAxleI, TpPosout, TpPosoutI )
 import Data.List   ( findIndex )
 import Data.Maybe  ( fromJust )
 

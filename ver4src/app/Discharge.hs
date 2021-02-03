@@ -9,8 +9,7 @@
 -}
 module Main where
 
-
-import DiLibCConst
+import CoLibCConst
     ( TpReducePack,
       TpPosout,
       TpGoodConf,

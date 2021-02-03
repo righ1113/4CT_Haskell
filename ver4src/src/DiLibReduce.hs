@@ -1,6 +1,6 @@
 module DiLibReduce where
 
-import DiLibCConst
+import CoLibCConst
     ( cartvert,
       maxastack,
       maxelist,

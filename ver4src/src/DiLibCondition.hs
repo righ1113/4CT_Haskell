@@ -1,6 +1,6 @@
 module DiLibCondition where
 
-import DiLibCConst               ( TpPosout, TpCond, TpAxle, infty )
+import CoLibCConst               ( TpPosout, TpCond, TpAxle, infty )
 import Control.Arrow             ( (<<<) )
 import Control.Lens              ( (&), (^?!), (.~), Ixed(ix) )
 import Data.List                 ( find )

@@ -4,6 +4,8 @@ cradle:
       component: "ver4src:exe:discharge-exe"
     - path: "app/Reduce.hs"
       component: "ver4src:exe:reduce-exe"
+    - path: "src"
+      component: "ver4src:lib"
 
 
 
