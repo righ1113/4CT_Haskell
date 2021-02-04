@@ -97,6 +97,7 @@ main = do
 
   putStrLn "プログラムは正常終了しました。"
 
+
 mainLoop :: TpCond -> TpPosout -> Int -> TpAxle -> [[String]] -> Int
   -> RWST ([TpGoodConf], TpPosout, Int) () (TpReducePack, [Int]) IO String
 mainLoop (nn, mm) sym@(_, symNol, _, _, _, _) nosym ax@(axLow, axUpp, axLev) tactics lineno
