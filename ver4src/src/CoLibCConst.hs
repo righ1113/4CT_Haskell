@@ -27,6 +27,9 @@ maxastack  = 5 :: Int                -- max height of Astack (see "Reduce")
 maxlev     = 12 :: Int               -- max level of an input line + 1
 difNouts   = [0, 0, 0, 0, 0, 0, 0, 103, 64, 53, 53, 53] :: [Int]
 
+mverts     = 27 :: Int               -- max number of vertices in a free completion + 1
+edges      = 62 :: Int               -- max number of edges in a free completion + 1
+
 
 readFileGoodConfsR :: IO [TpConfmat]
 readFileGoodConfsR = do
