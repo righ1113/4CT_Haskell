@@ -1,6 +1,8 @@
 module ReLibStrip where
 
-import CoLibCConst
+import CoLibCConst   ( edges, mverts, TpConfmat, TpEdgeno )
+import Control.Arrow ( (<<<) )
+import Control.Lens  ( (&), (.~), Ixed(ix) )
 
 
 -- 3. stripSub3
@@ -9,7 +11,7 @@ strip :: TpConfmat -> TpEdgeno
 strip gConf = stripSub3 gConf ring done term1 edgeno where
   verts  = head gConf !! (0 + 1)
   ring   = gConf !! (0 + 1) !! 1 -- ring-size
-  edgeno = stripSub1 ring
+  edgeno = stripSub1 1 ring (replicate edges $ replicate edges 0)
   done   = replicate mverts False
   term0  = 3 * (verts - 1) - ring
   -- 2. stripSub2
@@ -17,17 +19,13 @@ strip gConf = stripSub3 gConf ring done term1 edgeno where
   term1  = stripSub2 gConf verts ring done term0
 
 
-stripSub1 :: Int -> TpEdgeno
-stripSub1 ring = replicate edges $ replicate edges 0
-{-
-  Array.new(Const::EDGES) { Array.new(Const::EDGES, 0)
-  ring.times do |vv|
-    v = vv + 1
-    u = v > 1 ? v - 1 : ring
-    @edgeno[u][v] = v
-    @edgeno[v][u] = v
-  end
--}
+stripSub1 :: Int -> Int -> TpEdgeno -> TpEdgeno
+stripSub1 v ring edgeno
+  | v > ring  = edgeno
+  | otherwise = stripSub1 (v + 1) ring edgeno2 where
+      u       = if v > 1 then v - 1 else ring
+      edgeno1 = edgeno  & (ix u <<< ix v) .~ v
+      edgeno2 = edgeno1 & (ix v <<< ix u) .~ v
 
 
 stripSub2 :: TpConfmat -> Int -> Int -> [Bool] -> Int -> Int
