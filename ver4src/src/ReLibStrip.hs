@@ -16,7 +16,7 @@ strip gConf = stripSub3 gConf ring done term1 edgeno where
   term0  = 3 * (verts - 1) - ring
   -- 2. stripSub2
   -- This eventually lists all the internal edges of the configuration
-  term1  = stripSub2 gConf verts ring done term0
+  term1  = stripSub2 gConf verts ring done term0 (ring + 1) 1 (replicate mverts 0) 0 0
 
 
 stripSub1 :: Int -> Int -> TpEdgeno -> TpEdgeno
@@ -28,8 +28,10 @@ stripSub1 v ring edgeno
       edgeno2 = edgeno1 & (ix v <<< ix u) .~ v
 
 
-stripSub2 :: TpConfmat -> Int -> Int -> [Bool] -> Int -> Int
-stripSub2 gConf verts ring done term0 = term0
+stripSub2 :: TpConfmat -> Int -> Int -> [Bool] -> Int -> Int -> Int -> [Int] -> Int -> Int -> Int
+stripSub2 gConf verts ring done term0 i best max maxint maxes
+  | i > verts = term0
+  | otherwise = stripSub2 gConf verts ring done term0 (i + 1) best max maxint maxes
 
 
 stripSub3 :: TpConfmat -> Int -> [Bool] -> Int -> TpEdgeno -> TpEdgeno
