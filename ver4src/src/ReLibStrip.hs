@@ -30,8 +30,69 @@ stripSub1 v ring edgeno
 
 stripSub2 :: TpConfmat -> Int -> Int -> [Bool] -> Int -> Int -> Int -> [Int] -> Int -> Int -> Int
 stripSub2 gConf verts ring done term0 i best max maxint maxes
-  | i > verts = term0
-  | otherwise = stripSub2 gConf verts ring done term0 (i + 1) best max maxint maxes
+  | i > verts = term0 -- This eventually lists all the internal edges of the configuration
+  | otherwise = stripSub2 gConf verts ring done term0 (i + 1) best2 max2 maxint2 maxes2 where
+      (maxint2, maxes2, max2) = stripSub2Sub1 gConf verts ring maxint maxes max
+      maxdeg = 0
+      best2 = stripSub2Sub2 gConf maxes2 max2 maxdeg 1
+      d        = (gConf !! (best + 2)) !! (0 + 1)
+      first    = 1
+      previous = done !! ((gConf !! (best + 2)) !! (d + 1))
+      {-
+      while previous || !done[g_conf[best + 2][first + 1]]
+        previous = done[g_conf[best + 2][1 + first]]
+        first += 1
+        (first = 1; break) if first > d
+      end
+
+      h = first
+      while done[g_conf[best + 2][h + 1]]
+        @edgeno[best][g_conf[best + 2][h + 1]] = term
+        @edgeno[g_conf[best + 2][h + 1]][best] = term
+        term -= 1
+        if h == d
+          break if first == 1
+          h = 0
+        end
+        h += 1
+      end
+      done[best] = true
+      -}
+
+
+stripSub2Sub1 :: TpConfmat -> Int -> Int -> Int -> Int -> [Int] -> (Int, Int, [Int])
+stripSub2Sub1 gConf verts ring maxint maxes max = (maxint, maxes, max)
+{-
+      # First we find all vertices from the interior that meet the "done"
+      # vertices in an interval, and write them in max[1] .. max[maxes]
+      ((ring + 1)..verts).each do |v|
+        next if done[v]
+        inter = in_interval g_conf[v + 2], done
+        if inter > maxint
+          maxint = inter
+          maxes  = 1
+          max[1] = v
+        elsif inter == maxint
+          maxes += 1
+          max[maxes] = v
+        end
+      end
+-}
+
+stripSub2Sub2 :: TpConfmat -> Int -> [Int] -> Int -> Int -> Int
+stripSub2Sub2 gConf maxes2 max2 maxdeg h = 2
+{-
+# From the terms in max we choose the one of maximum degree
+maxdeg = 0
+(1..maxes).each do |h|
+  d = g_conf[max[h] + 2][0 + 1]
+  if d > maxdeg
+    maxdeg = d
+    best   = max[h]
+  end
+end
+# So now, the vertex "best" will be the next vertex to be done
+-}
 
 
 stripSub3 :: TpConfmat -> Int -> [Bool] -> Int -> TpEdgeno -> TpEdgeno
