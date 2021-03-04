@@ -5,7 +5,6 @@ import Control.Arrow ( (<<<) )
 import Control.Lens  ( (&), (.~), Ixed(ix) )
 
 
--- 3. stripSub3
 -- Now we must list the edges between the interior and the ring
 strip :: TpConfmat -> TpEdgeno
 strip gConf = stripSub3 gConf ring done term1 edgeno2 where
@@ -32,7 +31,7 @@ stripSub2 :: TpEdgeno -> TpConfmat -> Int -> Int -> [Bool] -> Int -> Int -> Int 
 stripSub2 edgeno gConf verts ring done term i best max maxint maxes
   | i > verts = (edgeno, term) -- This eventually lists all the internal edges of the configuration
   | otherwise = stripSub2 edgeno2 gConf verts ring done2 term (i + 1) best2 max2 maxint2 maxes2 where
-      (maxint2, maxes2, max2) = stripSub2Sub1 gConf verts ring maxint maxes max
+      (maxint2, maxes2, max2) = stripSub2Sub1 gConf verts ring done maxint maxes max (ring + 1)
       maxdeg                  = 0
       best2                   = stripSub2Sub2 gConf maxes2 max2 maxdeg 1
       d                       = (gConf !! (best + 2)) !! (0 + 1)
@@ -41,24 +40,17 @@ stripSub2 edgeno gConf verts ring done term i best max maxint maxes
       (edgeno2, done2)        = stripSub2Sub4 edgeno gConf done term best2 d first
 
 
-stripSub2Sub1 :: TpConfmat -> Int -> Int -> Int -> Int -> [Int] -> (Int, Int, [Int])
-stripSub2Sub1 gConf verts ring maxint maxes max = (maxint, maxes, max)
-{-
-      # First we find all vertices from the interior that meet the "done"
-      # vertices in an interval, and write them in max[1] .. max[maxes]
-      ((ring + 1)..verts).each do |v|
-        next if done[v]
-        inter = in_interval g_conf[v + 2], done
-        if inter > maxint
-          maxint = inter
-          maxes  = 1
-          max[1] = v
-        elsif inter == maxint
-          maxes += 1
-          max[maxes] = v
-        end
-      end
--}
+-- First we find all vertices from the interior that meet the "done"
+-- vertices in an interval, and write them in max[1] .. max[maxes]
+stripSub2Sub1 :: TpConfmat -> Int -> Int -> [Bool] -> Int -> Int -> [Int] -> Int -> (Int, Int, [Int])
+stripSub2Sub1 gConf verts ring done maxint maxes max v
+  | v > verts = (maxint, maxes, max)
+  | done !! v = stripSub2Sub1 gConf verts ring done maxint  maxes  max  (v + 1)
+  | otherwise = stripSub2Sub1 gConf verts ring done maxint2 maxes2 max2 (v + 1) where
+      inter = 0 --in_interval g_conf[v + 2], done
+      (maxint2, maxes2, max2)
+        = if inter > maxint then (inter, 1, max & ix 1 .~ v) else (maxint, maxes + 1, max & ix (maxes + 1) .~ v)
+
 
 stripSub2Sub2 :: TpConfmat -> Int -> [Int] -> Int -> Int -> Int
 stripSub2Sub2 gConf maxes2 max2 maxdeg h = 2
