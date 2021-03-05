@@ -33,7 +33,7 @@ stripSub2 edgeno gConf verts ring done term i best max maxint maxes
   | otherwise = stripSub2 edgeno2 gConf verts ring done2 term (i + 1) best2 max2 maxint2 maxes2 where
       (maxint2, maxes2, max2) = stripSub2Sub1 gConf verts ring done maxint maxes max (ring + 1)
       maxdeg                  = 0
-      best2                   = stripSub2Sub2 gConf maxes2 max2 maxdeg 1
+      best2                   = stripSub2Sub2 gConf maxes2 max2 maxdeg 1 0
       d                       = (gConf !! (best + 2)) !! (0 + 1)
       previous                = done !! ((gConf !! (best + 2)) !! (d + 1))
       first                   = stripSub2Sub3 gConf done best2 previous 1
@@ -52,20 +52,14 @@ stripSub2Sub1 gConf verts ring done maxint maxes max v
         = if inter > maxint then (inter, 1, max & ix 1 .~ v) else (maxint, maxes + 1, max & ix (maxes + 1) .~ v)
 
 
-stripSub2Sub2 :: TpConfmat -> Int -> [Int] -> Int -> Int -> Int
-stripSub2Sub2 gConf maxes2 max2 maxdeg h = 2
-{-
-# From the terms in max we choose the one of maximum degree
-maxdeg = 0
-(1..maxes).each do |h|
-  d = g_conf[max[h] + 2][0 + 1]
-  if d > maxdeg
-    maxdeg = d
-    best   = max[h]
-  end
-end
-# So now, the vertex "best" will be the next vertex to be done
--}
+-- From the terms in max we choose the one of maximum degree
+-- So now, the vertex "best" will be the next vertex to be done
+stripSub2Sub2 :: TpConfmat -> Int -> [Int] -> Int -> Int -> Int -> Int
+stripSub2Sub2 gConf maxes max maxdeg h best
+  | h > maxes = best
+  | otherwise = stripSub2Sub2 gConf maxes max maxdeg2 (h + 1) best2 where
+      d                = (gConf !! (max !! h + 2)) !! (0 + 1)
+      (maxdeg2, best2) = if d > maxdeg then (d, max !! h) else (maxdeg, best)
 
 
 stripSub2Sub3 :: TpConfmat -> [Bool] -> Int -> Bool -> Int -> Int
