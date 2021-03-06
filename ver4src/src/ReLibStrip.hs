@@ -36,7 +36,7 @@ stripSub2 edgeno gConf verts ring done term i best max maxint maxes
       best2                   = stripSub2Sub2 gConf maxes2 max2 maxdeg 1 0
       d                       = (gConf !! (best + 2)) !! (0 + 1)
       previous                = done !! ((gConf !! (best + 2)) !! (d + 1))
-      first                   = stripSub2Sub3 gConf done best2 previous 1
+      first                   = stripSub2Sub3 gConf done best2 previous 1 d
       (edgeno2, done2)        = stripSub2Sub4 edgeno gConf done term best2 d first
 
 
@@ -62,15 +62,12 @@ stripSub2Sub2 gConf maxes max maxdeg h best
       (maxdeg2, best2) = if d > maxdeg then (d, max !! h) else (maxdeg, best)
 
 
-stripSub2Sub3 :: TpConfmat -> [Bool] -> Int -> Bool -> Int -> Int
-stripSub2Sub3 gConf done best previous first = first
-{-
-  while previous || !done[g_conf[best + 2][first + 1]]
-    previous = done[g_conf[best + 2][1 + first]]
-    first += 1
-    (first = 1; break) if first > d
-  end
--}
+stripSub2Sub3 :: TpConfmat -> [Bool] -> Int -> Bool -> Int -> Int -> Int
+stripSub2Sub3 gConf done best previous first d
+  | not previous && doneGConf = first
+  | first > d = 1
+  | otherwise = stripSub2Sub3 gConf done best doneGConf (first + 1) d where
+      doneGConf = done !! ((gConf !! (best + 2)) !! (first + 1))
 
 
 stripSub2Sub4 :: TpEdgeno -> TpConfmat -> [Bool] -> Int -> Int -> Int -> Int -> (TpEdgeno, [Bool])
