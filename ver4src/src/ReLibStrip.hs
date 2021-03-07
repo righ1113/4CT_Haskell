@@ -37,7 +37,7 @@ stripSub2 edgeno gConf verts ring done term i best max maxint maxes
       d                       = (gConf !! (best + 2)) !! (0 + 1)
       previous                = done !! ((gConf !! (best + 2)) !! (d + 1))
       first                   = stripSub2Sub3 gConf done best2 previous 1 d
-      (edgeno2, done2)        = stripSub2Sub4 edgeno gConf done term best2 d first
+      (edgeno2, done2)        = stripSub2Sub4 edgeno gConf done term best2 d first first
 
 
 -- First we find all vertices from the interior that meet the "done"
@@ -70,22 +70,16 @@ stripSub2Sub3 gConf done best previous first d
       doneGConf = done !! ((gConf !! (best + 2)) !! (first + 1))
 
 
-stripSub2Sub4 :: TpEdgeno -> TpConfmat -> [Bool] -> Int -> Int -> Int -> Int -> (TpEdgeno, [Bool])
-stripSub2Sub4 edgeno gConf done term best d first = (edgeno, done)
-{-
-  h = first
-  while done[g_conf[best + 2][h + 1]]
-    @edgeno[best][g_conf[best + 2][h + 1]] = term
-    @edgeno[g_conf[best + 2][h + 1]][best] = term
-    term -= 1
-    if h == d
-      break if first == 1
-      h = 0
-    end
-    h += 1
-  end
-  done[best] = true
--}
+stripSub2Sub4 :: TpEdgeno -> TpConfmat -> [Bool] -> Int -> Int -> Int -> Int -> Int -> (TpEdgeno, [Bool])
+stripSub2Sub4 edgeno gConf done term best d first h
+  | not $ done !! gConfBH = (edgeno , done)
+  | h == d && first == 1  = (edgeno3, done)
+  | h == d && first /= 1  = stripSub2Sub4 edgeno3 gConf done2 (term - 1) best d first 0
+  | otherwise             = stripSub2Sub4 edgeno3 gConf done2 (term - 1) best d first (h + 1) where
+      gConfBH = (gConf !! (best + 2)) !! (h + 1)
+      edgeno2 = edgeno  & (ix best <<< ix gConfBH) .~ term
+      edgeno3 = edgeno2 & (ix gConfBH <<< ix best) .~ term
+      done2   = done & ix best .~ True
 
 
 stripSub3 :: TpConfmat -> Int -> [Bool] -> Int -> TpEdgeno -> TpEdgeno
