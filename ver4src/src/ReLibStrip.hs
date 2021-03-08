@@ -47,7 +47,7 @@ stripSub2Sub1 gConf verts ring done maxint maxes max v
   | v > verts = (maxint, maxes, max)
   | done !! v = stripSub2Sub1 gConf verts ring done maxint  maxes  max  (v + 1)
   | otherwise = stripSub2Sub1 gConf verts ring done maxint2 maxes2 max2 (v + 1) where
-      inter = 0 --in_interval g_conf[v + 2], done
+      inter = inInterval (gConf !! (v + 2)) done
       (maxint2, maxes2, max2)
         = if inter > maxint then (inter, 1, max & ix 1 .~ v) else (maxint, maxes + 1, max & ix (maxes + 1) .~ v)
 
@@ -80,6 +80,41 @@ stripSub2Sub4 edgeno gConf done term best d first h
       edgeno2 = edgeno  & (ix best <<< ix gConfBH) .~ term
       edgeno3 = edgeno2 & (ix gConfBH <<< ix best) .~ term
       done2   = done & ix best .~ True
+
+
+inInterval :: [Int] -> [Bool] -> Int
+inInterval grav done = 0
+{-
+    def in_interval(grav, done)
+      d = grav[0 + 1]
+
+      first = 1
+      while first < d && !done[grav[first + 1]] do first += 1 end
+      return (done[grav[d + 1]] ? 1 : 0) if first == d
+
+      last = first
+      while last < d && done[grav[1 + last + 1]] do last += 1 end
+      length = last - first + 1
+      return length if last == d
+
+      if first > 1
+        ((last + 2)..d).each do |j|
+          return 0 if done[grav[j + 1]]
+        end
+        return length
+      end
+      worried = false
+      ((last + 2)..d).each do |j|
+        if done[grav[j + 1]]
+          length += 1
+          worried = true
+        elsif worried
+          return 0
+        end
+      end
+      length
+    end
+-}
 
 
 stripSub3 :: TpConfmat -> Int -> [Bool] -> Int -> TpEdgeno -> TpEdgeno
