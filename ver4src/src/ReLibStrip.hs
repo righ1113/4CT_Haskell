@@ -82,18 +82,27 @@ stripSub2Sub4 edgeno gConf done term best d first h
       done2   = done & ix best .~ True
 
 
-inIntervalSub1 :: [Int] -> [Bool] -> Int -> Int -> Int
-inIntervalSub1 grav done d first
+getFirst :: [Int] -> [Bool] -> Int -> Int -> Int
+getFirst grav done d first
   | first >= d || done !! (grav !! (first + 1)) = first
-  | otherwise = inIntervalSub1 grav done d (first + 1)
+  | otherwise = getFirst grav done d (first + 1)
+
+
+getLast :: [Int] -> [Bool] -> Int -> Int -> Int
+getLast grav done d last
+  | last >= d || not (done !! (grav !! (1 + last + 1))) = last
+  | otherwise = getFirst grav done d (last + 1)
 
 
 inInterval :: [Int] -> [Bool] -> Int
 inInterval grav done
   | first == d = if done !! (grav !! (d + 1)) then 1 else 0
-  | otherwise = 0 where
-    d = grav !! (0 + 1)
-    first = inIntervalSub1 grav done d 1
+  | last  == d = length
+  | otherwise  = 0 where
+      d      = grav !! (0 + 1)
+      first  = getFirst grav done d 1
+      last   = getLast  grav done d first
+      length = last - first + 1
 {-
     def in_interval(grav, done)
       d = grav[0 + 1]
