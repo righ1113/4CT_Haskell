@@ -94,11 +94,19 @@ getLast grav done d last
   | otherwise = getFirst grav done d (last + 1)
 
 
+inIntervalSub1 :: [Int] -> [Bool] -> Int -> Int -> Int -> Int
+inIntervalSub1 grav done d length j
+  | j > d                     = length
+  | done !! (grav !! (j + 1)) = 0
+  | otherwise                 = inIntervalSub1 grav done d length (j + 1)
+
+
 inInterval :: [Int] -> [Bool] -> Int
 inInterval grav done
   | first == d = if done !! (grav !! (d + 1)) then 1 else 0
   | last  == d = length
-  | otherwise  = 0 where
+  | first > 1  = inIntervalSub1 grav done d length (last + 2)
+  | otherwise  = length where
       d      = grav !! (0 + 1)
       first  = getFirst grav done d 1
       last   = getLast  grav done d first
