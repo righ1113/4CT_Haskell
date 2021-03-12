@@ -82,6 +82,20 @@ stripSub2Sub4 edgeno gConf done term best d first h
       done2   = done & ix best .~ True
 
 
+inInterval :: [Int] -> [Bool] -> Int
+inInterval grav done
+  | first == d = if done !! (grav !! (d + 1)) then 1 else 0
+  | last  == d = length
+  | first > 1  = inIntervalSub1 grav done d length (last + 2)
+  | chg        = 0
+  | otherwise  = len where
+      d          = grav !! (0 + 1)
+      first      = getFirst grav done d 1
+      last       = getLast  grav done d first
+      length     = last - first + 1
+      (len, chg) = inIntervalSub2 grav done d False length (last + 2)
+
+
 getFirst :: [Int] -> [Bool] -> Int -> Int -> Int
 getFirst grav done d first
   | first >= d || done !! (grav !! (first + 1)) = first
@@ -101,47 +115,12 @@ inIntervalSub1 grav done d length j
   | otherwise                 = inIntervalSub1 grav done d length (j + 1)
 
 
-inInterval :: [Int] -> [Bool] -> Int
-inInterval grav done
-  | first == d = if done !! (grav !! (d + 1)) then 1 else 0
-  | last  == d = length
-  | first > 1  = inIntervalSub1 grav done d length (last + 2)
-  | otherwise  = length where
-      d      = grav !! (0 + 1)
-      first  = getFirst grav done d 1
-      last   = getLast  grav done d first
-      length = last - first + 1
-{-
-    def in_interval(grav, done)
-      d = grav[0 + 1]
-
-      first = 1
-      while first < d && !done[grav[first + 1]] do first += 1 end
-      return (done[grav[d + 1]] ? 1 : 0) if first == d
-
-      last = first
-      while last < d && done[grav[1 + last + 1]] do last += 1 end
-      length = last - first + 1
-      return length if last == d
-
-      if first > 1
-        ((last + 2)..d).each do |j|
-          return 0 if done[grav[j + 1]]
-        end
-        return length
-      end
-      worried = false
-      ((last + 2)..d).each do |j|
-        if done[grav[j + 1]]
-          length += 1
-          worried = true
-        elsif worried
-          return 0
-        end
-      end
-      length
-    end
--}
+inIntervalSub2 :: [Int] -> [Bool] -> Int -> Bool -> Int -> Int -> (Int, Bool)
+inIntervalSub2 grav done d worried length j
+  | j > d                                      = (length, False)
+  | done !! (grav !! (j + 1))                  = inIntervalSub2 grav done d True    (length + 1) (j + 1)
+  | not (done !! (grav !! (j + 1))) && worried = (length, True)
+  | otherwise                                  = inIntervalSub2 grav done d worried length       (j + 1)
 
 
 stripSub3 :: TpConfmat -> Int -> [Bool] -> Int -> TpEdgeno -> TpEdgeno
