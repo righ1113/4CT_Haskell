@@ -7,7 +7,7 @@ import Control.Lens  ( (&), (.~), Ixed(ix) )
 
 -- Now we must list the edges between the interior and the ring
 strip :: TpConfmat -> TpEdgeno
-strip gConf = stripSub3 gConf ring done term1 edgeno2 where
+strip gConf = stripSub3 gConf ring done term1 edgeno2 0 where
   verts  = head gConf !! (0 + 1)
   ring   = gConf !! (0 + 1) !! 1 -- ring-size
   edgeno = stripSub1 1 ring (replicate edges $ replicate edges 0)
@@ -123,8 +123,48 @@ inIntervalSub2 grav done d worried length j
   | otherwise                                  = inIntervalSub2 grav done d worried length       (j + 1)
 
 
-stripSub3 :: TpConfmat -> Int -> [Bool] -> Int -> TpEdgeno -> TpEdgeno
-stripSub3 gConf ring done term1 edgeno = edgeno
+stripSub3 :: TpConfmat -> Int -> [Bool] -> Int -> TpEdgeno -> Int -> TpEdgeno
+stripSub3 gConf ring done term1 edgeno j
+  | j > ring  = edgeno
+  | otherwise = stripSub3 gConf ring done term1 edgeno (j + 1)
+{-
+      ring.times do
+        maxint = 0
+        best   = 0
+        v      = 1
+        while v <= ring
+          unless done[v]
+            u          = v > 1 ? v - 1 : ring
+            w          = v < ring ? v + 1 : 1
+            done_int_u = done[u] ? 1 : 0
+            done_int_w = done[w] ? 1 : 0
+            inter      = 3 * g_conf[v + 2][0 + 1] + 4 * (done_int_u + done_int_w)
+            if inter > maxint
+              maxint = inter
+              best = v
+            end
+          end
+          v += 1
+        end
+
+        grav = g_conf[best + 2]
+        u = best > 1 ? best - 1 : ring
+        if done[u]
+          (2..(grav[0 + 1] - 1)).reverse_each do |h|
+            @edgeno[best][grav[h + 1]] = term
+            @edgeno[grav[h + 1]][best] = term
+            term -= 1
+          end
+        else
+          (2..(grav[0 + 1] - 1)).each do |h|
+            @edgeno[best][grav[h + 1]] = term
+            @edgeno[grav[h + 1]][best] = term
+            term -= 1
+          end
+        end
+        done[best] = true
+      end
+-}
 
 
 
