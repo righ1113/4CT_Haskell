@@ -123,10 +123,23 @@ inIntervalSub2 grav done d worried length j
   | otherwise                                  = inIntervalSub2 grav done d worried length       (j + 1)
 
 
+stripSub3Sub1 :: TpConfmat -> Int -> [Bool] -> Int -> Int -> Int -> Int
+stripSub3Sub1 gConf ring done maxint best v
+  | v > ring                                        = best
+  | done !! v || not (done !! v) && inter <= maxint = stripSub3Sub1 gConf ring done maxint best (v + 1)
+  | otherwise                                       = stripSub3Sub1 gConf ring done inter  v    (v + 1) where
+      u        = if v > 1     then v - 1 else ring
+      w        = if v < ring  then v + 1 else 1
+      doneIntU = if done !! u then 1     else 0
+      doneIntW = if done !! w then 1     else 0
+      inter    = 3 * (gConf !! (v + 2)) !! (0 + 1) + 4 * (doneIntU + doneIntW)
+
+
 stripSub3 :: TpConfmat -> Int -> [Bool] -> Int -> TpEdgeno -> Int -> TpEdgeno
 stripSub3 gConf ring done term1 edgeno j
   | j > ring  = edgeno
-  | otherwise = stripSub3 gConf ring done term1 edgeno (j + 1)
+  | otherwise = stripSub3 gConf ring done term1 edgeno (j + 1) where
+      best = stripSub3Sub1 gConf ring done 0 0 1
 {-
       ring.times do
         maxint = 0
