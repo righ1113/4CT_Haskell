@@ -135,11 +135,26 @@ stripSub3Sub1 gConf ring done maxint best v
       inter    = 3 * (gConf !! (v + 2)) !! (0 + 1) + 4 * (doneIntU + doneIntW)
 
 
+
+stripSub3Sub2 :: [Int] -> [Bool] -> Int -> TpEdgeno -> Int -> Int -> ([Bool], Int, TpEdgeno)
+stripSub3Sub2 grav done term edgeno best h
+  | h <= 2 = (done, term, edgeno)
+  | otherwise = stripSub3Sub2 grav done2 (term - 1) edgeno3 best (h - 1) where
+      edgeno2 = edgeno  & (ix best <<< ix gravH1) .~ term
+      edgeno3 = edgeno2 & (ix gravH1 <<< ix best) .~ term
+      done2   = done & ix best .~ True
+      gravH1  = grav !! (h + 1)
+
+
 stripSub3 :: TpConfmat -> Int -> [Bool] -> Int -> TpEdgeno -> Int -> TpEdgeno
-stripSub3 gConf ring done term1 edgeno j
+stripSub3 gConf ring done term edgeno j
   | j > ring  = edgeno
-  | otherwise = stripSub3 gConf ring done term1 edgeno (j + 1) where
+  | done !! u = stripSub3 gConf ring done2 term2 edgeno2 (j + 1)
+  | otherwise = stripSub3 gConf ring done term edgeno (j + 1) where
       best = stripSub3Sub1 gConf ring done 0 0 1
+      grav = gConf !! (best + 2)
+      u    = if best > 1 then best - 1 else ring
+      (done2, term2, edgeno2) = stripSub3Sub2 grav done term edgeno best (grav !! (0 + 1) - 1)
 {-
       ring.times do
         maxint = 0
