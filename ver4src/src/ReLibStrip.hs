@@ -123,6 +123,18 @@ inIntervalSub2 grav done d worried length j
   | otherwise                                  = inIntervalSub2 grav done d worried length       (j + 1)
 
 
+stripSub3 :: TpConfmat -> Int -> [Bool] -> Int -> TpEdgeno -> Int -> TpEdgeno
+stripSub3 gConf ring done term edgeno j
+  | j > ring  = edgeno
+  | done !! u = stripSub3 gConf ring done2 term2 edgeno2 (j + 1)
+  | otherwise = stripSub3 gConf ring done3 term3 edgeno3 (j + 1) where
+      best = stripSub3Sub1 gConf ring done 0 0 1
+      grav = gConf !! (best + 2)
+      u    = if best > 1 then best - 1 else ring
+      (done2, term2, edgeno2) = stripSub3Sub2 grav done term edgeno best (grav !! (0 + 1) - 1) True
+      (done3, term3, edgeno3) = stripSub3Sub2 grav done term edgeno best 2                     False
+
+
 stripSub3Sub1 :: TpConfmat -> Int -> [Bool] -> Int -> Int -> Int -> Int
 stripSub3Sub1 gConf ring done maxint best v
   | v > ring                                        = best
@@ -135,64 +147,16 @@ stripSub3Sub1 gConf ring done maxint best v
       inter    = 3 * (gConf !! (v + 2)) !! (0 + 1) + 4 * (doneIntU + doneIntW)
 
 
-
-stripSub3Sub2 :: [Int] -> [Bool] -> Int -> TpEdgeno -> Int -> Int -> ([Bool], Int, TpEdgeno)
-stripSub3Sub2 grav done term edgeno best h
-  | h <= 2 = (done, term, edgeno)
-  | otherwise = stripSub3Sub2 grav done2 (term - 1) edgeno3 best (h - 1) where
+stripSub3Sub2 :: [Int] -> [Bool] -> Int -> TpEdgeno -> Int -> Int -> Bool -> ([Bool], Int, TpEdgeno)
+stripSub3Sub2 grav done term edgeno best h flg
+  | flg     && h <= 2                    = (done, term, edgeno)
+  | flg     && h >  2                    = stripSub3Sub2 grav done2 (term - 1) edgeno3 best (h - 1) True
+  | not flg && h > (grav !! (0 + 1) - 1) = (done, term, edgeno)
+  | otherwise = stripSub3Sub2 grav done2 (term + 1) edgeno3 best (h - 1) False where
       edgeno2 = edgeno  & (ix best <<< ix gravH1) .~ term
       edgeno3 = edgeno2 & (ix gravH1 <<< ix best) .~ term
       done2   = done & ix best .~ True
       gravH1  = grav !! (h + 1)
-
-
-stripSub3 :: TpConfmat -> Int -> [Bool] -> Int -> TpEdgeno -> Int -> TpEdgeno
-stripSub3 gConf ring done term edgeno j
-  | j > ring  = edgeno
-  | done !! u = stripSub3 gConf ring done2 term2 edgeno2 (j + 1)
-  | otherwise = stripSub3 gConf ring done term edgeno (j + 1) where
-      best = stripSub3Sub1 gConf ring done 0 0 1
-      grav = gConf !! (best + 2)
-      u    = if best > 1 then best - 1 else ring
-      (done2, term2, edgeno2) = stripSub3Sub2 grav done term edgeno best (grav !! (0 + 1) - 1)
-{-
-      ring.times do
-        maxint = 0
-        best   = 0
-        v      = 1
-        while v <= ring
-          unless done[v]
-            u          = v > 1 ? v - 1 : ring
-            w          = v < ring ? v + 1 : 1
-            done_int_u = done[u] ? 1 : 0
-            done_int_w = done[w] ? 1 : 0
-            inter      = 3 * g_conf[v + 2][0 + 1] + 4 * (done_int_u + done_int_w)
-            if inter > maxint
-              maxint = inter
-              best = v
-            end
-          end
-          v += 1
-        end
-
-        grav = g_conf[best + 2]
-        u = best > 1 ? best - 1 : ring
-        if done[u]
-          (2..(grav[0 + 1] - 1)).reverse_each do |h|
-            @edgeno[best][grav[h + 1]] = term
-            @edgeno[grav[h + 1]][best] = term
-            term -= 1
-          end
-        else
-          (2..(grav[0 + 1] - 1)).each do |h|
-            @edgeno[best][grav[h + 1]] = term
-            @edgeno[grav[h + 1]][best] = term
-            term -= 1
-          end
-        end
-        done[best] = true
-      end
--}
 
 
 
