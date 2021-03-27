@@ -10,6 +10,7 @@ module Main where
 
 import CoLibCConst ( readFileGoodConfsR, TpConfmat ) 
 import ReLibStrip  ( strip )
+import ReLibAngles ( findangles )
 
 
 main :: IO ()
@@ -38,7 +39,7 @@ mainLoop gConfs
         others will not be used unless a contract is specified, and if so
         they will be used in "checkcontract" below to verify that the
         contract is correct. -}
-    --(angle, diffangle, sameangle, contract) <- findangles graph edgeno
+    let (angle, diffangle, sameangle, contract) = findangles gConf edgeno
 
     -- 3. findlive()
     {-let ring   = (graph ^?! ix 0) ^?! ix 1   -- ring-size
