@@ -47,8 +47,16 @@ findanglesSub2 gConf edgeno v (angle, diffangle, sameangle, contract)
 
 findanglesSub2Sub :: TpConfmat -> TpEdgeno -> Int -> Int -> (TpAngle, TpAngle, TpAngle, [Int]) -> (TpAngle, TpAngle, TpAngle, [Int])
 findanglesSub2Sub gConf edgeno v h (angle, diffangle, sameangle, contract)
-  | h > (gConf !! (v + 2)) !! 1 = (angle, diffangle, sameangle, contract)
-  | otherwise                   = findanglesSub2Sub gConf edgeno v (h + 1) (angle, diffangle, sameangle, contract)
+  | h > (gConf !! (v + 2)) !! 1                                  = (angle, diffangle, sameangle, contract)
+  | v <= (gConf !! (0 + 1)) !! 1 && h == (gConf !! (v + 2)) !! 1 = findanglesSub2Sub gConf edgeno v (h + 1) (angle, diffangle, sameangle, contract)
+  | h >= length (gConf !! (v + 2))                               = (angle, diffangle, sameangle, contract)
+  | otherwise                                                    = findanglesSub2Sub gConf edgeno v (h + 1) (angle, diffangle, sameangle, contract) where
+      _i = if h < (gConf !! (v + 2)) !! 1 then h + 1 else 1
+      _u = (gConf !! (v + 2)) !! (h + 1)
+      _w = (gConf !! (v + 2)) !! (_i + 1)
+      _a = (edgeno !! v) !! _w
+      _b = (edgeno !! _u) !! _w
+      _c = (edgeno !! _u) !! v
 {-
       g_conf[0 + 1][0].times do |vv|
         v = vv + 1
