@@ -50,34 +50,33 @@ findanglesSub2Sub gConf edgeno v h (angle, diffangle, sameangle, contract)
   | h > (gConf !! (v + 2)) !! 1                                  = (angle, diffangle, sameangle, contract)
   | v <= (gConf !! (0 + 1)) !! 1 && h == (gConf !! (v + 2)) !! 1 = findanglesSub2Sub gConf edgeno v (h + 1) (angle, diffangle, sameangle, contract)
   | h >= length (gConf !! (v + 2))                               = (angle, diffangle, sameangle, contract)
-  | otherwise                                                    = findanglesSub2Sub gConf edgeno v (h + 1) (angle, diffangle, sameangle, contract) where
-      _i = if h < (gConf !! (v + 2)) !! 1 then h + 1 else 1
-      _u = (gConf !! (v + 2)) !! (h + 1)
-      _w = (gConf !! (v + 2)) !! (_i + 1)
-      _a = (edgeno !! v) !! _w
-      _b = (edgeno !! _u) !! _w
-      _c = (edgeno !! _u) !! v
+  | contract !! a /= 0 && contract !! b /= 0                     = error "***  ERROR: CONTRACT IS NOT SPARSE  ***"
+  | otherwise                                                    = findanglesSub2Sub gConf edgeno v (h + 1) (angle3, diffangle3, sameangle3, contract3) where
+      i = if h < (gConf !! (v + 2)) !! 1 then h + 1 else 1
+      u = (gConf !! (v + 2)) !! (h + 1)
+      w = (gConf !! (v + 2)) !! (i + 1)
+      a = (edgeno !! v) !! w
+      b = (edgeno !! u) !! w
+      c = (edgeno !! u) !! v
+      (angle2, diffangle2, sameangle2, contract2) = findanglesSub2SubSub a b c (angle, diffangle, sameangle, contract)
+      (angle3, diffangle3, sameangle3, contract3) = findanglesSub2SubSub b a c (angle2, diffangle2, sameangle2, contract2)
+
+
+findanglesSub2SubSub :: Int -> Int -> Int -> (TpAngle, TpAngle, TpAngle, [Int]) -> (TpAngle, TpAngle, TpAngle, [Int])
+findanglesSub2SubSub x y c (angle, diffangle, sameangle, contract) = (angle, diffangle, sameangle, contract)
 {-
-      g_conf[0 + 1][0].times do |vv|
-        v = vv + 1
-        g_conf[v + 2][0 + 1].times do |hh|
-          h = hh + 1
-          next if v <= g_conf[0 + 1][1] && h == g_conf[v + 2][0 + 1]
-          break 0 if h >= g_conf[v + 2].length
-          i = h < g_conf[v + 2][1] ? h + 1 : 1
-          u = g_conf[v + 2][h + 1]
-          w = g_conf[v + 2][i + 1]
-          a = edgeno[v][w]
-          b = edgeno[u][w]
-          c = edgeno[u][v]
-          # どっちかが0なら通過
-          str = '***  ERROR: CONTRACT IS NOT SPARSE  ***'
-          Assert.assert_equal (@contract[a].zero? || @contract[b].zero?), true, str
-          angles_sub2_sub a, b, c
-          angles_sub2_sub b, a, c
-        end
+      return unless x > c
+      d = @angle[c][0] >= 4 ? 4 : @angle[c][0] += 1
+      @angle[c][d] = x
+      if @contract[x].zero? && @contract[y].zero? && @contract[c].zero?
+        e = @diffangle[c][0] >= 4 ? 4 : @diffangle[c][0] += 1
+        @diffangle[c][e] = x
       end
+      return if @contract[y].zero?
+      e = @sameangle[c][0] >= 4 ? 4 : @sameangle[c][0] += 1
+      @sameangle[c][e] = x
 -}
+
 
 -- check assert
 findanglesSub3 :: TpConfmat -> [Int] -> [Int]
