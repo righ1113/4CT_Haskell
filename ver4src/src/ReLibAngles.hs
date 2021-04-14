@@ -63,7 +63,12 @@ findanglesSub2Sub gConf edgeno v h (angle, diffangle, sameangle, contract)
 
 
 findanglesSub2SubSub :: Int -> Int -> Int -> (TpAngle, TpAngle, TpAngle, [Int]) -> (TpAngle, TpAngle, TpAngle, [Int])
-findanglesSub2SubSub x y c (angle, diffangle, sameangle, contract) = (angle, diffangle, sameangle, contract)
+findanglesSub2SubSub x y c (angle, diffangle, sameangle, contract)
+  | x <= c    = (angle, diffangle, sameangle, contract)
+  | otherwise = (angle3, diffangle, sameangle, contract) where
+      angle2 = if head (angle !! c) >= 4 then angle else angle & (ix c <<< ix 0) .~ head (angle !! c) + 1
+      d      = if head (angle !! c) >= 4 then 4     else                            head (angle !! c) + 1
+      angle3 = angle2 & (ix c <<< ix d) .~ x
 {-
       return unless x > c
       d = @angle[c][0] >= 4 ? 4 : @angle[c][0] += 1
