@@ -58,14 +58,15 @@ findanglesSub2Sub gConf edgeno v h (angle, diffangle, sameangle, contract)
       a = (edgeno !! v) !! w
       b = (edgeno !! u) !! w
       c = (edgeno !! u) !! v
-      (angle2, diffangle2, sameangle2, contract2) = findanglesSub2SubSub a b c (angle, diffangle, sameangle, contract)
+      (angle2, diffangle2, sameangle2, contract2) = findanglesSub2SubSub a b c (angle,  diffangle,  sameangle,  contract)
       (angle3, diffangle3, sameangle3, contract3) = findanglesSub2SubSub b a c (angle2, diffangle2, sameangle2, contract2)
 
 
 findanglesSub2SubSub :: Int -> Int -> Int -> (TpAngle, TpAngle, TpAngle, [Int]) -> (TpAngle, TpAngle, TpAngle, [Int])
 findanglesSub2SubSub x y c (angle, diffangle, sameangle, contract)
-  | x <= c    = (angle, diffangle, sameangle, contract)
-  | otherwise = (angle3, diffangle3, sameangle, contract) where
+  | x <= c             = (angle,  diffangle,  sameangle,  contract)
+  | contract !! y == 0 = (angle3, diffangle3, sameangle,  contract)
+  | otherwise          = (angle3, diffangle3, sameangle3, contract) where
       angle2 = if head (angle !! c) >= 4 then angle else angle & (ix c <<< ix 0) .~ head (angle !! c) + 1
       d      = if head (angle !! c) >= 4 then 4     else                            head (angle !! c) + 1
       angle3 = angle2 & (ix c <<< ix d) .~ x
@@ -79,18 +80,9 @@ findanglesSub2SubSub x y c (angle, diffangle, sameangle, contract)
         | otherwise = 0
       diffangle3
         = if contract !! x == 0 && contract !! y == 0 && contract !! c == 0 then diffangle2 & (ix c <<< ix e) .~ x else diffangle
-{-
-      return unless x > c
-      d = @angle[c][0] >= 4 ? 4 : @angle[c][0] += 1
-      @angle[c][d] = x
-      if @contract[x].zero? && @contract[y].zero? && @contract[c].zero?
-        e = @diffangle[c][0] >= 4 ? 4 : @diffangle[c][0] += 1
-        @diffangle[c][e] = x
-      end
-      return if @contract[y].zero?
-      e = @sameangle[c][0] >= 4 ? 4 : @sameangle[c][0] += 1
-      @sameangle[c][e] = x
--}
+      sameangle2 = if head (sameangle !! c) >= 4 then sameangle else sameangle & (ix c <<< ix 0) .~ head (sameangle !! c) + 1
+      f          = if head (sameangle !! c) >= 4 then 4         else                                head (sameangle !! c) + 1
+      sameangle3 = sameangle2 & (ix c <<< ix f) .~ x
 
 
 -- check assert
