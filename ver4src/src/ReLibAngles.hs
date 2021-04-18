@@ -1,6 +1,6 @@
 module ReLibAngles where
 
-import CoLibCConst   ( edges, TpAngle, TpConfmat, TpEdgeno )
+import CoLibCConst   ( edges, mverts, TpAngle, TpConfmat, TpEdgeno )
 import Control.Arrow ( (<<<) )
 import Control.Lens  ( (&), (.~), Ixed(ix) )
 
@@ -87,7 +87,55 @@ findanglesSub2SubSub x y c (angle, diffangle, sameangle, contract)
 
 -- check assert
 findanglesSub3 :: TpConfmat -> [Int] -> [Int]
-findanglesSub3 gConf contract = contract
+findanglesSub3 gConf contract
+  | head contract < 4 = contract -- checking that there is a triad
+  | findanglesSub3Sub gConf neighbour (((gConf !! (0 + 1)) !! 1) + 1) = contract
+  | otherwise = error "***  ERROR: CONTRACT HAS NO TRIAD  ***" where
+      neighbour = replicate mverts False
+
+
+findanglesSub3Sub :: TpConfmat -> [Bool] -> Int -> Bool
+findanglesSub3Sub gConf neighbour v
+  | v > head (gConf !! (0 + 1)) = False
+  | otherwise = True --findanglesSub3Sub gConf neighbour (v + 1)
+{-
+      neighbour = Array.new(Const::MVERTS, false)
+      # checking that there is a triad
+      return if @contract[0] < 4
+      v = g_conf[0 + 1][1] + 1
+      while v <= g_conf[0 + 1][0]
+        # v is a candidate triad
+        a, i = 0, 1
+        while i <= g_conf[v + 2][0 + 1]
+          u = g_conf[v + 2][i + 1]
+          8.times do |jj|
+            j = jj + 1
+            if u == g_conf[2][j]
+              a += 1
+              next
+            end
+          end
+          i += 1
+        end
+
+        next if a < 3
+        return if g_conf[v + 2][0] >= 6
+        g_conf[0 + 1][0].times do |uu|
+          u = uu + 1
+          neighbour[u] = false
+        end
+        g_conf[v + 2][0 + 1].times do |ii|
+          i = ii + 1
+          neighbour[g_conf[v + 2][i]] = true
+        end
+        8.times do |jj|
+          j = jj + 1
+          return unless neighbour[g_conf[2][j]]
+        end
+        v += 1
+      end
+      Assert.assert_equal (1 == 2), true, '***  ERROR: CONTRACT HAS NO TRIAD  ***'
+-}
 
 
 
