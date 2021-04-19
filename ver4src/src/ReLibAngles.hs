@@ -97,7 +97,23 @@ findanglesSub3 gConf contract
 findanglesSub3Sub :: TpConfmat -> [Bool] -> Int -> Bool
 findanglesSub3Sub gConf neighbour v
   | v > head (gConf !! (0 + 1)) = False
-  | otherwise = True --findanglesSub3Sub gConf neighbour (v + 1)
+  | otherwise = True where --findanglesSub3Sub gConf neighbour (v + 1)
+      a = findanglesSub3SubSub gConf v 0 1
+
+
+findanglesSub3SubSub :: TpConfmat -> Int -> Int -> Int -> Int
+findanglesSub3SubSub gConf v a i
+  | i > (gConf !! (v + 2)) !! (0 + 1) = a
+  | otherwise = findanglesSub3SubSub gConf v a1 (i + 1) where
+      u  = (gConf !! (v + 2)) !! (i + 1)
+      a1 = findanglesSub3SubSubSub gConf u a 0
+
+
+findanglesSub3SubSubSub :: TpConfmat -> Int -> Int -> Int -> Int
+findanglesSub3SubSubSub gConf u a j
+  | j > 8 = a
+  | otherwise = findanglesSub3SubSubSub gConf u a1 (j + 1) where
+      a1 = if u == (gConf !! 2) !! j then a + 1 else a
 {-
       neighbour = Array.new(Const::MVERTS, false)
       # checking that there is a triad
