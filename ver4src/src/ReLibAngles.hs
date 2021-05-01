@@ -98,24 +98,32 @@ findanglesSub3Sub :: TpConfmat -> [Bool] -> Int -> Bool
 findanglesSub3Sub gConf neighbour v
   | v > head (gConf !! (0 + 1)) = False
   | otherwise = True where --findanglesSub3Sub gConf neighbour (v + 1)
-      a = findanglesSub3SubSub gConf v 0 1
+      a = findanglesSub3SubSub gConf neighbour v 0 1
 
 
-findanglesSub3SubSub :: TpConfmat -> Int -> Int -> Int -> Int
-findanglesSub3SubSub gConf v a i
+findanglesSub3SubSub :: TpConfmat -> [Bool] -> Int -> Int -> Int -> Int
+findanglesSub3SubSub gConf neighbour v a i
   | i > (gConf !! (v + 2)) !! (0 + 1) = a
-  | a1 < 3                            = findanglesSub3SubSub gConf v a1 (i + 1)
+  | a1 < 3                            = findanglesSub3SubSub gConf neighbour v a1 (i + 1)
   | head (gConf !! (v + 2)) >= 6      = a1 -- ???
-  | otherwise                         = findanglesSub3SubSub gConf v a1 (i + 1) where
-      u  = (gConf !! (v + 2)) !! (i + 1)
-      a1 = findanglesSub3SubSubSub gConf u a 0
+  | otherwise                         = findanglesSub3SubSub gConf neighbour v a1 (i + 1) where
+      u          = (gConf !! (v + 2)) !! (i + 1)
+      a1         = findanglesSub3SubSubSub1 gConf u a 0
+      neighbour2 = findanglesSub3SubSubSub2 gConf neighbour 1
 
 
-findanglesSub3SubSubSub :: TpConfmat -> Int -> Int -> Int -> Int
-findanglesSub3SubSubSub gConf u a j
+findanglesSub3SubSubSub1 :: TpConfmat -> Int -> Int -> Int -> Int
+findanglesSub3SubSubSub1 gConf u a j
   | j > 8     = a
-  | otherwise = findanglesSub3SubSubSub gConf u a1 (j + 1) where
+  | otherwise = findanglesSub3SubSubSub1 gConf u a1 (j + 1) where
       a1 = if u == (gConf !! 2) !! j then a + 1 else a
+
+
+findanglesSub3SubSubSub2 :: TpConfmat -> [Bool] -> Int -> [Bool]
+findanglesSub3SubSubSub2 gConf neighbour u
+  | u > head (gConf !! (0 + 1)) = neighbour
+  | otherwise                   = findanglesSub3SubSubSub2 gConf neighbour2 (u + 1) where
+      neighbour2 = neighbour & ix u .~ False
 {-
       neighbour = Array.new(Const::MVERTS, false)
       # checking that there is a triad
