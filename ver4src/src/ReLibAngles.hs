@@ -109,7 +109,8 @@ findanglesSub3SubSub gConf neighbour v a i
   | otherwise                         = findanglesSub3SubSub gConf neighbour v a1 (i + 1) where
       u          = (gConf !! (v + 2)) !! (i + 1)
       a1         = findanglesSub3SubSubSub1 gConf u a 0
-      neighbour2 = findanglesSub3SubSubSub2 gConf neighbour 1
+      neighbour2 = findanglesSub3SubSubSub2 gConf neighbour  1
+      neighbour3 = findanglesSub3SubSubSub3 gConf neighbour2 1 v
 
 
 findanglesSub3SubSubSub1 :: TpConfmat -> Int -> Int -> Int -> Int
@@ -124,6 +125,13 @@ findanglesSub3SubSubSub2 gConf neighbour u
   | u > head (gConf !! (0 + 1)) = neighbour
   | otherwise                   = findanglesSub3SubSubSub2 gConf neighbour2 (u + 1) where
       neighbour2 = neighbour & ix u .~ False
+
+
+findanglesSub3SubSubSub3 :: TpConfmat -> [Bool] -> Int -> Int -> [Bool]
+findanglesSub3SubSubSub3 gConf neighbour u v
+  | u > (gConf !! (v + 2)) !! (0 + 1) = neighbour
+  | otherwise                         = findanglesSub3SubSubSub3 gConf neighbour2 (u + 1) v where
+      neighbour2 = neighbour & ix ((gConf !! (v + 2)) !! u) .~ True
 {-
       neighbour = Array.new(Const::MVERTS, false)
       # checking that there is a triad
