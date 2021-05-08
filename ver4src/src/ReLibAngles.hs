@@ -106,11 +106,13 @@ findanglesSub3SubSub gConf neighbour v a i
   | i > (gConf !! (v + 2)) !! (0 + 1) = a
   | a1 < 3                            = findanglesSub3SubSub gConf neighbour v a1 (i + 1)
   | head (gConf !! (v + 2)) >= 6      = a1 -- ???
+  | retFlg                            = a1
   | otherwise                         = findanglesSub3SubSub gConf neighbour v a1 (i + 1) where
       u          = (gConf !! (v + 2)) !! (i + 1)
       a1         = findanglesSub3SubSubSub1 gConf u a 0
       neighbour2 = findanglesSub3SubSubSub2 gConf neighbour  1
       neighbour3 = findanglesSub3SubSubSub3 gConf neighbour2 1 v
+      retFlg     = findanglesSub3SubSubSub4 gConf neighbour3 1
 
 
 findanglesSub3SubSubSub1 :: TpConfmat -> Int -> Int -> Int -> Int
@@ -132,45 +134,13 @@ findanglesSub3SubSubSub3 gConf neighbour u v
   | u > (gConf !! (v + 2)) !! (0 + 1) = neighbour
   | otherwise                         = findanglesSub3SubSubSub3 gConf neighbour2 (u + 1) v where
       neighbour2 = neighbour & ix ((gConf !! (v + 2)) !! u) .~ True
-{-
-      neighbour = Array.new(Const::MVERTS, false)
-      # checking that there is a triad
-      return if @contract[0] < 4
-      v = g_conf[0 + 1][1] + 1
-      while v <= g_conf[0 + 1][0]
-        # v is a candidate triad
-        a, i = 0, 1
-        while i <= g_conf[v + 2][0 + 1]
-          u = g_conf[v + 2][i + 1]
-          8.times do |jj|
-            j = jj + 1
-            if u == g_conf[2][j]
-              a += 1
-              next
-            end
-          end
-          i += 1
-        end
 
-        next if a < 3
-        return if g_conf[v + 2][0] >= 6
 
-        g_conf[0 + 1][0].times do |uu|
-          u = uu + 1
-          neighbour[u] = false
-        end
-        g_conf[v + 2][0 + 1].times do |ii|
-          i = ii + 1
-          neighbour[g_conf[v + 2][i]] = true
-        end
-        8.times do |jj|
-          j = jj + 1
-          return unless neighbour[g_conf[2][j]]
-        end
-        v += 1
-      end
-      Assert.assert_equal (1 == 2), true, '***  ERROR: CONTRACT HAS NO TRIAD  ***'
--}
+findanglesSub3SubSubSub4 :: TpConfmat -> [Bool] -> Int -> Bool
+findanglesSub3SubSubSub4 gConf neighbour j
+  | j > 8                                  = False
+  | neighbour !! ((gConf !! (0 + 2)) !! j) = True -- return
+  | otherwise                              = findanglesSub3SubSubSub4 gConf neighbour (j + 1)
 
 
 
