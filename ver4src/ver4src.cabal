@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: adcedd1af96fa25ea562ab745afec6ce424f889ebf3f1587105d0016a8b12755
+-- hash: 0bcd8a8d68392edf09f9d58256095e401e7d2da9c72b30bb442bebe0ca5da75c
 
 name:           ver4src
 version:        0.1.0.0
@@ -33,6 +33,7 @@ library
       DiLibSymmetry
       Lib
       ReLibAngles
+      ReLibFindlive
       ReLibStrip
   other-modules:
       Paths_ver4src
