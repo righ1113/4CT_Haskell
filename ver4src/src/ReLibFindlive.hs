@@ -47,4 +47,13 @@ findliveSubSub1Sub forbidden j c ed ring ncodes extent extentclaim
       c2 = c & ix j .~ shift (c !! j) 1
 
 
+findliveSubSub2 :: [Int] -> Int -> [Int] -> Int -> Int -> Int -> Int -> Int -> (Bool, [Int])
+findliveSubSub2 forbidden j c ed ring ncodes extent extentclaim
+  | 8 .&. (c !! j) == 0 = (False, c)
+  | j > ed -1           = (True, c) -- print_status ring, ncodes, extent, extentclaim
+  | otherwise           = findliveSubSub2 forbidden j2 c2 ed ring ncodes extent extentclaim where
+      j2 = j + 1
+      c2 = c & ix j2 .~ shift (c !! j2) 1
+
+
 
