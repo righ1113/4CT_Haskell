@@ -98,7 +98,7 @@ findanglesSub3Sub :: TpConfmat -> [Bool] -> Int -> Bool
 findanglesSub3Sub gConf neighbour v
   | v > head (gConf !! (0 + 1)) = False
   | otherwise = True where --findanglesSub3Sub gConf neighbour (v + 1)
-      a = findanglesSub3SubSub gConf neighbour v 0 1
+      _a = findanglesSub3SubSub gConf neighbour v 0 1
 
 
 findanglesSub3SubSub :: TpConfmat -> [Bool] -> Int -> Int -> Int -> Int
