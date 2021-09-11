@@ -58,4 +58,36 @@ findliveSub bigno live angle ring ed extentclaim ncodes j c forbidden extent cnt
                           u2 = u .|. c !! ((angle !! j) !! i)
 
 
+record :: [Int] -> Int -> TpAngle -> Int -> Int -> Int
+record _col _ring _angle extent _bigno =
+  -- Given a colouring specified by a 1,2,4-valued function "col", it computes
+  -- the corresponding number, checks if it is in live, and if so removes it.
+  {-
+  weight = [0, 0, 0, 0, 0]
+  ring.times do |ii|
+    i = ii + 1
+    sum = 7 - col[angle[i][1]] - col[angle[i][2]]
+    sum = sum >= 5 ? 4 : sum
+    sum = sum <= -1 ? 0 : sum
+    weight[sum] += Const::POWER[i]
+  end
+  min = max = weight[4]
+  2.times do |ii|
+    i = ii + 1
+    w = weight[i]
+    if w < min
+      min = w
+    elsif w > max
+      max = w
+    end
+  end
+  colno = bigno - 2 * min - max
+  if live[colno] != 0
+    extent += 1
+    live[colno] = 0
+  end
+  -}
+  extent
+
+
 
