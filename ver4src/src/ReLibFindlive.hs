@@ -50,7 +50,7 @@ findliveSub bigno live angle ring ed extentclaim ncodes j c forbidden extent cnt
                             | otherwise           -> loop (c2, j2) where
                                 j2 = j + 1
                                 c2 = c & ix j2 .~ shift (c !! j2) 1
-      (exit3, u, j4) = flip fix (0, j, head (angle !! j)) $ \loop (u, j, i) -> case () of
+      (exit3, _u, j4) = flip fix (0, j, head (angle !! j)) $ \loop (u, j, i) -> case () of
                     _ | i > 4                 -> (True, c, u)
                       | i > head (angle !! j) -> (True, c, u)
                       | j < 0                 -> (False, c, u)
@@ -58,10 +58,15 @@ findliveSub bigno live angle ring ed extentclaim ncodes j c forbidden extent cnt
                           u2 = u .|. c !! ((angle !! j) !! i)
 
 
-record :: [Int] -> Int -> TpAngle -> Int -> Int -> Int
-record _col _ring _angle extent _bigno =
-  -- Given a colouring specified by a 1,2,4-valued function "col", it computes
-  -- the corresponding number, checks if it is in live, and if so removes it.
+-- Given a colouring specified by a 1,2,4-valued function "col", it computes
+-- the corresponding number, checks if it is in live, and if so removes it.
+record :: [Int] -> Int -> TpAngle -> Int -> Int -> [Int] -> (Int, [Int])
+record _col _ring _angle bigno extent live
+  | live !! colno /= 0 = (extent + 1, live & ix colno .~ 0)
+  | otherwise          = (extent    , live) where
+      colno = bigno - 2 * min - max
+      min = 1
+      max = 1
   {-
   weight = [0, 0, 0, 0, 0]
   ring.times do |ii|
@@ -81,13 +86,13 @@ record _col _ring _angle extent _bigno =
       max = w
     end
   end
+
   colno = bigno - 2 * min - max
   if live[colno] != 0
     extent += 1
     live[colno] = 0
   end
   -}
-  extent
 
 
 
