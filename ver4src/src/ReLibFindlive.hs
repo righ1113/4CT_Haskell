@@ -65,8 +65,12 @@ record _col _ring _angle bigno extent live
   | live !! colno /= 0 = (extent + 1, live & ix colno .~ 0)
   | otherwise          = (extent    , live) where
       colno = bigno - 2 * min - max
-      min = 1
-      max = 1
+      weight = [0, 0, 0, 0, 0]
+      (min, max) = flip fix (weight !! 4, weight !! 4, 0) $ \loop (i, j, t) -> case () of
+                    _ | t >= 2    -> (i, j)
+                      | w < i     -> loop (w, j, t + 1)
+                      | otherwise -> loop (i, w, t + 1) where
+                          w = weight !! (t + 1)
   {-
   weight = [0, 0, 0, 0, 0]
   ring.times do |ii|
@@ -76,6 +80,7 @@ record _col _ring _angle bigno extent live
     sum = sum <= -1 ? 0 : sum
     weight[sum] += Const::POWER[i]
   end
+
   min = max = weight[4]
   2.times do |ii|
     i = ii + 1
