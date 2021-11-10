@@ -1,6 +1,6 @@
 module ReLibFindlive where
 
-import CoLibCConst   ( edges, TpAngle )
+import CoLibCConst   ( edges, TpAngle, power )
 import Control.Lens  ( (&), (.~), Ixed(ix) )
 import Data.Bits     ( Bits(shift, (.&.), (.|.)) )    
 import Data.Function ( fix )
@@ -61,26 +61,24 @@ findliveSub bigno live angle ring ed extentclaim ncodes j c forbidden extent cnt
 -- Given a colouring specified by a 1,2,4-valued function "col", it computes
 -- the corresponding number, checks if it is in live, and if so removes it.
 record :: [Int] -> Int -> TpAngle -> Int -> Int -> [Int] -> (Int, [Int])
-record _col _ring _angle bigno extent live
+record col ring angle bigno extent live
   | live !! colno /= 0 = (extent + 1, live & ix colno .~ 0)
   | otherwise          = (extent    , live) where
-      colno = bigno - 2 * min - max
-      weight = [0, 0, 0, 0, 0]
+      colno      = bigno - 2 * min - max
+      weight0    = [0, 0, 0, 0, 0]
+      weight     = flip fix (weight0, 1) $ \loop (weight, i) -> case () of
+                    _ | i > ring  -> weight
+                      | otherwise -> loop (weight1, i + 1) where
+                          sum     = 7 - col !! ((angle !! i) !! 1) - col !! ((angle !! i) !! 2)
+                          sum2    = if sum >= 5 then 4 else sum
+                          sum3    = if sum2 <= -1 then 0 else sum
+                          weight1 = weight & ix sum .~ (weight !! sum + power !! i)
       (min, max) = flip fix (weight !! 4, weight !! 4, 0) $ \loop (i, j, t) -> case () of
                     _ | t >= 2    -> (i, j)
                       | w < i     -> loop (w, j, t + 1)
                       | otherwise -> loop (i, w, t + 1) where
                           w = weight !! (t + 1)
   {-
-  weight = [0, 0, 0, 0, 0]
-  ring.times do |ii|
-    i = ii + 1
-    sum = 7 - col[angle[i][1]] - col[angle[i][2]]
-    sum = sum >= 5 ? 4 : sum
-    sum = sum <= -1 ? 0 : sum
-    weight[sum] += Const::POWER[i]
-  end
-
   min = max = weight[4]
   2.times do |ii|
     i = ii + 1
