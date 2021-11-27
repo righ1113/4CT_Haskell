@@ -71,31 +71,13 @@ record col ring angle bigno extent live
                       | otherwise -> loop (weight1, i + 1) where
                           sum     = 7 - col !! ((angle !! i) !! 1) - col !! ((angle !! i) !! 2)
                           sum2    = if sum >= 5 then 4 else sum
-                          sum3    = if sum2 <= -1 then 0 else sum
-                          weight1 = weight & ix sum .~ (weight !! sum + power !! i)
+                          sum3    = if sum2 <= -1 then 0 else sum2
+                          weight1 = weight & ix sum3 .~ (weight !! sum3 + power !! i)
       (min, max) = flip fix (weight !! 4, weight !! 4, 0) $ \loop (i, j, t) -> case () of
                     _ | t >= 2    -> (i, j)
                       | w < i     -> loop (w, j, t + 1)
                       | otherwise -> loop (i, w, t + 1) where
                           w = weight !! (t + 1)
-  {-
-  min = max = weight[4]
-  2.times do |ii|
-    i = ii + 1
-    w = weight[i]
-    if w < min
-      min = w
-    elsif w > max
-      max = w
-    end
-  end
-
-  colno = bigno - 2 * min - max
-  if live[colno] != 0
-    extent += 1
-    live[colno] = 0
-  end
-  -}
 
 
 
