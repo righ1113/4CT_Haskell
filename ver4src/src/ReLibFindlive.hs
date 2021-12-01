@@ -1,6 +1,6 @@
 module ReLibFindlive where
 
-import CoLibCConst   ( edges, TpAngle, power )
+import CoLibCConst   ( edges, TpAngle, power, simatchnumber )
 import Control.Lens  ( (&), (.~), Ixed(ix) )
 import Data.Bits     ( Bits(shift, (.&.), (.|.)) )    
 import Data.Function ( fix )
@@ -46,7 +46,7 @@ findliveSub bigno live angle ring ed extentclaim ncodes j c forbidden extent cnt
 -}
       (exit2, c3, j3) = flip fix (c2, j) $ \loop (c, j) -> case () of
                           _ | 8 .&. (c !! j) == 0 -> (False, c, j)
-                            | j > ed -1           -> (True, c, j) -- print_status ring, ncodes, extent, extentclaim
+                            | j > ed -1           -> (True, c, j) -- printStatus ring ncodes extent extentclaim
                             | otherwise           -> loop (c2, j2) where
                                 j2 = j + 1
                                 c2 = c & ix j2 .~ shift (c !! j2) 1
@@ -78,6 +78,21 @@ record col ring angle bigno extent live
                       | w < i     -> loop (w, j, t + 1)
                       | otherwise -> loop (i, w, t + 1) where
                           w = weight !! (t + 1)
+
+
+printStatus :: Int -> Int -> Int -> Int -> IO ()
+printStatus ring totalcols extent extentclaim = do
+  putStr
+    $ "\n\n   This has ring-size "
+    ++ show ring
+    ++ ", so there are "
+    ++ show totalcols
+    ++ " colourings total,\n"
+  putStr   $ "   and " ++ show (simatchnumber !! ring) ++ " balanced signed matchings.\n"
+  -- putStr   $ "\n   There are " ++ show extent ++ " colourings that extend to the configuration."   !!!bug3!!!
+  putStr     "\n\n            remaining               remaining balanced\n"
+  putStr     "           colourings               signed matchings\n"
+  -- putStrLn $ "\n              " ++ show (totalcols - extent)
 
 
 
