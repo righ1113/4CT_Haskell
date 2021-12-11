@@ -25,13 +25,8 @@ findliveSub :: Int -> [Int] -> TpAngle -> Int -> Int -> Int -> Int -> Int -> [In
 findliveSub _bigno live _angle _ring _ed _extentclaim _ncodes _j _c _forbidden _extent 262144
   -- = error "findlive_sub : It was not good though it was repeated 262144 times!"
   = return (-1, live)
-findliveSub bigno live angle ring ed extentclaim ncodes j c forbidden extent cnt
-  | exit1                  = return (ncodes - extent, live)
-  | exit2 && j == ring + 1 = return (ncodes - extent, live)
-  | exit3 && j /= ring + 1 = return (ncodes - extent, live)
-  | otherwise = findliveSub bigno live angle ring ed extentclaim ncodes jNext cNext forbidden extent (cnt + 1) where
-      (jNext, cNext) = if j == ring + 1 then (j3, c3) else (j4, c2)
-      (exit1, c2) = (True, c)
+findliveSub bigno live angle ring ed extentclaim ncodes j c forbidden extent cnt = do
+  let (exit1, c2) = (True, c)
 {-
       (exit1, c2) = flip fix c $ \loop c -> case () of
                       _ | (forbidden !! j) .&. (c !! j) == 0 -> (False, c)
@@ -44,18 +39,31 @@ findliveSub bigno live angle ring ed extentclaim ncodes j c forbidden extent cnt
                                                 | otherwise                          -> loop c2 where
                                                     c2 = c & ix j .~ shift (c !! j) 1
 -}
-      (exit2, c3, j3) = flip fix (c2, j) $ \loop (c, j) -> case () of
-                          _ | 8 .&. (c !! j) == 0 -> (False, c, j)
-                            | j > ed -1           -> (True, c, j) -- printStatus ring ncodes extent extentclaim
-                            | otherwise           -> loop (c2, j2) where
-                                j2 = j + 1
-                                c2 = c & ix j2 .~ shift (c !! j2) 1
-      (exit3, _u, j4) = flip fix (0, j, head (angle !! j)) $ \loop (u, j, i) -> case () of
-                    _ | i > 4                 -> (True, c, u)
-                      | i > head (angle !! j) -> (True, c, u)
-                      | j < 0                 -> (False, c, u)
-                      | otherwise             -> loop (u2, j - 1, i + 1) where
-                          u2 = u .|. c !! ((angle !! j) !! i)
+  let (exit2, c3, j3) = (False, c, 0)
+{- このブロックに問題あり
+  (exit2, c3, j3) <- flip fix (c2, j) $ \loop (c, j) -> case () of
+                      _ | 8 .&. (c !! j) == 0 -> return (False, c, j)
+                        | j > ed -1           -> do{ printStatus ring ncodes extent extentclaim; return (True, c, j) }
+                        | otherwise           -> loop (c2, j2) where
+                            j2 = j + 1
+                            c2 = c & ix j2 .~ shift (c !! j2) 1
+-}
+  let (exit3, _u, j4) = (False, 0, j)
+{-
+  let (exit3, _u, j4) = flip fix (0, j, head (angle !! j)) $ \loop (u, j, i) -> case () of
+                _ | i > 4                 -> (True, c, u)
+                  | i > head (angle !! j) -> (True, c, u)
+                  | j < 0                 -> (False, c, u)
+                  | otherwise             -> loop (u2, j - 1, i + 1) where
+                      u2 = u .|. c !! ((angle !! j) !! i)
+-}
+  let (jNext, cNext) = if j == ring + 1 then (j3, c3) else (j4, c2)
+  case () of
+    _ | exit1                  -> return (ncodes - extent, live)
+      | exit2 && j == ring + 1 -> return (ncodes - extent, live)
+      | exit3 && j /= ring + 1 -> return (ncodes - extent, live)
+      | otherwise ->
+          findliveSub bigno live angle ring ed extentclaim ncodes jNext cNext forbidden extent (cnt + 1)
 
 
 -- Given a colouring specified by a 1,2,4-valued function "col", it computes
