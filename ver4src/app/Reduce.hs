@@ -9,7 +9,7 @@
 module Main where
 
 import CoLibCConst   ( readFileGoodConfsR, TpConfmat, power ) 
-import ReLibStrip    ( strip )
+import ReLibStrip    ( strip, strip2 )
 import ReLibAngles   ( findangles )
 import ReLibFindlive ( findlive )
 
@@ -32,7 +32,9 @@ mainLoop gConfs
     -- 1. strip()
     let gConf  = head gConfs
         edgeno = strip gConf
-
+        edgeno2 = strip2 gConf
+    print edgeno2
+    --print (gConf)
     -- 2. findangles()
     {- "findangles" fills in the arrays "angle","diffangle","sameangle" and
         "contract" from the input "graph". "angle" will be used to compute

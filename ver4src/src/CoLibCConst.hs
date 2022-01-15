@@ -35,7 +35,7 @@ simatchnumber = [0, 0, 1, 3, 10, 30, 95, 301, 980, 3228, 10797, 36487, 124542, 4
 readFileGoodConfsR :: IO [TpConfmat]
 readFileGoodConfsR = do
   unaStr <- readFile "4ctdata/ReGoodConfs.txt"
-  return $ map tail (read unaStr :: [TpConfmat])
+  return (read unaStr :: [TpConfmat])
 
 
 

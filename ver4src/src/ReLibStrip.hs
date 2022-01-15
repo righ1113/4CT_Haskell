@@ -165,17 +165,47 @@ strip2 gConf = (getEdgenoSub3 0 . getEdgenoSub2 (ring + 1) 1 (replicate mverts 0
 
 
 getEdgenoSub1 :: TpConfmat -> (TpConfmat, Int, Int, [Bool], Int, TpEdgeno)
-getEdgenoSub1 = undefined
+getEdgenoSub1 gConf = (gConf, verts, ring, done, term, edgeno) where
+  verts  = head gConf !! 1
+  ring   = gConf !! 1 !! 1
+  done   = replicate mverts False
+  term   = 3 * (verts - 1) - ring
+  edgeno = newEdgeno 1 ring (replicate edges $ replicate edges 0)
 
 
 -- This eventually lists all the internal edges of the configuration
 getEdgenoSub2 :: Int -> Int -> [Int] -> (TpConfmat, Int, Int, [Bool], Int, TpEdgeno) -> (TpConfmat, Int, [Bool], Int, TpEdgeno)
-getEdgenoSub2 = undefined
+getEdgenoSub2 i best max (gConf, verts, ring, done, term, edgeno) 
+  | True = (gConf, ring, done, term, edgeno) --i > verts = (gConf, ring, done, term, edgeno) -- This eventually lists all the internal edges of the configuration
+  | otherwise = getEdgenoSub2 (i + 1) best2 max2 (gConf, verts, ring, done2, term, edgeno2) where
+      (maxint2, maxes2, max2) = stripSub2Sub1 gConf verts ring done 0 0 max (ring + 1)
+      best2                   = stripSub2Sub2 gConf maxes2 max2 0 1 0
+      d                       = (gConf !! (best + 2)) !! 1
+      previous                = done !! ((gConf !! (best + 2)) !! (d + 1))
+      first                   = stripSub2Sub3 gConf done best2 previous 1 d
+      (edgeno2, done2)        = stripSub2Sub4 edgeno gConf done term best2 d first first
 
 
 -- Now we must list the edges between the interior and the ring
 getEdgenoSub3 :: Int -> (TpConfmat, Int, [Bool], Int, TpEdgeno) -> TpEdgeno
-getEdgenoSub3 = undefined
+getEdgenoSub3 i (gConf, ring, done, term, edgeno)
+  | True = edgeno --i > ring  = edgeno
+  | done !! u = getEdgenoSub3 (i + 1) (gConf, ring, done2, term2, edgeno2)
+  | otherwise = getEdgenoSub3 (i + 1) (gConf, ring, done3, term3, edgeno3) where
+      best = stripSub3Sub1 gConf ring done 0 0 1
+      grav = gConf !! (best + 2)
+      u    = if best > 1 then best - 1 else ring
+      (done2, term2, edgeno2) = stripSub3Sub2 grav done term edgeno best (grav !! (0 + 1) - 1) True
+      (done3, term3, edgeno3) = stripSub3Sub2 grav done term edgeno best 2                     False
+
+
+newEdgeno :: Int -> Int -> TpEdgeno -> TpEdgeno
+newEdgeno v ring edgeno
+  | v > ring  = edgeno
+  | otherwise = newEdgeno (v + 1) ring edgeno2 where
+      u       = if v > 1 then v - 1 else ring
+      edgeno1 = edgeno  & (ix u <<< ix v) .~ v
+      edgeno2 = edgeno1 & (ix v <<< ix u) .~ v
 
 
 
