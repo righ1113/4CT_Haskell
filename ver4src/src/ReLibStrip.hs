@@ -159,4 +159,23 @@ stripSub3Sub2 grav done term edgeno best h flg
       gravH1  = grav !! (h + 1)
 
 
+strip2 :: TpConfmat -> TpEdgeno
+strip2 gConf = (getEdgenoSub3 0 . getEdgenoSub2 (ring + 1) 1 (replicate mverts 0) . getEdgenoSub1) gConf where
+  ring = gConf !! 1 !! 1
+
+
+getEdgenoSub1 :: TpConfmat -> (TpConfmat, Int, Int, [Bool], Int, TpEdgeno)
+getEdgenoSub1 = undefined
+
+
+-- This eventually lists all the internal edges of the configuration
+getEdgenoSub2 :: Int -> Int -> [Int] -> (TpConfmat, Int, Int, [Bool], Int, TpEdgeno) -> (TpConfmat, Int, [Bool], Int, TpEdgeno)
+getEdgenoSub2 = undefined
+
+
+-- Now we must list the edges between the interior and the ring
+getEdgenoSub3 :: Int -> (TpConfmat, Int, [Bool], Int, TpEdgeno) -> TpEdgeno
+getEdgenoSub3 = undefined
+
+
 
