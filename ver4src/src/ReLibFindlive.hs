@@ -21,6 +21,17 @@ findlive ring bigno live ncodes angle _power extentclaim
       forbidden2     = forbidden & ix j .~ 5
 
 
+beforePrintStatus :: Int -> Int -> Int -> Int -> [Int] -> Int -> Int -> IO (Bool, [Int], Int)
+beforePrintStatus ring ncodes extent extentclaim c j ed = do
+  let c2 = c & ix j .~ shift (c !! j) 1
+  flip fix (c2, j) $ \loop (c, j) -> case () of
+    _ | 8 .&. (c !! j) == 0 -> return (False, c, j)
+      | j > ed -1           -> do{ printStatus ring ncodes extent extentclaim; return (True, c, j) }
+      | otherwise           -> loop (c2, j2) where
+          j2 = j + 1
+          c2 = c & ix j2 .~ shift (c !! j2) 1
+
+
 findliveSub :: Int -> [Int] -> TpAngle -> Int -> Int -> Int -> Int -> Int -> [Int] -> [Int] -> Int -> Int -> IO (Int, [Int])
 findliveSub _bigno live _angle _ring _ed _extentclaim _ncodes _j _c _forbidden _extent 262144
   -- = error "findlive_sub : It was not good though it was repeated 262144 times!"
@@ -48,15 +59,13 @@ findliveSub bigno live angle ring ed extentclaim ncodes j c forbidden extent cnt
                             j2 = j + 1
                             c2 = c & ix j2 .~ shift (c !! j2) 1
 -}
-  let (exit3, _u, j4) = (False, 0, j)
-{-
-  let (exit3, _u, j4) = flip fix (0, j, head (angle !! j)) $ \loop (u, j, i) -> case () of
-                _ | i > 4                 -> (True, c, u)
-                  | i > head (angle !! j) -> (True, c, u)
-                  | j < 0                 -> (False, c, u)
-                  | otherwise             -> loop (u2, j - 1, i + 1) where
-                      u2 = u .|. c !! ((angle !! j) !! i)
--}
+  let (exit3, j4) = flip fix (0, j-1, head (angle !! j)) $ \loop (u, j, i) -> case () of
+                      _ | i > 4                 -> (True,  j)
+                        | i > head (angle !! j) -> (True,  j)
+                        | j < 0                 -> (False, j)
+                        | otherwise             -> loop (u2, j, i + 1) where
+                            u2 = u .|. c !! ((angle !! j) !! i)
+
   let (jNext, cNext) = if j == ring + 1 then (j3, c3) else (j4, c2)
   case () of
     _ | exit1                  -> return (ncodes - extent, live)
