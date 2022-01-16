@@ -1,6 +1,6 @@
 module ReLibStrip where
 
-import CoLibCConst   ( edges, mverts, TpConfmat, TpEdgeno )
+import CoLibCConst   ( edges, mverts, TpConfmat, TpEdgeno, TpGetENPack )
 import Control.Arrow ( (<<<) )
 import Control.Lens  ( (&), (.~), Ixed(ix) )
 
@@ -164,7 +164,7 @@ strip2 gConf = (getEdgenoSub3 0 . getEdgenoSub2 (ring + 1) 1 (replicate mverts 0
   ring = gConf !! 1 !! 1
 
 
-getEdgenoSub1 :: TpConfmat -> (TpConfmat, Int, Int, [Bool], Int, TpEdgeno)
+getEdgenoSub1 :: TpConfmat -> TpGetENPack
 getEdgenoSub1 gConf = (gConf, verts, ring, done, term, edgeno) where
   verts  = head gConf !! 1
   ring   = gConf !! 1 !! 1
@@ -174,24 +174,47 @@ getEdgenoSub1 gConf = (gConf, verts, ring, done, term, edgeno) where
 
 
 -- This eventually lists all the internal edges of the configuration
-getEdgenoSub2 :: Int -> Int -> [Int] -> (TpConfmat, Int, Int, [Bool], Int, TpEdgeno) -> (TpConfmat, Int, [Bool], Int, TpEdgeno)
-getEdgenoSub2 i best max (gConf, verts, ring, done, term, edgeno) 
-  | True = (gConf, ring, done, term, edgeno) --i > verts = (gConf, ring, done, term, edgeno) -- This eventually lists all the internal edges of the configuration
-  | otherwise = getEdgenoSub2 (i + 1) best2 max2 (gConf, verts, ring, done2, term, edgeno2) where
-      (maxint2, maxes2, max2) = stripSub2Sub1 gConf verts ring done 0 0 max (ring + 1)
-      best2                   = stripSub2Sub2 gConf maxes2 max2 0 1 0
-      d                       = (gConf !! (best + 2)) !! 1
-      previous                = done !! ((gConf !! (best + 2)) !! (d + 1))
-      first                   = stripSub2Sub3 gConf done best2 previous 1 d
-      (edgeno2, done2)        = stripSub2Sub4 edgeno gConf done term best2 d first first
+getEdgenoSub2 :: Int -> Int -> [Int] -> TpGetENPack -> TpGetENPack
+getEdgenoSub2 i best max pack@(gConf, verts, ring, done, term, edgeno) 
+  | True = pack --i > verts = (gConf, ring, done, term, edgeno) -- This eventually lists all the internal edges of the configuration
+  | otherwise = getEdgenoSub2 (i + 1) best2 max2 pack2 where
+      d                    = (gConf !! (best + 2)) !! 1
+      previous             = done !! ((gConf !! (best + 2)) !! (d + 1))
+      (best2, max2, pack2) = (getES2Sub4 (-1) d . getES2Sub3 1 d previous . getES2Sub2 0 1 0 . getES2Sub1 0 0 max (ring + 1)) pack
+
+
+-- First we find all vertices from the interior that meet the "done"
+-- vertices in an interval, and write them in max[1] .. max[maxes]
+getES2Sub1 :: Int -> Int -> [Int] -> Int -> TpGetENPack -> (Int, [Int], TpGetENPack)
+getES2Sub1 maxint maxes max v pack@(gConf, verts, _ring, done, _term, _edgeno)
+  | v > verts = (maxes, max, pack)
+  | done !! v = getES2Sub1 maxint  maxes  max  (v + 1) pack
+  | otherwise = getES2Sub1 maxint2 maxes2 max2 (v + 1) pack where
+      inter = inInterval (gConf !! (v + 2)) done
+      (maxint2, maxes2, max2)
+        = if inter > maxint then (inter, 1, max & ix 1 .~ v) else (maxint, maxes + 1, max & ix (maxes + 1) .~ v)
+
+
+-- From the terms in max we choose the one of maximum degree
+-- So now, the vertex "best" will be the next vertex to be done
+getES2Sub2 :: Int -> Int -> Int -> (Int, [Int], TpGetENPack) -> (Int, [Int], TpGetENPack)
+getES2Sub2 maxdeg h best (maxes, max, pack) = undefined
+
+
+getES2Sub3 :: Int -> Int -> Bool -> (Int, [Int], TpGetENPack) -> (Int, Int, [Int], TpGetENPack)
+getES2Sub3 first d previous (best, max, pack) = undefined
+
+
+getES2Sub4 :: Int -> Int -> (Int, Int, [Int], TpGetENPack) -> (Int, [Int], TpGetENPack)
+getES2Sub4 h d (first, best, max, pack) = undefined
 
 
 -- Now we must list the edges between the interior and the ring
-getEdgenoSub3 :: Int -> (TpConfmat, Int, [Bool], Int, TpEdgeno) -> TpEdgeno
-getEdgenoSub3 i (gConf, ring, done, term, edgeno)
+getEdgenoSub3 :: Int -> TpGetENPack -> TpEdgeno
+getEdgenoSub3 i (gConf, verts, ring, done, term, edgeno)
   | True = edgeno --i > ring  = edgeno
-  | done !! u = getEdgenoSub3 (i + 1) (gConf, ring, done2, term2, edgeno2)
-  | otherwise = getEdgenoSub3 (i + 1) (gConf, ring, done3, term3, edgeno3) where
+  | done !! u = getEdgenoSub3 (i + 1) (gConf, verts, ring, done2, term2, edgeno2)
+  | otherwise = getEdgenoSub3 (i + 1) (gConf, verts, ring, done3, term3, edgeno3) where
       best = stripSub3Sub1 gConf ring done 0 0 1
       grav = gConf !! (best + 2)
       u    = if best > 1 then best - 1 else ring
