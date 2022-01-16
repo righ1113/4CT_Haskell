@@ -118,6 +118,7 @@ stripSub3Sub2 grav done term edgeno best h flg
       gravH1  = grav !! (h + 1)
 
 
+-- ##############################################
 strip2 :: TpConfmat -> TpEdgeno
 strip2 gConf = (getEdgenoSub3 0 . getEdgenoSub2 (ring + 1) 1 (replicate mverts 0) . getEdgenoSub1) gConf where
   ring = gConf !! 1 !! 1
@@ -194,9 +195,19 @@ getEdgenoSub3 i pack@(gConf, verts, ring, done, term, edgeno)
 getES3Sub1 :: Int -> Int -> Int -> TpGetENPack -> Either (Int, Int, TpGetENPack) (Int, Int, TpGetENPack) 
 getES3Sub1 = undefined
 getES3Sub2 :: Bool -> (Int, Int, TpGetENPack) -> TpGetENPack
-getES3Sub2 = undefined
+getES3Sub2 flg (best, h, pack@(gConf, verts, ring, done, term, edgeno))
+  | flg     && h <= 2        = pack
+  | flg     && h >  2        = getES3Sub2 flg (best, h - 1, (gConf, verts, ring, done2, term - 1, edgeno3))
+  | not flg && h > head grav = pack
+  | otherwise                = getES3Sub2 flg (best, h + 1, (gConf, verts, ring, done2, term - 1, edgeno3)) where
+      grav    = gConf !! (best + 2)
+      done2   = done & ix best .~ True
+      gravH1  = grav !! (h + 1)
+      edgeno2 = edgeno  & (ix best <<< ix gravH1) .~ term
+      edgeno3 = edgeno2 & (ix gravH1 <<< ix best) .~ term
 
 
+-- ##############################################
 inInterval :: [Int] -> [Bool] -> Int
 inInterval grav done
   | first == d = if done !! (grav !! (d + 1)) then 1 else 0
