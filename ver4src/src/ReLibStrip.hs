@@ -1,7 +1,7 @@
 module ReLibStrip where
 
 import CoLibCConst   ( edges, mverts, TpConfmat, TpEdgeno, TpGetENPack )
-import Control.Arrow ( (<<<) )
+import Control.Arrow ( (<<<), ArrowChoice((|||)) )
 import Control.Lens  ( (&), (.~), Ixed(ix) )
 
 
@@ -82,47 +82,6 @@ stripSub2Sub4 edgeno gConf done term best d first h
       done2   = done & ix best .~ True
 
 
-inInterval :: [Int] -> [Bool] -> Int
-inInterval grav done
-  | first == d = if done !! (grav !! (d + 1)) then 1 else 0
-  | last  == d = length
-  | first > 1  = inIntervalSub1 grav done d length (last + 2)
-  | chg        = 0
-  | otherwise  = len where
-      d          = grav !! (0 + 1)
-      first      = getFirst grav done d 1
-      last       = getLast  grav done d first
-      length     = last - first + 1
-      (len, chg) = inIntervalSub2 grav done d False length (last + 2)
-
-
-getFirst :: [Int] -> [Bool] -> Int -> Int -> Int
-getFirst grav done d first
-  | first >= d || done !! (grav !! (first + 1)) = first
-  | otherwise = getFirst grav done d (first + 1)
-
-
-getLast :: [Int] -> [Bool] -> Int -> Int -> Int
-getLast grav done d last
-  | last >= d || not (done !! (grav !! (1 + last + 1))) = last
-  | otherwise = getFirst grav done d (last + 1)
-
-
-inIntervalSub1 :: [Int] -> [Bool] -> Int -> Int -> Int -> Int
-inIntervalSub1 grav done d length j
-  | j > d                     = length
-  | done !! (grav !! (j + 1)) = 0
-  | otherwise                 = inIntervalSub1 grav done d length (j + 1)
-
-
-inIntervalSub2 :: [Int] -> [Bool] -> Int -> Bool -> Int -> Int -> (Int, Bool)
-inIntervalSub2 grav done d worried length j
-  | j > d                                      = (length, False)
-  | done !! (grav !! (j + 1))                  = inIntervalSub2 grav done d True    (length + 1) (j + 1)
-  | not (done !! (grav !! (j + 1))) && worried = (length, True)
-  | otherwise                                  = inIntervalSub2 grav done d worried length       (j + 1)
-
-
 stripSub3 :: TpConfmat -> Int -> [Bool] -> Int -> TpEdgeno -> Int -> TpEdgeno
 stripSub3 gConf ring done term edgeno j
   | j > ring  = edgeno
@@ -173,6 +132,15 @@ getEdgenoSub1 gConf = (gConf, verts, ring, done, term, edgeno) where
   edgeno = newEdgeno 1 ring (replicate edges $ replicate edges 0)
 
 
+newEdgeno :: Int -> Int -> TpEdgeno -> TpEdgeno
+newEdgeno v ring edgeno
+  | v > ring  = edgeno
+  | otherwise = newEdgeno (v + 1) ring edgeno2 where
+      u       = if v > 1 then v - 1 else ring
+      edgeno1 = edgeno  & (ix u <<< ix v) .~ v
+      edgeno2 = edgeno1 & (ix v <<< ix u) .~ v
+
+
 -- This eventually lists all the internal edges of the configuration
 getEdgenoSub2 :: Int -> Int -> [Int] -> TpGetENPack -> TpGetENPack
 getEdgenoSub2 i best max pack@(gConf, verts, ring, done, term, edgeno) 
@@ -211,24 +179,63 @@ getES2Sub4 h d (first, best, max, pack) = (best, max, pack)
 
 -- Now we must list the edges between the interior and the ring
 getEdgenoSub3 :: Int -> TpGetENPack -> TpEdgeno
-getEdgenoSub3 i (gConf, verts, ring, done, term, edgeno)
+getEdgenoSub3 i pack@(gConf, verts, ring, done, term, edgeno)
   | True = edgeno --i > ring  = edgeno
-  | done !! u = getEdgenoSub3 (i + 1) (gConf, verts, ring, done2, term2, edgeno2)
-  | otherwise = getEdgenoSub3 (i + 1) (gConf, verts, ring, done3, term3, edgeno3) where
+  -- | done !! u = getEdgenoSub3 (i + 1) (gConf, verts, ring, done2, term2, edgeno2)
+  | otherwise = getEdgenoSub3 (i + 1) pack2 where
       best = stripSub3Sub1 gConf ring done 0 0 1
       grav = gConf !! (best + 2)
       u    = if best > 1 then best - 1 else ring
       (done2, term2, edgeno2) = stripSub3Sub2 grav done term edgeno best (grav !! (0 + 1) - 1) True
       (done3, term3, edgeno3) = stripSub3Sub2 grav done term edgeno best 2                     False
+      pack2 = (getES3Sub2 True ||| getES3Sub2 False) <<< getES3Sub1 0 0 1 $ pack
 
 
-newEdgeno :: Int -> Int -> TpEdgeno -> TpEdgeno
-newEdgeno v ring edgeno
-  | v > ring  = edgeno
-  | otherwise = newEdgeno (v + 1) ring edgeno2 where
-      u       = if v > 1 then v - 1 else ring
-      edgeno1 = edgeno  & (ix u <<< ix v) .~ v
-      edgeno2 = edgeno1 & (ix v <<< ix u) .~ v
+getES3Sub1 :: Int -> Int -> Int -> TpGetENPack -> Either (Int, Int, TpGetENPack) (Int, Int, TpGetENPack) 
+getES3Sub1 = undefined
+getES3Sub2 :: Bool -> (Int, Int, TpGetENPack) -> TpGetENPack
+getES3Sub2 = undefined
+
+
+inInterval :: [Int] -> [Bool] -> Int
+inInterval grav done
+  | first == d = if done !! (grav !! (d + 1)) then 1 else 0
+  | last  == d = length
+  | first > 1  = inIntervalSub1 grav done d length (last + 2)
+  | chg        = 0
+  | otherwise  = len where
+      d          = grav !! (0 + 1)
+      first      = getFirst grav done d 1
+      last       = getLast  grav done d first
+      length     = last - first + 1
+      (len, chg) = inIntervalSub2 grav done d False length (last + 2)
+
+
+getFirst :: [Int] -> [Bool] -> Int -> Int -> Int
+getFirst grav done d first
+  | first >= d || done !! (grav !! (first + 1)) = first
+  | otherwise = getFirst grav done d (first + 1)
+
+
+getLast :: [Int] -> [Bool] -> Int -> Int -> Int
+getLast grav done d last
+  | last >= d || not (done !! (grav !! (1 + last + 1))) = last
+  | otherwise = getFirst grav done d (last + 1)
+
+
+inIntervalSub1 :: [Int] -> [Bool] -> Int -> Int -> Int -> Int
+inIntervalSub1 grav done d length j
+  | j > d                     = length
+  | done !! (grav !! (j + 1)) = 0
+  | otherwise                 = inIntervalSub1 grav done d length (j + 1)
+
+
+inIntervalSub2 :: [Int] -> [Bool] -> Int -> Bool -> Int -> Int -> (Int, Bool)
+inIntervalSub2 grav done d worried length j
+  | j > d                                      = (length, False)
+  | done !! (grav !! (j + 1))                  = inIntervalSub2 grav done d True    (length + 1) (j + 1)
+  | not (done !! (grav !! (j + 1))) && worried = (length, True)
+  | otherwise                                  = inIntervalSub2 grav done d worried length       (j + 1)
 
 
 
