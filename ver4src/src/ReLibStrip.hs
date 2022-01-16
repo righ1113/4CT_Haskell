@@ -166,7 +166,7 @@ strip2 gConf = (getEdgenoSub3 0 . getEdgenoSub2 (ring + 1) 1 (replicate mverts 0
 
 getEdgenoSub1 :: TpConfmat -> TpGetENPack
 getEdgenoSub1 gConf = (gConf, verts, ring, done, term, edgeno) where
-  verts  = head gConf !! 1
+  verts  = head (gConf !! 1)
   ring   = gConf !! 1 !! 1
   done   = replicate mverts False
   term   = 3 * (verts - 1) - ring
@@ -176,37 +176,37 @@ getEdgenoSub1 gConf = (gConf, verts, ring, done, term, edgeno) where
 -- This eventually lists all the internal edges of the configuration
 getEdgenoSub2 :: Int -> Int -> [Int] -> TpGetENPack -> TpGetENPack
 getEdgenoSub2 i best max pack@(gConf, verts, ring, done, term, edgeno) 
-  | True = pack --i > verts = (gConf, ring, done, term, edgeno) -- This eventually lists all the internal edges of the configuration
+  | i > verts = pack -- This eventually lists all the internal edges of the configuration
   | otherwise = getEdgenoSub2 (i + 1) best2 max2 pack2 where
       d                    = (gConf !! (best + 2)) !! 1
-      previous             = done !! ((gConf !! (best + 2)) !! (d + 1))
-      (best2, max2, pack2) = (getES2Sub4 (-1) d . getES2Sub3 1 d previous . getES2Sub2 0 1 0 . getES2Sub1 0 0 max (ring + 1)) pack
+      (best2, max2, pack2) = (getES2Sub4 (-1) d . getES2Sub3 1 d . getES2Sub2 0 1 best . getES2Sub1 0 0 max (ring + 1)) pack
 
 
 -- First we find all vertices from the interior that meet the "done"
 -- vertices in an interval, and write them in max[1] .. max[maxes]
 getES2Sub1 :: Int -> Int -> [Int] -> Int -> TpGetENPack -> (Int, [Int], TpGetENPack)
-getES2Sub1 maxint maxes max v pack@(gConf, verts, _ring, done, _term, _edgeno)
+getES2Sub1 maxint maxes max v pack@(gConf, verts, _, done, _, _)
   | v > verts = (maxes, max, pack)
   | done !! v = getES2Sub1 maxint  maxes  max  (v + 1) pack
   | otherwise = getES2Sub1 maxint2 maxes2 max2 (v + 1) pack where
       inter = inInterval (gConf !! (v + 2)) done
       (maxint2, maxes2, max2)
-        = if inter > maxint then (inter, 1, max & ix 1 .~ v) else (maxint, maxes + 1, max & ix (maxes + 1) .~ v)
+            = if inter > maxint then (inter, 1, max & ix 1 .~ v) else (maxint, maxes + 1, max & ix (maxes + 1) .~ v)
 
 
 -- From the terms in max we choose the one of maximum degree
 -- So now, the vertex "best" will be the next vertex to be done
 getES2Sub2 :: Int -> Int -> Int -> (Int, [Int], TpGetENPack) -> (Int, [Int], TpGetENPack)
-getES2Sub2 maxdeg h best (maxes, max, pack) = undefined
+getES2Sub2 maxdeg h best big@(maxes, max, pack) = big
 
 
-getES2Sub3 :: Int -> Int -> Bool -> (Int, [Int], TpGetENPack) -> (Int, Int, [Int], TpGetENPack)
-getES2Sub3 first d previous (best, max, pack) = undefined
+getES2Sub3 :: Int -> Int -> (Int, [Int], TpGetENPack) -> (Int, Int, [Int], TpGetENPack)
+getES2Sub3 first d (best, max, pack@(gConf, verts, _ring, done, _term, _edgeno)) = (first, best, max, pack) where
+  previous = done !! ((gConf !! (best + 2)) !! (d + 1))
 
 
 getES2Sub4 :: Int -> Int -> (Int, Int, [Int], TpGetENPack) -> (Int, [Int], TpGetENPack)
-getES2Sub4 h d (first, best, max, pack) = undefined
+getES2Sub4 h d (first, best, max, pack) = (best, max, pack)
 
 
 -- Now we must list the edges between the interior and the ring
