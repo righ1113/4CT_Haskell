@@ -16,6 +16,7 @@ type TpConfmat       = [[Int]]
 type TpAngle         = [[Int]]
 type TpEdgeno        = [[Int]]
 type TpGetENPack     = (TpConfmat, Int, Int, [Bool], Int, TpEdgeno)
+type TpAnglePack     = (TpConfmat, TpEdgeno, TpAngle, TpAngle, TpAngle, [Int])
 
 verts      = 27 :: Int               -- max number of vertices in a free completion + 1
 confs      = 640 :: Int              -- max number of configurations

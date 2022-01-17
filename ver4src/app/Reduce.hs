@@ -10,7 +10,7 @@ module Main where
 
 import CoLibCConst   ( readFileGoodConfsR, TpConfmat, power ) 
 import ReLibStrip    ( strip )
-import ReLibAngles   ( findangles )
+import ReLibAngles   ( findangles, findangles2 )
 import ReLibFindlive ( findlive )
 
 
@@ -32,7 +32,7 @@ mainLoop gConfs
     -- 1. strip()
     let gConf  = head gConfs
         edgeno = strip gConf
-    print edgeno
+    -- print edgeno
 
     -- 2. findangles()
     {- "findangles" fills in the arrays "angle","diffangle","sameangle" and
@@ -42,6 +42,8 @@ mainLoop gConfs
         they will be used in "checkcontract" below to verify that the
         contract is correct. -}
     let (angle, diffangle, sameangle, contract) = findangles gConf edgeno
+    let (_, _, _, contract2) = findangles2 (gConf, edgeno)
+    --print contract2
 
     -- 3. findlive()
     let ring   = head gConf !! 1                   -- ring-size
