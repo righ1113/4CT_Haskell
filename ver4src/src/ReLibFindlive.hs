@@ -1,6 +1,6 @@
 module ReLibFindlive where
 
-import CoLibCConst   ( edges, TpAngle, power, simatchnumber )
+import CoLibCConst   ( edges, TpAngle, power, simatchnumber, TpExtCJ, TpFliveBindPack, TpBPSPack )
 import Control.Lens  ( (&), (.~), Ixed(ix) )
 import Data.Bits     ( Bits(shift, (.&.), (.|.)) )    
 import Data.Function ( fix )
@@ -21,8 +21,8 @@ findlive ring bigno live ncodes angle _power extentclaim
       forbidden2     = forbidden & ix j .~ 5
 
 
-beforePrintStatus :: Int -> Int -> Int -> Int -> [Int] -> Int -> Int -> IO (Bool, [Int], Int)
-beforePrintStatus ring ncodes extent extentclaim c j ed = do
+beforePrintStatus :: Int -> Int -> Int -> Int -> TpExtCJ -> Int -> IO (Bool, [Int], Int)
+beforePrintStatus ring ncodes extent extentclaim (_, c, j) ed = do
   let c2 = c & ix j .~ shift (c !! j) 1
   flip fix (c2, j) $ \loop (c, j) -> case () of
     _ | 8 .&. (c !! j) == 0 -> return (False, c, j)
@@ -30,6 +30,45 @@ beforePrintStatus ring ncodes extent extentclaim c j ed = do
       | otherwise           -> loop (c2, j2) where
           j2 = j + 1
           c2 = c & ix j2 .~ shift (c !! j2) 1
+
+
+findliveSub2 :: TpBPSPack -> Int -> [Int] -> TpAngle -> [Int] -> Int -> IO (Int, [Int])
+findliveSub2 _ _ _ _ _ 262144 = error "findlive_sub : It was not good though it was repeated 262144 times!"
+findliveSub2 (ring, ncodes, extent, extentclaim, (_, c, j), ed) bigno live angle forbidden cnt = do
+  -- ここは Applicative(<*>) では出来ないので、bind(=<<) でおこなう
+  ((exit1, c2, j2), (extent2, live2), (exit2, c3, j3), (exit3, _, j4), (_, cNext, jNext))
+    <- fliveSsub5
+      =<< fliveSsub4 angle
+        =<< fliveSsub3
+          =<< fliveSsub2 angle bigno live
+            =<< fliveSsub1 (ring, ncodes, extent, extentclaim, (False, c, j), ed)
+  -- totalling
+  case () of
+    _ | exit1                   -> return (ncodes - extent,  live)
+      | exit2 && j2 == ring + 1 -> return (ncodes - extent2, live2)
+      | exit3 && j2 /= ring + 1 -> return (ncodes - extent2, live2)
+      | otherwise ->
+          findliveSub2 (ring, ncodes, extent2, extentclaim, (False, cNext, jNext), ed) bigno live2 angle forbidden (cnt + 1)
+
+
+fliveSsub1 :: TpBPSPack -> IO TpFliveBindPack
+fliveSsub1 = undefined
+
+
+fliveSsub2 :: TpAngle -> Int -> [Int] -> TpFliveBindPack -> IO TpFliveBindPack
+fliveSsub2 = undefined
+
+
+fliveSsub3 :: TpFliveBindPack -> IO TpFliveBindPack
+fliveSsub3 = undefined
+
+
+fliveSsub4 :: TpAngle -> TpFliveBindPack -> IO TpFliveBindPack
+fliveSsub4 = undefined
+
+
+fliveSsub5 :: TpFliveBindPack -> IO TpFliveBindPack
+fliveSsub5 = undefined
 
 
 findliveSub :: Int -> [Int] -> TpAngle -> Int -> Int -> Int -> Int -> Int -> [Int] -> [Int] -> Int -> Int -> IO (Int, [Int])
