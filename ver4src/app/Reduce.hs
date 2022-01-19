@@ -52,7 +52,7 @@ mainLoop gConfs
         live0  = replicate ncodes 1
         --real0  = replicate (simatchnumber !! maxring `div` 8 + 2) 255
         --nchar  = simatchnumber !! ring `div` 8 + 1
-    (nlive1, live1) <- findlive ring bigno live0 ncodes angle power (head gConf !! 2)
+    (nlive1, live1) <- findlive ring bigno live0 ncodes angle power ((gConf !! 1) !! 2)
 
     -- 4. updatelive()
     -- computes {\cal M}_{i+1} from {\cal M}_i, updates the bits of "real"

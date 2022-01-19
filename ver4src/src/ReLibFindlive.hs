@@ -11,7 +11,8 @@ import Data.Function ( fix )
 -- free extension. Returns the number of such codes
 findlive :: Int -> Int -> [Int] -> Int -> TpAngle -> [Int] -> Int -> IO (Int, [Int])
 findlive ring bigno live ncodes angle _power extentclaim
-  = findliveSub bigno live angle ring ed extentclaim ncodes j c3 forbidden2 0 0 where
+  -- = findliveSub bigno live angle ring ed extentclaim ncodes j c3 forbidden2 0 0 where
+  = findliveSub2 (ring, ncodes, 0, extentclaim, (False, c3, j), ed) bigno live angle forbidden2 0 where
       ed             = head angle !! 2
       c              = replicate edges 0
       j              = ed - 1
@@ -21,12 +22,16 @@ findlive ring bigno live ncodes angle _power extentclaim
       forbidden2     = forbidden & ix j .~ 5
 
 
-beforePrintStatus :: Int -> Int -> Int -> Int -> TpExtCJ -> Int -> IO (Bool, [Int], Int)
-beforePrintStatus ring ncodes extent extentclaim (_, c, j) ed = do
-  let c2 = c & ix j .~ shift (c !! j) 1
-  flip fix (c2, j) $ \loop (c, j) -> case () of
+beforePrintStatus :: TpBPSPack -> IO TpExtCJ
+beforePrintStatus (ring, ncodes, extent, extentclaim, (_, c, j), ed) = do
+  putStrLn "here"
+  print c
+  print j
+  print ed
+  -- let c2 = c & ix j .~ shift (c !! j) 1
+  flip fix (c, j) $ \loop (c, j) -> case () of
     _ | 8 .&. (c !! j) == 0 -> return (False, c, j)
-      | j > ed -1           -> do{ printStatus ring ncodes extent extentclaim; return (True, c, j) }
+      | j > ed - 1          -> do{ printStatus ring ncodes extent extentclaim; return (True, c, j) }
       | otherwise           -> loop (c2, j2) where
           j2 = j + 1
           c2 = c & ix j2 .~ shift (c !! j2) 1
@@ -36,39 +41,60 @@ findliveSub2 :: TpBPSPack -> Int -> [Int] -> TpAngle -> [Int] -> Int -> IO (Int,
 findliveSub2 _ _ _ _ _ 262144 = error "findlive_sub : It was not good though it was repeated 262144 times!"
 findliveSub2 (ring, ncodes, extent, extentclaim, (_, c, j), ed) bigno live angle forbidden cnt = do
   -- ここは Applicative(<*>) では出来ないので、bind(=<<) でおこなう
-  ((exit1, c2, j2), (extent2, live2), (exit2, c3, j3), (exit3, _, j4), (_, cNext, jNext))
-    <- fliveSsub5
-      =<< fliveSsub4 angle
-        =<< fliveSsub3
-          =<< fliveSsub2 angle bigno live
-            =<< fliveSsub1 (ring, ncodes, extent, extentclaim, (False, c, j), ed)
+  ((exit1, c2, j2), (extent2, live2), (exit2, c3, j3), (exit3, _, j4), (_, cNext, jNext), forbi2)
+    <- fliveSsub5 ring
+      =<< fliveSsub4 angle ring
+        =<< fliveSsub3 (ring, ncodes, extent, extentclaim, (False, c, j), ed)
+          =<< fliveSsub2 angle bigno ring
+            =<< fliveSsub1 (ring, ncodes, extent, extentclaim, (False, c, j), ed) forbidden live
   -- totalling
   case () of
     _ | exit1                   -> return (ncodes - extent,  live)
       | exit2 && j2 == ring + 1 -> return (ncodes - extent2, live2)
       | exit3 && j2 /= ring + 1 -> return (ncodes - extent2, live2)
       | otherwise ->
-          findliveSub2 (ring, ncodes, extent2, extentclaim, (False, cNext, jNext), ed) bigno live2 angle forbidden (cnt + 1)
+          findliveSub2 (ring, ncodes, extent2, extentclaim, (False, cNext, jNext), ed) bigno live2 angle forbi2 (cnt + 1)
 
 
-fliveSsub1 :: TpBPSPack -> IO TpFliveBindPack
-fliveSsub1 = undefined
+fliveSsub1 :: TpBPSPack -> [Int] ->  [Int] -> IO TpFliveBindPack
+fliveSsub1 (ring, ncodes, extent, extentclaim, (_, c, j), ed) forbi live =
+  flip fix (False, c, j) $ \loop (exitSub, c, j) -> case () of
+    _ | (forbi !! j) .&. (c !! j) == 0 -> return ((False, c, j), (extent, live), (False, [], 0), (False, [], 0), (False, [], 0), forbi)
+      | exitSub                        -> return ((True,  c, j), (extent, live), (False, [], 0), (False, [], 0), (False, [], 0), forbi)
+      | otherwise                      -> beforePrintStatus (ring, ncodes, extent, extentclaim, (False, c, j), ed) >>= loop
 
 
-fliveSsub2 :: TpAngle -> Int -> [Int] -> TpFliveBindPack -> IO TpFliveBindPack
-fliveSsub2 = undefined
+fliveSsub2 :: TpAngle -> Int -> Int -> TpFliveBindPack -> IO TpFliveBindPack
+fliveSsub2 angle bigno ring
+  ((exit1, c2, j2), (extent, live), second, third, fourth, forbi) = do
+    let (extent2, live2) = if j2 == ring + 1 then record c2 ring angle bigno extent live else (extent, live)
+    return ((exit1, c2, j2), (extent2, live2), second, third, fourth, forbi)
 
 
-fliveSsub3 :: TpFliveBindPack -> IO TpFliveBindPack
-fliveSsub3 = undefined
+fliveSsub3 :: TpBPSPack -> TpFliveBindPack -> IO TpFliveBindPack
+fliveSsub3 (ring, ncodes, _, extentclaim, _, ed)
+  ((exit1, c2, j2), (extent, live), _, third, fourth, forbi) = do
+    second <- beforePrintStatus (ring, ncodes, extent, extentclaim, (False, c2, j2), ed)
+    return ((exit1, c2, j2), (extent, live), second, third, fourth, forbi)
 
 
-fliveSsub4 :: TpAngle -> TpFliveBindPack -> IO TpFliveBindPack
-fliveSsub4 = undefined
+fliveSsub4 :: TpAngle -> Int -> TpFliveBindPack -> IO TpFliveBindPack
+fliveSsub4 angle ring ((exit1, c2, j2), exLive, second, _, fourth, forbi) = do
+  let (exit3, u, j4) = flip fix (0, j2 - 1, head (angle !! j2)) $ \loop (u, j, i) -> case () of
+                        _ | i > 4                 -> (True,  u, j)
+                          | i > head (angle !! j) -> (True,  u, j)
+                          | j < 0                 -> (False, u, j)
+                          | otherwise             -> loop (u2, j, i + 1) where
+                              u2 = u .|. c2 !! ((angle !! j) !! i)
+  let forbi2 = if j2 == ring + 1 then forbi else forbi & ix j4 .~ u
+  return ((exit1, c2, j2), exLive, second, (exit3, c2, j4), fourth, forbi2)
 
 
-fliveSsub5 :: TpFliveBindPack -> IO TpFliveBindPack
-fliveSsub5 = undefined
+
+fliveSsub5 :: Int -> TpFliveBindPack -> IO TpFliveBindPack
+fliveSsub5 ring ((exit1, c2, j2), (extent, live), (exit2, c3, j3), (exit3, c4, j4), _, forbi) = do
+  let fourth = if j2 == ring + 1 then (False, c3, j3) else (False, c2, j4)
+  return ((exit1, c2, j2), (extent, live), (exit2, c3, j3), (exit3, c4, j4), fourth, forbi)
 
 
 findliveSub :: Int -> [Int] -> TpAngle -> Int -> Int -> Int -> Int -> Int -> [Int] -> [Int] -> Int -> Int -> IO (Int, [Int])

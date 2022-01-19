@@ -18,7 +18,7 @@ type TpEdgeno        = [[Int]]
 type TpGetENPack     = (TpConfmat, Int, Int, [Bool], Int, TpEdgeno)
 type TpAnglePack     = (TpConfmat, TpEdgeno, TpAngle, TpAngle, TpAngle, [Int])
 type TpExtCJ         = (Bool, [Int], Int)
-type TpFliveBindPack = (TpExtCJ, (Int, [Int]), TpExtCJ, TpExtCJ, TpExtCJ)
+type TpFliveBindPack = (TpExtCJ, (Int, [Int]), TpExtCJ, TpExtCJ, TpExtCJ, [Int])
 type TpBPSPack       = (Int, Int, Int, Int, TpExtCJ, Int)
 
 verts      = 27 :: Int               -- max number of vertices in a free completion + 1
