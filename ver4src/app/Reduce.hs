@@ -46,7 +46,7 @@ mainLoop gConfs
     --print contract2
 
     -- 3. findlive()
-    let ring   = head (gConf !! 1)                 -- ring-size
+    let ring   = gConf !! 1 !! 1                   -- ring-size
         ncodes = (power !! ring + 1) `div` 2       -- number of codes of colorings of R
         bigno  = ((power !! ring + 1) - 1) `div` 2 -- needed in "inlive"
         live0  = replicate ncodes 1

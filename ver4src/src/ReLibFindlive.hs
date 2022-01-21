@@ -24,12 +24,13 @@ findlive ring bigno live ncodes angle _power extentclaim
 
 beforePrintStatus :: TpBPSPack -> IO TpExtCJ
 beforePrintStatus (ring, ncodes, extent, extentclaim, (_, c, j), ed) = do
+  let c2 = c & ix j .~ shift (c !! j) 1
   putStrLn "here"
-  print c
+  print c2
   print j
   print ed
-  -- let c2 = c & ix j .~ shift (c !! j) 1
-  flip fix (c, j) $ \loop (c, j) -> case () of
+  print ring
+  flip fix (c2, j) $ \loop (c, j) -> case () of
     _ | 8 .&. (c !! j) == 0 -> return (False, c, j)
       | j > ed - 1          -> do{ printStatus ring ncodes extent extentclaim; return (True, c, j) }
       | otherwise           -> loop (c2, j2) where
@@ -38,8 +39,10 @@ beforePrintStatus (ring, ncodes, extent, extentclaim, (_, c, j), ed) = do
 
 
 findliveSub2 :: TpBPSPack -> Int -> [Int] -> TpAngle -> [Int] -> Int -> IO (Int, [Int])
-findliveSub2 _ _ _ _ _ 262144 = error "findlive_sub : It was not good though it was repeated 262144 times!"
+findliveSub2 _ _ _ _ _ 26 = error "262144findlive_sub : It was not good though it was repeated 262144 times!意図的なエラー"
 findliveSub2 (ring, ncodes, extent, extentclaim, (_, c, j), ed) bigno live angle forbidden cnt = do
+  print angle
+  putStrLn $ "cnt: " ++ show cnt
   -- ここは Applicative(<*>) では出来ないので、bind(=<<) でおこなう
   ((exit1, c2, j2), (extent2, live2), (exit2, c3, j3), (exit3, _, j4), (_, cNext, jNext), forbi2)
     <- fliveSsub5 ring
@@ -48,6 +51,9 @@ findliveSub2 (ring, ncodes, extent, extentclaim, (_, c, j), ed) bigno live angle
           =<< fliveSsub2 angle bigno ring
             =<< fliveSsub1 (ring, ncodes, extent, extentclaim, (False, c, j), ed) forbidden live
   -- totalling
+  print exit1
+  print exit2
+  print exit3
   case () of
     _ | exit1                   -> return (ncodes - extent,  live)
       | exit2 && j2 == ring + 1 -> return (ncodes - extent2, live2)
@@ -59,7 +65,8 @@ findliveSub2 (ring, ncodes, extent, extentclaim, (_, c, j), ed) bigno live angle
 fliveSsub1 :: TpBPSPack -> [Int] ->  [Int] -> IO TpFliveBindPack
 fliveSsub1 (ring, ncodes, extent, extentclaim, (_, c, j), ed) forbi live =
   flip fix (False, c, j) $ \loop (exitSub, c, j) -> case () of
-    _ | (forbi !! j) .&. (c !! j) == 0 -> return ((False, c, j), (extent, live), (False, [], 0), (False, [], 0), (False, [], 0), forbi)
+    _ | (forbi !! j) .&. (c !! j) == 0 -> do{ print (forbi !! j); print (c !! j); print ((forbi !! j) .&. (c !! j));
+                                              return ((False, c, j), (extent, live), (False, [], 0), (False, [], 0), (False, [], 0), forbi) }
       | exitSub                        -> return ((True,  c, j), (extent, live), (False, [], 0), (False, [], 0), (False, [], 0), forbi)
       | otherwise                      -> beforePrintStatus (ring, ncodes, extent, extentclaim, (False, c, j), ed) >>= loop
 
@@ -74,26 +81,35 @@ fliveSsub2 angle bigno ring
 fliveSsub3 :: TpBPSPack -> TpFliveBindPack -> IO TpFliveBindPack
 fliveSsub3 (ring, ncodes, _, extentclaim, _, ed)
   ((exit1, c2, j2), (extent, live), _, third, fourth, forbi) = do
-    second <- beforePrintStatus (ring, ncodes, extent, extentclaim, (False, c2, j2), ed)
+    second <- if j2 == ring + 1 then beforePrintStatus (ring, ncodes, extent, extentclaim, (False, c2, j2), ed)
+              else return (False, c2, j2)
     return ((exit1, c2, j2), (extent, live), second, third, fourth, forbi)
 
 
 fliveSsub4 :: TpAngle -> Int -> TpFliveBindPack -> IO TpFliveBindPack
 fliveSsub4 angle ring ((exit1, c2, j2), exLive, second, _, fourth, forbi) = do
-  let (exit3, u, j4) = flip fix (0, j2 - 1, head (angle !! j2)) $ \loop (u, j, i) -> case () of
-                        _ | i > 4                 -> (True,  u, j)
-                          | i > head (angle !! j) -> (True,  u, j)
-                          | j < 0                 -> (False, u, j)
-                          | otherwise             -> loop (u2, j, i + 1) where
-                              u2 = u .|. c2 !! ((angle !! j) !! i)
-  let forbi2 = if j2 == ring + 1 then forbi else forbi & ix j4 .~ u
-  return ((exit1, c2, j2), exLive, second, (exit3, c2, j4), fourth, forbi2)
-
+  let c4 = c2 & ix (j2 - 1) .~ 1
+  (exit3, u2, j4) <- flip fix (0, j2 - 1, 1) $ \loop (u, j, i) -> case () of
+                        _ | j < 0                  -> return (True,  u, j)
+                          | i >= head (angle !! j) -> return (False, u, j)
+                          | otherwise              -> do{ putStrLn $ "angle: " ++ show ((angle !! j) !! i); loop (u2, j, i + 1) } where
+                              u2 = u .|. c4 !! ((angle !! j) !! i)
+  let forbi2 = if j2 == ring + 1 then forbi else forbi & ix j4 .~ u2
+  putStrLn $ "forbi2: " ++ show (forbi2 !! j4)
+  print forbi2
+  return ((exit1, c2, j2), exLive, second, (exit3, c4, j4), fourth, forbi2)
+{-
+          jjj -= 1
+          return [ncodes - extent, @live] if jjj.negative?
+          ccc[jjj], u = 1, 0
+          (1..angle[jjj][0]).each { |i| u |= ccc[angle[jjj][i]] }
+          forbidden[jjj] = u
+-}
 
 
 fliveSsub5 :: Int -> TpFliveBindPack -> IO TpFliveBindPack
 fliveSsub5 ring ((exit1, c2, j2), (extent, live), (exit2, c3, j3), (exit3, c4, j4), _, forbi) = do
-  let fourth = if j2 == ring + 1 then (False, c3, j3) else (False, c2, j4)
+  let fourth = if j2 == ring + 1 then (False, c3, j3) else (False, c4, j4)
   return ((exit1, c2, j2), (extent, live), (exit2, c3, j3), (exit3, c4, j4), fourth, forbi)
 
 
