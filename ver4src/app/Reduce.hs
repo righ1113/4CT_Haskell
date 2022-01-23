@@ -31,8 +31,10 @@ mainLoop gConfs
 
     -- 1. strip()
     let gConf  = head gConfs
-        edgeno = strip gConf
-    -- print edgeno
+        ring   = gConf !! 1 !! 1                   -- ring-size
+        edgeno = strip ring gConf
+    putStrLn "edgeno:"
+    print edgeno
 
     -- 2. findangles()
     {- "findangles" fills in the arrays "angle","diffangle","sameangle" and
@@ -42,17 +44,16 @@ mainLoop gConfs
         they will be used in "checkcontract" below to verify that the
         contract is correct. -}
     let (angle, diffangle, sameangle, contract) = findangles gConf edgeno
-    let (_, _, _, contract2) = findangles2 (gConf, edgeno)
+    let (angle2, _, _, contract2) = findangles2 (gConf, edgeno)
     --print contract2
 
     -- 3. findlive()
-    let ring   = gConf !! 1 !! 1                   -- ring-size
         ncodes = (power !! ring + 1) `div` 2       -- number of codes of colorings of R
-        bigno  = ((power !! ring + 1) - 1) `div` 2 -- needed in "inlive"
+        bigno  = (power !! (ring + 1) - 1) `div` 2 -- needed in "inlive"
         live0  = replicate ncodes 1
         --real0  = replicate (simatchnumber !! maxring `div` 8 + 2) 255
         --nchar  = simatchnumber !! ring `div` 8 + 1
-    (nlive1, live1) <- findlive ring bigno live0 ncodes angle power ((gConf !! 1) !! 2)
+    (nlive1, live1) <- findlive ring bigno live0 ncodes angle2 power (gConf !! 1 !! 2)
 
     -- 4. updatelive()
     -- computes {\cal M}_{i+1} from {\cal M}_i, updates the bits of "real"

@@ -195,7 +195,7 @@ findangleSub2 v pack@(gConf, edgeno, angle, diffangle, sameangle, contract)
                         a = ed !! v !! w
                         b = ed !! u !! w
                         -- どっちかが0なら通過
-                        c = if 0 /= co !! a && 0 /= co !! b then error "***  ERROR: CONTRACT IS NOT SPARSE  ***" else edgeno !! u !! v
+                        c = if 0 /= co !! a && 0 /= co !! b then error "***  ERROR: CONTRACT IS NOT SPARSE  ***" else ed !! u !! v
                         pack3 = (setAngle b a c . setAngle a b c) pack2 
 
 
@@ -224,7 +224,9 @@ setAngle x y c pack@(gc, ed, an, di, sa, co) =
 
 
 -- ======== findangleSub3 ========
-findangleSub3 = undefined
+-- check assert
+findangleSub3 :: TpAnglePack -> (TpAngle, TpAngle, TpAngle, [Int])
+findangleSub3 (gc, ed, an, di, sa, co) = (an, di, sa, co)
 
 
 

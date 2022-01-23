@@ -5,16 +5,14 @@ import Control.Arrow ( (<<<), ArrowChoice((|||)) )
 import Control.Lens  ( (&), (.~), Ixed(ix) )
 
 
-strip :: TpConfmat -> TpEdgeno
-strip gConf = (getEdgenoSub3 0 . getEdgenoSub2 (ring + 1) 1 (replicate mverts 0) . getEdgenoSub1) gConf where
-  ring = gConf !! 1 !! 1
+strip :: Int -> TpConfmat -> TpEdgeno
+strip ring = getEdgenoSub3 0 . getEdgenoSub2 (ring + 1) 1 (replicate mverts 0) . getEdgenoSub1 ring
 
 
 -- ======== getEdgenoSub1 ========
-getEdgenoSub1 :: TpConfmat -> TpGetENPack
-getEdgenoSub1 gConf = (gConf, verts, ring, done, term, edgeno) where
+getEdgenoSub1 :: Int -> TpConfmat -> TpGetENPack
+getEdgenoSub1 ring gConf = (gConf, verts, ring, done, term, edgeno) where
   verts  = head (gConf !! 1)
-  ring   = gConf !! 1 !! 1
   done   = replicate mverts False
   term   = 3 * (verts - 1) - ring
   edgeno = newEdgeno 1 ring (replicate edges $ replicate edges 0)
@@ -35,7 +33,7 @@ getEdgenoSub2 :: Int -> Int -> [Int] -> TpGetENPack -> TpGetENPack
 getEdgenoSub2 i best max pack@(gConf, verts, ring, done, term, edgeno) 
   | i > verts = pack -- This eventually lists all the internal edges of the configuration
   | otherwise = getEdgenoSub2 (i + 1) best2 max2 pack2 where
-      d                    = (gConf !! (best + 2)) !! 1
+      d                    = gConf !! (best + 2) !! 1
       (best2, max2, pack2) = (getES2Sub4 (-1) d . getES2Sub3 1 d . getES2Sub2 0 1 best . getES2Sub1 0 0 max (ring + 1)) pack
 
 
@@ -57,7 +55,7 @@ getES2Sub2 :: Int -> Int -> Int -> (Int, [Int], TpGetENPack) -> (Int, [Int], TpG
 getES2Sub2 maxdeg h best big@(maxes, max, pack@(gConf, _, _, _, _, _))
   | h > maxes = (best, max, pack)
   | otherwise = getES2Sub2 maxdeg2 (h + 1) best2 big where
-      d                = (gConf !! (max !! h + 2)) !! 1
+      d                = gConf !! (max !! h + 2) !! 1
       (maxdeg2, best2) = if d > maxdeg then (d, max !! h) else (maxdeg, best)
 
 
@@ -73,11 +71,12 @@ getES2Sub3 first d (best, max, pack@(gConf, _, _, done, _, _))
 getES2Sub4 :: Int -> Int -> (Int, Int, [Int], TpGetENPack) -> (Int, [Int], TpGetENPack)
 getES2Sub4 (-1) d (first, best, max, pack) = getES2Sub4 first d (first, best, max, pack)
 getES2Sub4 h    d (first, best, max, pack@(gConf, verts, ring, done, term, edgeno))
-  | not $ done !! gConfBH = (best, max, pack)
+  | False = (best, max, pack) --not $ done !! gConfBH
   | h == d && first == 1  = (best, max, (gConf, verts, ring, done, term, edgeno3))
   | h == d && first /= 1  = getES2Sub4 0       d (first, best, max, (gConf, verts, ring, done2, term - 1, edgeno3))
   | otherwise             = getES2Sub4 (h + 1) d (first, best, max, (gConf, verts, ring, done2, term - 1, edgeno3)) where
-      gConfBH = (gConf !! (best + 2)) !! (h + 1)
+      term2 = error "50"
+      gConfBH = gConf !! (best + 2) !! (h + 1)
       edgeno2 = edgeno  & (ix best <<< ix gConfBH) .~ term
       edgeno3 = edgeno2 & (ix gConfBH <<< ix best) .~ term
       done2   = done & ix best .~ True
