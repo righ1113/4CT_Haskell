@@ -3,6 +3,7 @@ module ReLibAngles where
 import CoLibCConst   ( edges, mverts, TpAngle, TpConfmat, TpEdgeno, TpAnglePack )
 import Control.Arrow ( (<<<) )
 import Control.Lens  ( (&), (.~), Ixed(ix) )
+import Data.Function ( fix )
 
 
 findangles :: TpConfmat -> TpEdgeno -> (TpAngle, TpAngle, TpAngle, [Int])
@@ -157,7 +158,6 @@ findangleSub0 (gConf, edgeno) = (gConf, edgeno, angle3, diffangle3, sameangle0, 
 
   contract1 = contract0  & ix 0     .~ head (gConf !! 2) -- number of edges in contract
   contract2 = contract1  & ix edges .~ (gConf !! 1) !! 3
-  -- contract3 = findanglesSub1 gConf edgeno contract2 1
 
   edge       = 3 * head (gConf !! 1)  - 3 - (gConf !! 1) !! 1
   diffangle1 = diffangle0  & (ix 0 <<< ix 0) .~ head (gConf !! 1)
@@ -170,11 +170,53 @@ findangleSub0 (gConf, edgeno) = (gConf, edgeno, angle3, diffangle3, sameangle0, 
 
 -- ======== findangleSub1 ========
 findangleSub1 :: Int -> TpAnglePack -> TpAnglePack
-findangleSub1 i pack = pack
+findangleSub1 i pack@(gConf, edgeno, angle, diffangle, sameangle, contract)
+  | i > head contract = pack
+  | otherwise         = findangleSub1 (i + 1) (gConf, edgeno, angle, diffangle, sameangle, contract2) where
+      u = (gConf !! 2) !! (2 * i - 1)
+      v = (gConf !! 2) !!  2 * i
+      contract2 = if (edgeno !! u) !! v < 1 then error "***  ERROR: CONTRACT CONTAINS NON-EDGE  ***" else contract & ix ((edgeno !! u) !! v) .~ 1
+
 
 
 -- ======== findangleSub2 ========
-findangleSub2 = undefined
+findangleSub2 :: Int -> TpAnglePack -> TpAnglePack
+findangleSub2 v pack@(gConf, edgeno, angle, diffangle, sameangle, contract)
+  | v > head (gConf !! 1) = pack
+  | otherwise             = findangleSub2 (v + 1) nextPack where
+      nextPack = flip fix (pack, 1) $ \loop (pack2@(gc, ed, an, di, sa, co), h) -> case () of
+                  _ | h > (gc !! (v + 2)) !! 1                         ->       pack2         -- end
+                    | v <= (gc !! 1) !! 1 && h == (gc !! (v + 2)) !! 1 -> loop (pack2, h + 1) -- next
+                    | h >= length (gc !! (v + 2))                      ->       pack2         -- break
+                    | otherwise                                        -> loop (pack3, h + 1) where
+                        i = if h < (gc !! (v + 2)) !! 1 then h + 1 else 1
+                        u = (gc !! (v + 2)) !! (h + 1)
+                        w = (gc !! (v + 2)) !! (i + 1)
+                        a = ed !! v !! w
+                        b = ed !! u !! w
+                        -- どっちかが0なら通過
+                        c = if 0 /= co !! a && 0 /= co !! b then error "***  ERROR: CONTRACT IS NOT SPARSE  ***" else edgeno !! u !! v
+                        pack3 = (setAngle b a c . setAngle a b c) pack2 
+
+
+setAngle :: Int -> Int -> Int -> TpAnglePack -> TpAnglePack
+setAngle x y c pack@(gc, ed, an, di, sa, co) = undefined
+
+{-
+    def angles_sub2_sub(xxx, yyy, ccc)
+      x, y, c = xxx, yyy, ccc
+      return unless x > c
+      d  = @angle[c][0] >= 4 ? 4 : @angle[c][0] += 1
+      @angle[c][d] = x
+      if @contract[x].zero? && @contract[y].zero? && @contract[c].zero?
+        e = @diffangle[c][0] >= 4 ? 4 : @diffangle[c][0] += 1
+        @diffangle[c][e] = x
+      end
+      return if @contract[y].zero?
+      e = @sameangle[c][0] >= 4 ? 4 : @sameangle[c][0] += 1
+      @sameangle[c][e] = x
+    end
+-}
 -- ======== findangleSub3 ========
 findangleSub3 = undefined
 
