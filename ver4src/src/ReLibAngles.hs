@@ -200,23 +200,29 @@ findangleSub2 v pack@(gConf, edgeno, angle, diffangle, sameangle, contract)
 
 
 setAngle :: Int -> Int -> Int -> TpAnglePack -> TpAnglePack
-setAngle x y c pack@(gc, ed, an, di, sa, co) = undefined
+setAngle x y c pack@(gc, ed, an, di, sa, co) =
+  let
+    an2 = an & (ix c <<< ix 0) .~ head (an !! c) + 1
+    d = head (an2 !! c)
+    an3 = an2 & (ix c <<< ix d) .~ x
+    bool1 = 0 == co !! x && 0 == co !! y && 0 == co !! c
+    di2 = di & (ix c <<< ix 0) .~ head (di !! c) + 1
+    e = head (di2 !! c)
+    di3 = di2 & (ix c <<< ix e) .~ x
+    bool2 = 0 == co !! y
+    sa2 = sa2 & (ix c <<< ix 0) .~ head (sa !! c) + 1
+    f = head (sa2 !! c)
+    sa3 = sa2 & (ix c <<< ix f) .~ x
+  in case () of
+    _ | x <= c    -> pack
+      | bool1     -> case () of
+                      _ | bool2     -> (gc, ed, an3, di3, sa,  co)
+                        | otherwise -> (gc, ed, an3, di3, sa3, co)
+      | otherwise -> case () of
+                      _ | bool2     -> (gc, ed, an3, di,  sa,  co)
+                        | otherwise -> (gc, ed, an3, di,  sa3, co)
 
-{-
-    def angles_sub2_sub(xxx, yyy, ccc)
-      x, y, c = xxx, yyy, ccc
-      return unless x > c
-      d  = @angle[c][0] >= 4 ? 4 : @angle[c][0] += 1
-      @angle[c][d] = x
-      if @contract[x].zero? && @contract[y].zero? && @contract[c].zero?
-        e = @diffangle[c][0] >= 4 ? 4 : @diffangle[c][0] += 1
-        @diffangle[c][e] = x
-      end
-      return if @contract[y].zero?
-      e = @sameangle[c][0] >= 4 ? 4 : @sameangle[c][0] += 1
-      @sameangle[c][e] = x
-    end
--}
+
 -- ======== findangleSub3 ========
 findangleSub3 = undefined
 
