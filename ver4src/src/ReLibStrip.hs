@@ -3,6 +3,7 @@ module ReLibStrip where
 import CoLibCConst   ( edges, mverts, TpConfmat, TpEdgeno, TpGetENPack )
 import Control.Arrow ( (<<<), ArrowChoice((|||)) )
 import Control.Lens  ( (&), (.~), Ixed(ix) )
+import Debug.Trace   ( trace )
 
 
 strip :: Int -> TpConfmat -> TpEdgeno
@@ -34,7 +35,7 @@ getEdgenoSub2 i best max pack@(gConf, verts, ring, done, term, edgeno)
   | i > verts = pack -- This eventually lists all the internal edges of the configuration
   | otherwise = getEdgenoSub2 (i + 1) best2 max2 pack2 where
       d                    = gConf !! (best + 2) !! 1
-      (best2, max2, pack2) = (getES2Sub4 (-1) d . getES2Sub3 1 d . getES2Sub2 0 1 best . getES2Sub1 0 0 max (ring + 1)) pack
+      (best2, max2, pack2) = (getES2DoneBestTrue . getES2Sub4 (-1) d . getES2Sub3 1 d . getES2Sub2 0 1 best . getES2Sub1 0 0 max (ring + 1)) pack
 
 
 -- First we find all vertices from the interior that meet the "done"
@@ -71,51 +72,59 @@ getES2Sub3 first d (best, max, pack@(gConf, _, _, done, _, _))
 getES2Sub4 :: Int -> Int -> (Int, Int, [Int], TpGetENPack) -> (Int, [Int], TpGetENPack)
 getES2Sub4 (-1) d (first, best, max, pack) = getES2Sub4 first d (first, best, max, pack)
 getES2Sub4 h    d (first, best, max, pack@(gConf, verts, ring, done, term, edgeno))
-  | False = (best, max, pack) --not $ done !! gConfBH
-  | h == d && first == 1  = (best, max, (gConf, verts, ring, done, term, edgeno3))
-  | h == d && first /= 1  = getES2Sub4 0       d (first, best, max, (gConf, verts, ring, done2, term - 1, edgeno3))
-  | otherwise             = getES2Sub4 (h + 1) d (first, best, max, (gConf, verts, ring, done2, term - 1, edgeno3)) where
+  | not $ done !! gConfBH = trace ("BH: " ++ show gConfBH ++ " " ++ show best ++ " " ++ show h ++ " " ++ show done) (best, max, pack) --not $ done !! gConfBH
+  | h == d && first == 1 = (best, max, (gConf, verts, ring, done, term, edgeno3))
+  | h == d && first /= 1  = getES2Sub4 0       d (first, best, max, (gConf, verts, ring, trace "none: " done, term - 1, edgeno3))
+  | otherwise             = getES2Sub4 (h + 1) d (first, best, max, (gConf, verts, ring, trace ("done: " ++ show done) done, term - 1, edgeno3)) where
       term2 = error "50"
       gConfBH = gConf !! (best + 2) !! (h + 1)
       edgeno2 = edgeno  & (ix best <<< ix gConfBH) .~ term
       edgeno3 = edgeno2 & (ix gConfBH <<< ix best) .~ term
-      done2   = done & ix best .~ True
+
+
+getES2DoneBestTrue :: (Int, [Int], TpGetENPack) -> (Int, [Int], TpGetENPack)
+getES2DoneBestTrue (best, max, (gConf, verts, ring, done, term, edgeno)) = (best, max, (gConf, verts, ring, done2, term, edgeno)) where
+  done2 = done & ix best .~ True
 
 
 -- ======== getEdgenoSub3 ========
 -- Now we must list the edges between the interior and the ring
 getEdgenoSub3 :: Int -> TpGetENPack -> TpEdgeno
 getEdgenoSub3 i pack@(gConf, verts, ring, done, term, edgeno)
-  | i > ring  = edgeno
-  | otherwise = getEdgenoSub3 (i + 1) pack2 where
-      pack2 = (getES3Sub2 True ||| getES3Sub2 False) <<< getES3Sub1 0 0 1 $ pack
+  | i >= ring = edgeno
+  | otherwise = trace ("term: " ++ show term) $ getEdgenoSub3 (i + 1) pack2 where
+      pack2 = getES3DoneBestTrue <<< (getES3Sub2 True ||| getES3Sub2 False) <<< getES3Sub1 0 0 1 $ (gConf, verts, ring, done, term, edgeno)
 
 
 getES3Sub1 :: Int -> Int -> Int -> TpGetENPack -> Either (Int, Int, TpGetENPack) (Int, Int, TpGetENPack) 
 getES3Sub1 maxint best v pack@(gConf, verts, ring, done, term, edgeno)
-  | v > ring                                        = ret
-  | done !! v || not (done !! v) && inter <= maxint = getES3Sub1 maxint best (v + 1) pack
-  | otherwise                                       = getES3Sub1 inter  v    (v + 1) pack where
+  | v > ring                                          = trace ("best: " ++ show best ++ " " ++ show done) ret
+  | done !! v || (not (done !! v) && inter <= maxint) = getES3Sub1 maxint best (v + 1) pack
+  | otherwise                                         = getES3Sub1 inter  v    (v + 1) pack where
       u        = if v > 1     then v - 1 else ring
       w        = if v < ring  then v + 1 else 1
       doneIntU = if done !! u then 1     else 0
       doneIntW = if done !! w then 1     else 0
-      inter    = 3 * (gConf !! (v + 2)) !! (0 + 1) + 4 * (doneIntU + doneIntW)
+      inter    = 3 * gConf !! (v + 2) !! 1 + 4 * (doneIntU + doneIntW)
       u2       = if best > 1 then best - 1 else ring
-      ret      = if done !! u2 then Left (best, head (gConf !! (best + 2)), pack) else Right (best, 2, pack)
+      ret      = if done !! u2 then Left (best, gConf !! (best + 2)!! 1, pack) else Right (best, 2, pack)
 
 
-getES3Sub2 :: Bool -> (Int, Int, TpGetENPack) -> TpGetENPack
+getES3Sub2 :: Bool -> (Int, Int, TpGetENPack) -> (Int, TpGetENPack)
 getES3Sub2 flg (best, h, pack@(gConf, verts, ring, done, term, edgeno))
-  | flg     && h <= 2        = pack
-  | flg     && h >  2        = getES3Sub2 flg (best, h - 1, (gConf, verts, ring, done2, term - 1, edgeno3))
-  | not flg && h > head grav = pack
-  | otherwise                = getES3Sub2 flg (best, h + 1, (gConf, verts, ring, done2, term - 1, edgeno3)) where
-      grav    = gConf !! (best + 2)
-      done2   = done & ix best .~ True
+  | flg     && h <= 2        = (best, pack)
+  | flg     && h >  2        = getES3Sub2 flg (best, h - 1, (gConf, verts, ring, done, term - 1, edgeno3))
+  | not flg && h > grav !! 1 = (best, pack)
+  | otherwise                = getES3Sub2 flg (best, h + 1, (gConf, verts, ring, done, term - 1, edgeno3)) where
+      grav    = trace ("gConf: " ++ show gConf ++ " " ++ show h) gConf !! (best + 2)
       gravH1  = grav !! (h + 1)
       edgeno2 = edgeno  & (ix best <<< ix gravH1) .~ term
       edgeno3 = edgeno2 & (ix gravH1 <<< ix best) .~ term
+
+
+getES3DoneBestTrue :: (Int, TpGetENPack) -> TpGetENPack
+getES3DoneBestTrue (best, (gConf, verts, ring, done, term, edgeno)) = (gConf, verts, ring, done2, term, edgeno) where
+  done2 = done & ix best .~ True
 
 
 -- ======== inInterval ========

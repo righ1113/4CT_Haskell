@@ -91,20 +91,14 @@ fliveSsub4 angle ring ((exit1, c2, j2), exLive, second, _, fourth, forbi) = do
   let c4 = c2 & ix (j2 - 1) .~ 1
   (exit3, u3, j4) <- flip fix (0, j2 - 1, 1) $ \loop (u, j, i) -> case () of
                         _ | j < 0                  -> return (True,  u, j)
-                          | i >= head (angle !! j) -> return (False, u, j)
+                          | i > head (angle !! j) -> return (False, u, j)
                           | otherwise              -> do{ putStrLn $ "angle: " ++ show (angle !! j !! i); loop (u2, j, i + 1) } where
                               u2 = u .|. c4 !! (angle !! j !! i)
   let forbi2 = if j2 == ring + 1 then forbi else forbi & ix j4 .~ u3
-  putStrLn $ "forbi2: " ++ show (forbi2 !! j4)
+  putStrLn $ "forbi2: " ++ show (forbi2 !! j4) ++ "  " ++ show u3
+  print c4
   print forbi2
   return ((exit1, c2, j2), exLive, second, (exit3, c4, j4), fourth, forbi2)
-{-
-          jjj -= 1
-          return [ncodes - extent, @live] if jjj.negative?
-          ccc[jjj], u = 1, 0
-          (1..angle[jjj][0]).each { |i| u |= ccc[angle[jjj][i]] }
-          forbidden[jjj] = u
--}
 
 
 fliveSsub5 :: Int -> TpFliveBindPack -> IO TpFliveBindPack
