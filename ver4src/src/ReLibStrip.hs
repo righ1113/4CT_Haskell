@@ -106,15 +106,15 @@ getES3Sub1 maxint best v pack@(gConf, verts, ring, done, term, edgeno)
       doneIntW = if done !! w then 1     else 0
       inter    = 3 * gConf !! (v + 2) !! 1 + 4 * (doneIntU + doneIntW)
       u2       = if best > 1 then best - 1 else ring
-      ret      = if done !! u2 then Left (best, gConf !! (best + 2)!! 1, pack) else Right (best, 2, pack)
+      ret      = if done !! u2 then Left (best, gConf !! (best + 2)!! 1 - 1, pack) else Right (best, 2, pack)
 
 
 getES3Sub2 :: Bool -> (Int, Int, TpGetENPack) -> (Int, TpGetENPack)
 getES3Sub2 flg (best, h, pack@(gConf, verts, ring, done, term, edgeno))
-  | flg     && h <= 2        = (best, pack)
-  | flg     && h >  2        = getES3Sub2 flg (best, h - 1, (gConf, verts, ring, done, term - 1, edgeno3))
-  | not flg && h > grav !! 1 = (best, pack)
-  | otherwise                = getES3Sub2 flg (best, h + 1, (gConf, verts, ring, done, term - 1, edgeno3)) where
+  | flg     && h <  2             = (best, pack)
+  | flg     && h >= 2             = getES3Sub2 flg (best, h - 1, (gConf, verts, ring, done, term - 1, edgeno3))
+  | not flg && h >  grav !! 1 - 1 = (best, pack)
+  | otherwise                     = getES3Sub2 flg (best, h + 1, (gConf, verts, ring, done, term - 1, edgeno3)) where
       grav    = trace ("gConf: " ++ show gConf ++ " " ++ show h) gConf !! (best + 2)
       gravH1  = grav !! (h + 1)
       edgeno2 = edgeno  & (ix best <<< ix gravH1) .~ term
