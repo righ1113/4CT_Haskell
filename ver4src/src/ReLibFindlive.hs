@@ -39,7 +39,7 @@ beforePrintStatus (ring, ncodes, extent, extentclaim, (_, c, j), ed) = do
 
 
 findliveSub2 :: TpBPSPack -> Int -> [Int] -> TpAngle -> [Int] -> Int -> IO (Int, [Int])
-findliveSub2 _ _ _ _ _ 26 = error "262144findlive_sub : It was not good though it was repeated 262144 times!意図的なエラー"
+findliveSub2 _ _ _ _ _ 26 = error "findlive_sub : It was not good though it was repeated 262144 times!意図的なエラー"
 findliveSub2 (ring, ncodes, extent, extentclaim, (_, c, j), ed) bigno live angle forbidden cnt = do
   print angle
   putStrLn $ "cnt: " ++ show cnt

@@ -34,8 +34,9 @@ getEdgenoSub2 :: Int -> Int -> [Int] -> TpGetENPack -> TpGetENPack
 getEdgenoSub2 i best max pack@(gConf, verts, ring, done, term, edgeno) 
   | i > verts = pack -- This eventually lists all the internal edges of the configuration
   | otherwise = getEdgenoSub2 (i + 1) best2 max2 pack2 where
-      d                    = gConf !! (best + 2) !! 1
-      (best2, max2, pack2) = (getES2DoneBestTrue . getES2Sub4 (-1) d . getES2Sub3 1 d . getES2Sub2 0 1 best . getES2Sub1 0 0 max (ring + 1)) pack
+      d                    =          gConf !! (best + 2) !! 1
+      previous             = done !! (gConf !! (best + 2) !! (d + 1))
+      (best2, max2, pack2) = (getES2DoneBestTrue . getES2Sub4 (-1) d . getES2Sub3 previous 1 d . getES2Sub2 0 1 best . getES2Sub1 0 0 max (ring + 1)) pack
 
 
 -- First we find all vertices from the interior that meet the "done"
@@ -60,23 +61,21 @@ getES2Sub2 maxdeg h best big@(maxes, max, pack@(gConf, _, _, _, _, _))
       (maxdeg2, best2) = if d > maxdeg then (d, max !! h) else (maxdeg, best)
 
 
-getES2Sub3 :: Int -> Int -> (Int, [Int], TpGetENPack) -> (Int, Int, [Int], TpGetENPack)
-getES2Sub3 first d (best, max, pack@(gConf, _, _, done, _, _))
-  | first > d                 = (1,     best, max, pack)
+getES2Sub3 :: Bool -> Int -> Int -> (Int, [Int], TpGetENPack) -> (Int, Int, [Int], TpGetENPack)
+getES2Sub3 previous first d (best, max, pack@(gConf, _, _, done, _, _))
   | not previous && doneGConf = (first, best, max, pack)
-  | otherwise                 = getES2Sub3 (first + 1) d (best, max, pack) where
-      previous  = done !! ((gConf !! (best + 2)) !! (d     + 1))
-      doneGConf = done !! ((gConf !! (best + 2)) !! (first + 1))
+  | first > d                 = (1,     best, max, pack)
+  | otherwise                 = getES2Sub3 doneGConf (first + 1) d (best, max, pack) where
+      doneGConf = done !! (gConf !! (best + 2) !! (first + 1))
 
 
 getES2Sub4 :: Int -> Int -> (Int, Int, [Int], TpGetENPack) -> (Int, [Int], TpGetENPack)
 getES2Sub4 (-1) d (first, best, max, pack) = getES2Sub4 first d (first, best, max, pack)
 getES2Sub4 h    d (first, best, max, pack@(gConf, verts, ring, done, term, edgeno))
-  | not $ done !! gConfBH = trace ("BH: " ++ show gConfBH ++ " " ++ show best ++ " " ++ show h ++ " " ++ show done) (best, max, pack) --not $ done !! gConfBH
-  | h == d && first == 1 = (best, max, (gConf, verts, ring, done, term, edgeno3))
-  | h == d && first /= 1  = getES2Sub4 0       d (first, best, max, (gConf, verts, ring, trace "none: " done, term - 1, edgeno3))
+  | not $ done !! gConfBH = trace ("BH: " ++ show gConfBH ++ " " ++ show best ++ " " ++ show h ++ " " ++ show done) (best, max, pack)
+  | h == d && first == 1 = (best, max, (gConf, verts, ring, done, term - 1, edgeno3))
+  | h == d && first /= 1  = getES2Sub4 1       d (first, best, max, (gConf, verts, ring, trace "none: " done, term - 1, edgeno3))
   | otherwise             = getES2Sub4 (h + 1) d (first, best, max, (gConf, verts, ring, trace ("done: " ++ show done) done, term - 1, edgeno3)) where
-      term2 = error "50"
       gConfBH = gConf !! (best + 2) !! (h + 1)
       edgeno2 = edgeno  & (ix best <<< ix gConfBH) .~ term
       edgeno3 = edgeno2 & (ix gConfBH <<< ix best) .~ term
