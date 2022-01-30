@@ -32,14 +32,14 @@ beforePrintStatus (ring, ncodes, extent, extentclaim, (_, c, j), ed) = do
   print ring
   flip fix (c2, j) $ \loop (c, j) -> case () of
     _ | 8 .&. (c !! j) == 0 -> return (False, c, j)
-      | j > ed - 1          -> do{ printStatus ring ncodes extent extentclaim; return (True, c, j) }
+      | j >= ed - 1         -> do{ printStatus ring ncodes extent extentclaim; return (True, c, j) }
       | otherwise           -> loop (c2, j2) where
           j2 = j + 1
           c2 = c & ix j2 .~ shift (c !! j2) 1
 
 
 findliveSub2 :: TpBPSPack -> Int -> [Int] -> TpAngle -> [Int] -> Int -> IO (Int, [Int])
-findliveSub2 _ _ _ _ _ 26 = error "findlive_sub : It was not good though it was repeated 262144 times!意図的なエラー"
+findliveSub2 _ _ _ _ _ 128 = error "findlive_sub : It was not good though it was repeated 262144 times!意図的なエラー"
 findliveSub2 (ring, ncodes, extent, extentclaim, (_, c, j), ed) bigno live angle forbidden cnt = do
   print angle
   putStrLn $ "cnt: " ++ show cnt
@@ -65,9 +65,9 @@ findliveSub2 (ring, ncodes, extent, extentclaim, (_, c, j), ed) bigno live angle
 fliveSsub1 :: TpBPSPack -> [Int] ->  [Int] -> IO TpFliveBindPack
 fliveSsub1 (ring, ncodes, extent, extentclaim, (_, c, j), ed) forbi live =
   flip fix (False, c, j) $ \loop (exitSub, c, j) -> case () of
-    _ | (forbi !! j) .&. (c !! j) == 0 -> do{ print (forbi !! j); print (c !! j); print ((forbi !! j) .&. (c !! j));
+    _ | exitSub                        -> return ((True,  c, j), (extent, live), (False, [], 0), (False, [], 0), (False, [], 0), forbi)
+      | (forbi !! j) .&. (c !! j) == 0 -> do{ print (forbi !! j); print (c !! j); print ((forbi !! j) .&. (c !! j));
                                               return ((False, c, j), (extent, live), (False, [], 0), (False, [], 0), (False, [], 0), forbi) }
-      | exitSub                        -> return ((True,  c, j), (extent, live), (False, [], 0), (False, [], 0), (False, [], 0), forbi)
       | otherwise                      -> beforePrintStatus (ring, ncodes, extent, extentclaim, (False, c, j), ed) >>= loop
 
 
