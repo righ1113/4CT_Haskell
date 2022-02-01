@@ -10,7 +10,7 @@ module Main where
 
 import CoLibCConst     ( readFileGoodConfsR, TpConfmat, power, simatchnumber ) 
 import ReLibStrip      ( strip )
-import ReLibAngles     ( findangles, findangles2 )
+import ReLibAngles     ( findangles2 )
 import ReLibFindlive   ( findlive )
 import ReLibUpdateLive ( updateLive )
 
@@ -19,7 +19,6 @@ main :: IO ()
 main = do
   putStrLn "これは四色定理の可約性を調べるプログラムです"
   gConfs <- readFileGoodConfsR
-  -- print (((gConfs !! 1) !! 2) !! 1)
   mainLoop gConfs
   -- putStrLn "633個の好配置は全て、Ｄ可約 or Ｃ可約です"
   putStrLn "プログラムは正常終了しました"
