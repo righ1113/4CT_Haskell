@@ -35,9 +35,6 @@ findliveSub (ring, ncodes, extent, extentclaim, (_, c, j), ed) bigno live angle 
           =<< fliveSsub2 angle bigno ring
             =<< fliveSsub1 (ring, ncodes, extent, extentclaim, (False, c, j), ed) forbidden live
   -- totalling
-  print exit1
-  print exit2
-  print exit3
   case () of
     _ | exit1                   -> return (ncodes - extent,  live)
       | exit2 && j2 == ring + 1 -> return (ncodes - extent2, live2)
@@ -72,16 +69,14 @@ fliveSsub3 (ring, ncodes, _, extentclaim, _, ed)
 
 fliveSsub4 :: TpAngle -> Int -> TpFliveBindPack -> IO TpFliveBindPack
 fliveSsub4 angle ring ((exit1, c2, j2), exLive, second, _, fourth, forbi) = do
-  let c4 = c2 & ix (j2 - 1) .~ 1
-  (exit3, u3, j4) <- flip fix (0, j2 - 1, 1) $ \loop (u, j, i) -> case () of
-                        _ | j < 0                  -> return (True,  u, j)
-                          | i > head (angle !! j) -> return (False, u, j)
-                          | otherwise              -> do{ putStrLn $ "angle: " ++ show (angle !! j !! i); loop (u2, j, i + 1) } where
-                              u2 = u .|. c4 !! (angle !! j !! i)
-  let forbi2 = if j2 == ring + 1 then forbi else forbi & ix j4 .~ u3
-  putStrLn $ "forbi2: " ++ show (forbi2 !! j4) ++ "  " ++ show u3
-  print c4
-  print forbi2
+  let c4     = c2 & ix (j2 - 1) .~ 1
+      j4     = j2 - 1
+      exit3  = j4 < 0
+      u3     = foldl (\x y -> x .|. c4 !! y) 0 $ tail (angle !! j4)
+      forbi2 = if j2 == ring + 1 then forbi else forbi & ix j4 .~ u3
+  -- putStrLn $ "forbi2: " ++ show (forbi2 !! j4) ++ "  " ++ show u3
+  -- print c4
+  -- print forbi2
   return ((exit1, c2, j2), exLive, second, (exit3, c4, j4), fourth, forbi2)
 
 
