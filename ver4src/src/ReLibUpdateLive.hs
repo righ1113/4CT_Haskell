@@ -55,7 +55,33 @@ testmatchSub5 = return ()
 
 -- ======== augment ========
 augment :: TpRingNchar -> TpBaseCol -> Int -> TpTMbind -> StateT TpUpdateState IO TpTMbind
-augment = undefined
+augment rn bc n tm = do
+  let lower = 2
+  checkReality rn bc [[]]
+  flip fix (4, lower) $ \loop (k, r) -> case () of
+    _ | r > n     -> return tm
+      | otherwise -> do
+          tm' <- augmentSub r (lower + 1) rn bc n tm
+          loop (k, r + 1)
+
+
+augmentSub :: Int -> Int -> TpRingNchar -> TpBaseCol -> Int -> TpTMbind -> StateT TpUpdateState IO TpTMbind
+augmentSub r i rn bc n tm
+  | i > upper = return tm
+  | otherwise = do
+      (min, max) <- flip fix (4, lower) $ \loop (k, j) -> case () of
+                      _ | j > i     -> return (k, j)
+                        | otherwise -> do
+                            -- weight
+                            -- take-cycle-take
+                            tm'' <- augment rn bc' newN tm'
+                            loop (k, j + 1)
+      augmentSub r (i + 1) rn bc' newN tm' where
+        lower = 2
+        upper = 4
+        bc' = bc
+        newN = n
+        tm' = tm
 
 
 checkReality :: TpRingNchar -> TpBaseCol -> [[Int]] -> StateT TpUpdateState IO ()
