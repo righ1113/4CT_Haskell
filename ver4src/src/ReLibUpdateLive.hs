@@ -2,7 +2,7 @@ module ReLibUpdateLive where
 
 import CoLibCConst                    ( TpLiveTwin, TpUpdateState, TpRingNchar, TpBaseCol, TpTMbind, simatchnumber, maxring )
 import Control.Lens                   ( (&), (.~), Ixed(ix) )
-import Control.Monad.Trans.State.Lazy ( StateT(..), execStateT )
+import Control.Monad.Trans.State.Lazy ( StateT(..), execStateT, get, put )
 import Data.Bits                      ( Bits(shift, (.&.), (.|.)) )    
 import Data.Function                  ( fix )
 import Data.Int                       ( Int8 )
@@ -57,7 +57,7 @@ testmatchSub5 = return ()
 augment :: TpRingNchar -> TpBaseCol -> Int -> TpTMbind -> StateT TpUpdateState IO TpTMbind
 augment rn bc n tm = do
   let lower = 2
-  checkReality rn bc [[]]
+  checkReality rn bc 0 [[]]
   flip fix (4, lower) $ \loop (k, r) -> case () of
     _ | r > n     -> return tm
       | otherwise -> do
@@ -84,12 +84,28 @@ augmentSub r i rn bc n tm
         tm' = tm
 
 
-checkReality :: TpRingNchar -> TpBaseCol -> [[Int]] -> StateT TpUpdateState IO ()
-checkReality _ bc weight = do
-  is <- isStillReal bc [] 
+-- ======== reality ========
+checkReality :: TpRingNchar -> TpBaseCol -> Int -> [[Int]] -> StateT TpUpdateState IO ()
+checkReality rn bc@(depth, col, on) k weight = do
+  let max    = shift 1 (depth - 1) :: Int
+      choice = replicate 8 0
+  (twin, real, nreal, bit, realterm) <- get
+  -- if bit.zero? ...
   case () of
-    _ | not is    -> undefined
-      | otherwise -> undefined
+    _ | k >= max  -> return ()
+      | False     -> do
+          put (twin, real, nreal, shift bit 1, realterm)
+          checkReality rn bc (k + 1) weight
+      | otherwise -> do
+          (min, max) <- flip fix (4, 1) $ \loop (k, i) -> case () of
+                  _ | i > depth -> return (k, i)
+                    | otherwise -> do
+                        loop (k, i + 1)
+          is <- isStillReal bc choice
+          case () of
+            _ | not is    -> undefined
+              | otherwise -> undefined
+          checkReality rn bc (k + 1) weight
 
 
 isStillReal :: TpBaseCol -> [Int] -> StateT TpUpdateState IO Bool
