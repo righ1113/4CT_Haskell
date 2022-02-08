@@ -9,7 +9,7 @@
 module Main where
 
 import CoLibCConst     ( readFileGoodConfsR, TpConfmat, power, simatchnumber ) 
-import ReLibStrip      ( strip )
+import ReLibStrip      ( strip, getEdgeNo )
 import ReLibAngles     ( findangles2 )
 import ReLibFindlive   ( findlive )
 import ReLibUpdateLive ( updateLive )
@@ -31,10 +31,12 @@ mainLoop gConfs
 
     -- 1. strip()
     let gConf  = head gConfs
+        vertex = head $ gConf !! 1
         ring   = gConf !! 1 !! 1                   -- ring-size
         edgeno = strip ring gConf
     -- putStrLn "edgeno:"
-    -- print edgeno
+        edgeNo = getEdgeNo vertex ring gConf
+    -- print ret
 
     -- 2. findangles()
     {- "findangles" fills in the arrays "angle","diffangle","sameangle" and
