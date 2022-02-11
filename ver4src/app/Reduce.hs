@@ -36,7 +36,7 @@ mainLoop gConfs
         edgeno = strip ring gConf
     -- putStrLn "edgeno:"
         edgeNo = getEdgeNo vertex ring gConf
-    -- print ret
+    -- print edgeNo
 
     -- 2. findangles()
     {- "findangles" fills in the arrays "angle","diffangle","sameangle" and
@@ -46,7 +46,7 @@ mainLoop gConfs
         they will be used in "checkcontract" below to verify that the
         contract is correct. -}
     -- let (angle, diffangle, sameangle, contract) = findangles gConf edgeno
-    let (angle, diffangle, sameangle, contract) = findangles2 (gConf, edgeno)
+    let (angle, diffangle, sameangle, contract) = findangles2 (gConf, edgeNo)
     --print contract2
 
     -- 3. findlive()

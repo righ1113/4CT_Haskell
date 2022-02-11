@@ -3,22 +3,24 @@ module ReLibStrip where
 import CoLibCConst   ( edges, mverts, TpConfmat, TpEdgeno, TpGetENPack )
 import Control.Arrow ( (<<<), ArrowChoice((|||)) )
 import Control.Lens  ( (&), (.~), Ixed(ix) )
+import Data.List     ( sortOn )
+import Data.Ord      ( Down(..) )
 import Debug.Trace   ( trace )
 
 
 getEdgeNo :: Int -> Int -> TpConfmat -> TpEdgeno
 getEdgeNo vertex ring gConf = trace ("$$$ vertex: " ++ show edgeno) edgeno where
-  edgeno = writeEno edgeList (ring + 1) edgeno1
-  edgeno1 = sixth $ getEdgenoSub1 ring gConf
+  edgeno              = writeEno edgeList (ring + 1) edgeno0
+  edgeno0             = sixth $ getEdgenoSub1 ring gConf
   sixth (_,_,_,_,_,f) = f
-  edgeList = concatMap (conc []) $ getEdgeList vertex ring gConf
+  edgeList            = concatMap (conc []) $ getEdgeList vertex ring gConf
 
 
 getEdgeList :: Int -> Int -> TpConfmat -> [[Int]]
-getEdgeList vertex ring gConf = trace ("$$$ edgeLists: " ++ show (concatMap (conc []) (eList1 ++ eList2))) (eList1 ++ eList2) where
+getEdgeList vertex ring gConf = trace ("$$$ edgeLists: " ++ show (concatMap (conc []) (eList1 ++ eList2))) (reverse eList1 ++ reverse eList2) where
   edgeLists = splitAt ring . take vertex . drop 3 $ gConf
-  eList1    = zipWith (++) (map (: []) [1..ring]) (map (filter (> ring)) $ fst edgeLists)
-  eList2    = map (filter (> ring)) $ snd edgeLists
+  eList1    = zipWith (++) (map (: []) [1..ring])          (map (sortOn Down . filter (> ring))        $ fst edgeLists)
+  eList2    = zipWith (++) (map (: []) [(ring+1)..vertex]) (map (sortOn Down . filter (> ring) . tail) $ snd edgeLists)
 
 
 conc :: [[Int]] -> [Int] -> [[Int]]
@@ -32,8 +34,9 @@ writeEno :: [[Int]] -> Int -> TpEdgeno -> TpEdgeno
 writeEno []            _    edgeno = edgeno
 writeEno ([a, b] : xs) term edgeno
   = if edgeno !! a !! b == 0 then writeEno xs (term + 1) edgeno3 else writeEno xs term edgeno where
-    edgeno2 = edgeno  & (ix a <<< ix b) .~ term
-    edgeno3 = edgeno2 & (ix b <<< ix a) .~ term
+      edgeno2 = edgeno  & (ix a <<< ix b) .~ term
+      edgeno3 = edgeno2 & (ix b <<< ix a) .~ term
+-- ここまでで出来た
 
 
 
