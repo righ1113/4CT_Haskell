@@ -27,6 +27,7 @@ type TpUpdateState   = (TpLiveTwin, [Int], Int, Int8, Int)
 type TpRingNchar     = (Int, Int)
 type TpBaseCol       = (Int, Int, Int)
 type TpTMbind        = ([Int], [[Int]], [[[Int]]])
+type TpRealityPack   = ([Int], Int, [Int], [Int], Int)
 
 verts      = 27 :: Int               -- max number of vertices in a free completion + 1
 confs      = 640 :: Int              -- max number of configurations

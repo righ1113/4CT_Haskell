@@ -1,11 +1,15 @@
 module ReLibUpdateLive where
 
-import CoLibCConst                    ( TpLiveTwin, TpUpdateState, TpRingNchar, TpBaseCol, TpTMbind, simatchnumber, maxring )
+import CoLibCConst                    ( TpLiveTwin, TpUpdateState, TpRingNchar, TpBaseCol, TpTMbind, TpRealityPack, simatchnumber, maxring )
+import Control.Applicative            ( empty )
 import Control.Lens                   ( (&), (.~), Ixed(ix) )
+import Control.Monad.Trans.Class      ( lift )
+import Control.Monad.Trans.Maybe      ( MaybeT(..) )
 import Control.Monad.Trans.State.Lazy ( StateT(..), execStateT, get, put )
 import Data.Bits                      ( Bits(shift, (.&.), (.|.)) )    
 import Data.Function                  ( fix )
 import Data.Int                       ( Int8 )
+import Data.Maybe                     ( isNothing )
 
 
 updateLive :: Int -> Int -> Int -> TpLiveTwin -> IO TpLiveTwin
@@ -101,15 +105,37 @@ checkReality rn bc@(depth, col, on) k weight = do
                   _ | i > depth -> return (k, i)
                     | otherwise -> do
                         loop (k, i + 1)
-          is <- isStillReal bc choice
+          retM <- runMaybeT $ isStillReal bc choice
           case () of
-            _ | not is    -> undefined
-              | otherwise -> undefined
+            _ | isNothing retM -> undefined
+              | otherwise      -> undefined
           checkReality rn bc (k + 1) weight
 
 
-isStillReal :: TpBaseCol -> [Int] -> StateT TpUpdateState IO Bool
-isStillReal = undefined
+isStillReal :: TpBaseCol -> [Int] -> MaybeT (StateT TpUpdateState IO) ()
+isStillReal bc choice = do
+  case () of
+    _ | True      -> empty     -- ここで終了
+      | otherwise -> return () -- 次へ進む
+  case () of
+    _ | True      -> empty     -- ここで終了
+      | otherwise -> return () -- 次へ進む
+  return () -- 末尾なので、ここで終了
+
+
+stillRealSub :: Int -> Int -> TpRealityPack -> MaybeT (StateT TpUpdateState IO) TpRealityPack
+stillRealSub b mark (twi, nTw, sum, unt, nUn) = do
+  ((_, live), _, _, _, _) <- lift get
+  case () of
+    _ | b <  0 && live !! (-b) == 0 -> empty
+      | b <  0 && live !! (-b) /= 0 -> return (twi2, nTw2, sum2, unt,  nUn)
+      | b >= 0 && live !! b    == 0 -> empty
+      | otherwise                   -> return (twi,  nTw,  sum2, unt2, nUn2) where
+          twi2 = twi & ix nTw .~ (-b)
+          nTw2 = nTw + 1
+          sum2 = sum & ix mark .~ b
+          unt2 = unt & ix nUn .~ b
+          nUn2 = nUn + 1
 
 
 
