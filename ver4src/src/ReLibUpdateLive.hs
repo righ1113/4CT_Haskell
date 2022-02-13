@@ -15,16 +15,24 @@ import Data.Maybe                     ( isNothing )
 updateLive :: Int -> Int -> Int -> TpLiveTwin -> IO TpLiveTwin
 updateLive ring nchar ncodes lTwin =
   flip fix (lTwin, real, 0, 1, 0) $ \loop now -> do
-    next@((nlive, live), _, _, _, _) <- execStateT testmatch now
-    is                               <- isUpdate
+    ((nLive, live), real2, _, _, _) <- execStateT testmatch now
+    (is, nLive2)                    <- isUpdate (nLive, live)
     case () of
-      _ | not is    -> return (nlive, live)
-        | otherwise -> loop next where
-            c2 = 1
+      _ | not is    -> return (nLive2, live)
+        | otherwise -> loop  ((nLive2, live), real2, 0, 1, 0)
   where real = replicate (simatchnumber !! maxring `div` 8 + 2) 255
 
 
-isUpdate = return False
+isUpdate :: TpLiveTwin -> IO (Bool, Int)
+isUpdate (nLive, live) = do
+  let nLive2 = 0
+      s1     = "\n\n\n                  ***  D-reducible  ***\n"
+      s2     = "\n\n\n                ***  Not D-reducible  ***\n"
+  case () of
+    _ | 0 < nLive2 && nLive2 < nLive -> return (True, nLive2) -- 続行
+      | otherwise                    -> do
+          if nLive2 == 0 then putStr s1 else putStr s2
+          return (False, nLive2) -- 終了
 
 
 -- ======== testmatch ========
