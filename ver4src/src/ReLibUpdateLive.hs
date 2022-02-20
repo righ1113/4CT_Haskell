@@ -16,23 +16,31 @@ updateLive :: Int -> Int -> Int -> TpLiveTwin -> IO TpLiveTwin
 updateLive ring nchar ncodes lTwin =
   flip fix (lTwin, real, 0, 1, 0) $ \loop now -> do
     ((nLive, live), real2, _, _, _) <- execStateT testmatch now
-    (is, nLive2)                    <- isUpdate (nLive, live)
+    (is, (nLive2, live2))           <- isUpdate ncodes (nLive, live)
     case () of
-      _ | not is    -> return (nLive2, live)
-        | otherwise -> loop  ((nLive2, live), real2, 0, 1, 0)
+      _ | not is    -> return (nLive2, live2)
+        | otherwise -> loop  ((nLive2, live2), real2, 0, 1, 0)
   where real = replicate (simatchnumber !! maxring `div` 8 + 2) 255
 
 
-isUpdate :: TpLiveTwin -> IO (Bool, Int)
-isUpdate (nLive, live) = do
-  let nLive2 = 0
-      s1     = "\n\n\n                  ***  D-reducible  ***\n"
-      s2     = "\n\n\n                ***  Not D-reducible  ***\n"
+isUpdate :: Int -> TpLiveTwin -> IO (Bool, TpLiveTwin)
+isUpdate ncodes (nLive, live) = do
+  let s1              = "\n\n\n                  ***  D-reducible  ***\n"
+      s2              = "\n\n\n                ***  Not D-reducible  ***\n"
+      live'           = if head live > 1 then live & ix 0 .~ 15 else live
+      (nLive2, live2) = flip fix (nLive, live', 0) $ \loop (nLive, live, i) -> case () of
+                          _ | i >= ncodes     -> (nLive, live)
+                            | live !! i /= 15 -> loop (nLive , live3, i + 1)
+                            | otherwise       -> loop (nLive2, live2, i + 1) where
+                                nLive2 = nLive + 1
+                                live2  = live & ix i .~ 1
+                                live3  = live & ix i .~ 0
+  putStr $ "              " ++ show nLive2 -- left
   case () of
-    _ | 0 < nLive2 && nLive2 < nLive -> return (True, nLive2) -- 続行
+    _ | 0 < nLive2 && nLive2 < nLive -> return (True, (nLive2, live2)) -- 続行
       | otherwise                    -> do
           if nLive2 == 0 then putStr s1 else putStr s2
-          return (False, nLive2) -- 終了
+          return (False, (nLive2, live2)) -- 終了
 
 
 -- ======== testmatch ========
