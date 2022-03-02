@@ -49,31 +49,32 @@ testmatch :: Int -> StateT TpUpdateState IO ()
 testmatch ring =
   flip (>>) testmatchSub5
     $ testmatchSub4wrapAug
-      =<< testmatchSub3
+      =<< testmatchSub1 ring False
         =<< testmatchSub2wrapAug
-          =<< testmatchSub1 ring (replicate 10 0, replicate 16 $ replicate 4 0, replicate 16 $ replicate 16 $ replicate 4 0)
+          =<< testmatchSub1 ring True (replicate 10 0, replicate 16 $ replicate 4 0, replicate 16 $ replicate 16 $ replicate 4 0)
 
 
-testmatchSub1 :: Int -> TpTMbind -> StateT TpUpdateState IO TpTMbind
-testmatchSub1 ring (interval, weight, matchW) = return (interval, weight, matchW2) where
+testmatchSub1 :: Int -> Bool -> TpTMbind -> StateT TpUpdateState IO TpTMbind
+testmatchSub1 ring flg (interval, weight, matchW) = return (interval, weight, matchW2) where
   matchW2 = flip fix (matchW, 2) $ \loop (matchW, a) -> case () of
               _ | a > ring -> matchW
                 | otherwise -> loop (matchW3, a + 1) where
                     matchW3 = flip fix (matchW, 1) $ \loop (matchW, b) -> case () of
                                 _ | b > a - 1 -> matchW
-                                  | otherwise -> loop (matchW4_4, b + 1) where
+                                  | otherwise -> loop (nextMatch, b + 1) where
                                       matchW4_1 = matchW    & (ix a <<< ix b <<< ix 0) .~ (power !! a + power !! b) * 2
                                       matchW4_2 = matchW4_1 & (ix a <<< ix b <<< ix 1) .~ (power !! a - power !! b) * 2
                                       matchW4_3 = matchW4_2 & (ix a <<< ix b <<< ix 2) .~ (power !! a + power !! b)
                                       matchW4_4 = matchW4_3 & (ix a <<< ix b <<< ix 3) .~ (power !! a - power !! b)
+                                      matchW5_1 = matchW    & (ix a <<< ix b <<< ix 0) .~ (power !! a + power !! b)
+                                      matchW5_2 = matchW5_1 & (ix a <<< ix b <<< ix 1) .~ (power !! a - power !! b)
+                                      matchW5_3 = matchW5_2 & (ix a <<< ix b <<< ix 2) .~ -power !! a + power !! b
+                                      matchW5_4 = matchW5_3 & (ix a <<< ix b <<< ix 3) .~ -power !! a -2 * power !! b
+                                      nextMatch = if flg then matchW4_4 else matchW5_4
 
 
 testmatchSub2wrapAug :: TpTMbind -> StateT TpUpdateState IO TpTMbind
 testmatchSub2wrapAug = return
-
-
-testmatchSub3 :: TpTMbind -> StateT TpUpdateState IO TpTMbind
-testmatchSub3 = return
 
 
 testmatchSub4wrapAug :: TpTMbind -> StateT TpUpdateState IO TpTMbind
