@@ -16,7 +16,7 @@ import Data.Maybe                     ( isNothing )
 updateLive :: Int -> Int -> Int -> TpLiveTwin -> IO TpLiveTwin
 updateLive ring nchar ncodes lTwin =
   flip fix (lTwin, real, 0, 1, 0) $ \loop now -> do
-    ((nLive, live), real2, _, _, _) <- execStateT (testmatch ring) now
+    ((nLive, live), real2, _, _, _) <- execStateT (testmatch ring nchar) now
     (is, (nLive2, live2))           <- isUpdate ncodes (nLive, live)
     case () of
       _ | not is    -> return (nLive2, live2)
@@ -45,12 +45,12 @@ isUpdate ncodes (nLive, live) = do
 
 
 -- ======== testmatch ========
-testmatch :: Int -> StateT TpUpdateState IO ()
-testmatch ring =
+testmatch :: Int -> Int -> StateT TpUpdateState IO ()
+testmatch ring nchar =
   flip (>>) testmatchSub5
     $ testmatchSub4wrapAug
       =<< testmatchSub1 ring False
-        =<< testmatchSub2wrapAug
+        =<< testmatchSub2wrapAug ring nchar True
           =<< testmatchSub1 ring True (replicate 10 0, replicate 16 $ replicate 4 0, replicate 16 $ replicate 16 $ replicate 4 0)
 
 
@@ -73,9 +73,54 @@ testmatchSub1 ring flg (interval, weight, matchW) = return (interval, weight, ma
                                       nextMatch = if flg then matchW4_4 else matchW5_4
 
 
-testmatchSub2wrapAug :: TpTMbind -> StateT TpUpdateState IO TpTMbind
-testmatchSub2wrapAug = return
-
+testmatchSub2wrapAug :: Int -> Int -> Bool -> TpTMbind -> StateT TpUpdateState IO TpTMbind
+testmatchSub2wrapAug ring nchar flg (interval, weight, matchW) =
+  flip fix ((interval, weight), 2) $ \loop ((interval, weight), a) -> case () of
+    _ | a > ring - 1 -> return (interval, weight, matchW)
+      | otherwise -> do
+          (interval3, weight3) <- flip fix ((interval, weight), 1) $ \loop ((interval, weight), b) -> case () of
+                                    _ | b > a - 1 -> return (interval, weight)
+                                      | otherwise -> do
+                                          let
+                                            weight4 = weight & ix 1 .~ matchW !! a !! b
+                                            n
+                                              | b >= 3 && a >= b + 3 = 2
+                                              | b >= 3 && a <  b + 3 = 1
+                                              | b <  3 && a >= b + 3 = 1
+                                              | otherwise            = 0
+                                            interval4_1 = interval    & ix 1           .~ 1
+                                            interval4_2 = interval4_1 & ix 2           .~ b - 1
+                                            interval4_3 = interval4_2 & ix (2 * n - 1) .~ b + 1
+                                            interval4_4 = interval4_3 & ix (2 * n)     .~ a - 1
+                                            interval5_3 = interval    & ix (2 * n - 1) .~ b + 1
+                                            interval5_4 = interval5_3 & ix (2 * n)     .~ a - 1
+                                            interval4
+                                              | b >= 3 && a >= b + 3 = interval4_4
+                                              | b >= 3 && a <  b + 3 = interval4_2
+                                              | b <  3 && a >= b + 3 = interval5_4
+                                              | otherwise            = interval
+                                          augment (ring, nchar) (1, 0, 0) n (interval4, weight4, matchW)
+                                          loop ((interval4, weight4), b + 1)
+          loop ((interval3, weight3), a + 1)
+{-
+      (2..(ring - 1)).each do |a|
+        (1..(a - 1)).each do |b|
+          n = 0
+          weight[1] = match_w[a][b]
+          if b >= 3
+            n = 1
+            interval[1] = 1
+            interval[2] = b - 1
+          end
+          if a >= b + 3
+            n += 1
+            interval[2 * n - 1] = b + 1
+            interval[2 * n]     = a - 1
+          end
+          augment n, interval, 1, weight, match_w, nreal, ring, 0, 0, bit, realterm, nchar, real, @live2
+        end
+      end
+-}
 
 testmatchSub4wrapAug :: TpTMbind -> StateT TpUpdateState IO TpTMbind
 testmatchSub4wrapAug = return
@@ -134,9 +179,9 @@ checkReality rn bc@(depth, col, on) k weight = do
                     | otherwise -> do
                         loop (k, i + 1)
           retM <- runMaybeT $ isStillReal bc choice
-          case () of
-            _ | isNothing retM -> undefined
-              | otherwise      -> undefined
+          --case () of
+          --  _ | isNothing retM -> undefined
+          --    | otherwise      -> undefined
           checkReality rn bc (k + 1) weight
 
 
