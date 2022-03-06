@@ -143,7 +143,7 @@ printStatus ring totalcols extent extentclaim = do
   putStr   $ "\n   There are " ++ show extent ++ " colourings that extend to the configuration."
   putStr     "\n\n            remaining               remaining balanced\n"
   putStr     "           colourings               signed matchings\n"
-  putStrLn $ "\n              " ++ show (totalcols - extent)
+  putStr   $ "\n              " ++ show (totalcols - extent)
 
 
 

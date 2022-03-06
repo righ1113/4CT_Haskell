@@ -102,15 +102,18 @@ testmatchSub2wrapAug (ring, nchar) flg (start, end) (interval, weight, matchW) =
                                                   | b <  3 && a >= b + 3 = interval5_4
                                                   | otherwise            = interval
                                                 baseCol = (power !! (ring + 1) - 1) `div` 2
-                                              --if flg
-                                              --  then augment (ring, nchar) (1, 0,       0) n (interval4, weight4, matchW)
+                                              if flg
+                                                then augment (ring, nchar) (1, 0,       0) n (interval4, weight4, matchW)
+                                                else return (interval4, weight4, matchW)
                                               --  else augment (ring, nchar) (1, baseCol, 1) n (interval4, weight4, matchW)
                                               loop (interval4, weight4, b + 1))
           >>= loop
 
 
 testmatchSub5 :: StateT TpUpdateState IO ()
-testmatchSub5 = return ()
+testmatchSub5 = do
+  (_, _, nreal, _, _) <- get
+  lift $ putStrLn $ "                       " ++ show nreal -- right
 
 
 -- ======== augment ========
