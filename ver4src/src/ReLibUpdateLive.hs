@@ -103,9 +103,8 @@ testmatchSub2wrapAug (ring, nchar) flg (start, end) (interval, weight, matchW) =
                                                   | otherwise            = interval
                                                 baseCol = (power !! (ring + 1) - 1) `div` 2
                                               if flg
-                                                then augment (ring, nchar) (1, 0,       0) n (interval4, weight4, matchW)
-                                                else return (interval4, weight4, matchW)
-                                              --  else augment (ring, nchar) (1, baseCol, 1) n (interval4, weight4, matchW)
+                                                then augment (ring, nchar) (1, 0,       0) n 0 (interval4, weight4, matchW)
+                                                else augment (ring, nchar) (1, baseCol, 1) n 0 (interval4, weight4, matchW)
                                               loop (interval4, weight4, b + 1))
           >>= loop
 
@@ -117,19 +116,20 @@ testmatchSub5 = do
 
 
 -- ======== augment ========
-augment :: TpRingNchar -> TpBaseCol -> Int -> TpTMbind -> StateT TpUpdateState IO TpTMbind
-augment rn bc n tm = do
-  let lower = 2
+augment :: TpRingNchar -> TpBaseCol -> Int -> Int -> TpTMbind -> StateT TpUpdateState IO TpTMbind
+augment rn bc n 10000 tm = error "augment over!"
+augment rn bc n cnt   tm@(interval, weight, matchW) = do
   checkReality rn bc 0 [[]]
-  flip fix (4, lower) $ \loop (k, r) -> case () of
+  flip fix 1 $ \loop r -> case () of
     _ | r > n     -> return tm
       | otherwise -> do
-          tm' <- augmentSub r (lower + 1) rn bc n tm
-          loop (k, r + 1)
+          let lower = interval !! (2 * r - 1)
+          tm' <- augmentSub r (lower + 1) rn bc n cnt tm
+          loop (r + 1)
 
 
-augmentSub :: Int -> Int -> TpRingNchar -> TpBaseCol -> Int -> TpTMbind -> StateT TpUpdateState IO TpTMbind
-augmentSub r i rn bc n tm
+augmentSub :: Int -> Int -> TpRingNchar -> TpBaseCol -> Int -> Int -> TpTMbind -> StateT TpUpdateState IO TpTMbind
+augmentSub r i rn bc n cnt tm@(interval, weight, matchW)
   | i > upper = return tm
   | otherwise = do
       (min, max) <- flip fix (4, lower) $ \loop (k, j) -> case () of
@@ -137,13 +137,13 @@ augmentSub r i rn bc n tm
                         | otherwise -> do
                             -- weight
                             -- take-cycle-take
-                            tm'' <- augment rn bc' newN tm'
+                            tm'' <- augment rn bc' newN (cnt + 1) tm'
                             loop (k, j + 1)
-      augmentSub r (i + 1) rn bc' newN tm' where
-        lower = 2
-        upper = 4
+      augmentSub r (i + 1) rn bc' newN cnt tm' where
+        lower = interval !! (2 * r - 1)
+        upper = interval !! (2 * r)
         bc' = bc
-        newN = n
+        newN = 0
         tm' = tm
 
 
