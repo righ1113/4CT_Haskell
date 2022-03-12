@@ -129,22 +129,21 @@ augment rn bc n cnt   tm@(interval, weight, matchW) = do
 
 
 augmentSub :: Int -> Int -> TpRingNchar -> TpBaseCol -> Int -> Int -> TpTMbind -> StateT TpUpdateState IO TpTMbind
-augmentSub r i rn bc n cnt tm@(interval, weight, matchW)
+augmentSub r i rn bc@(depth, basecol, on) n cnt tm@(interval, weight, matchW)
   | i > upper = return tm
   | otherwise = do
-      (min, max) <- flip fix (4, lower) $ \loop (k, j) -> case () of
-                      _ | j > i     -> return (k, j)
-                        | otherwise -> do
-                            -- weight
-                            -- take-cycle-take
-                            tm'' <- augment rn bc' newN (cnt + 1) tm'
-                            loop (k, j + 1)
-      augmentSub r (i + 1) rn bc' newN cnt tm' where
+      (tm', newN') <- flip fix (tm, n, lower) $ \loop (tm@(va, we, ma), newN, j) -> case () of
+                        _ | j > i     -> return (tm, newN)
+                          | otherwise -> do
+                              let we2   = we & ix (depth + 1) .~ ma !! i !! j       -- weight
+                                  newV  = take 10 $ take (2 * r - 2) va ++ repeat 0 -- take-cycle-take
+                                  (newN2, newV2) = (0,[])
+                              tm'' <- augment rn bc' newN2 (cnt + 1) (va, we2, ma)
+                              loop (tm'', newN2, j + 1)
+      augmentSub r (i + 1) rn bc' newN' cnt tm' where
         lower = interval !! (2 * r - 1)
         upper = interval !! (2 * r)
-        bc' = bc
-        newN = 0
-        tm' = tm
+        bc'   = (depth + 1, basecol, on)
 
 
 -- ======== reality ========
