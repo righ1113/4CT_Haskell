@@ -136,14 +136,24 @@ augmentSub r i rn bc@(depth, basecol, on) n cnt tm@(interval, weight, matchW)
                         _ | j > i     -> return (tm, newN)
                           | otherwise -> do
                               let we2   = we & ix (depth + 1) .~ ma !! i !! j       -- weight
+                                  bc'   = (depth + 1, basecol, on)
                                   newV  = take 10 $ take (2 * r - 2) va ++ repeat 0 -- take-cycle-take
-                                  (newN2, newV2) = (0,[])
-                              tm'' <- augment rn bc' newN2 (cnt + 1) (va, we2, ma)
+                                  newV2_1 = newV    & ix (2 * r - 1) .~ lower
+                                  newV2_2 = newV2_1 & ix (2 * r)     .~ j - 1
+                                  newV2_3 = newV2_2 & ix (2 * r + 1) .~ j + 1
+                                  newV2_4 = newV2_2 & ix (2 * r + 2) .~ i - 1
+                                  newV2_5 = newV    & ix (2 * r - 1) .~ j + 1
+                                  newV2_6 = newV2_5 & ix (2 * r)     .~ i - 1
+                                  (newN2, newV2)
+                                    | j >  lower + 1 && i >  j + 1 = (r + 1, newV2_4)
+                                    | j >  lower + 1 && i <= j + 1 = (r,     newV2_2)
+                                    | j <= lower + 1 && i >  j + 1 = (r,     newV2_6)
+                                    | otherwise                    = (r - 1, newV)
+                              tm'' <- augment rn bc' newN2 (cnt + 1) (newV2, we2, ma)
                               loop (tm'', newN2, j + 1)
-      augmentSub r (i + 1) rn bc' newN' cnt tm' where
+      augmentSub r (i + 1) rn bc n cnt tm' where
         lower = interval !! (2 * r - 1)
         upper = interval !! (2 * r)
-        bc'   = (depth + 1, basecol, on)
 
 
 -- ======== reality ========
