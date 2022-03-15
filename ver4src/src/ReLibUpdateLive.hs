@@ -119,7 +119,7 @@ testmatchSub5 = do
 augment :: TpRingNchar -> TpBaseCol -> Int -> Int -> TpTMbind -> StateT TpUpdateState IO TpTMbind
 augment rn bc n 10000 tm = error "augment over!"
 augment rn bc n cnt   tm@(interval, weight, matchW) = do
-  checkReality rn bc 0 [[]]
+  checkReality rn bc 0 weight
   flip fix 1 $ \loop r -> case () of
     _ | r > n     -> return tm
       | otherwise -> do
@@ -163,10 +163,16 @@ checkReality rn bc@(depth, col, on) k weight = do
       choice = replicate 8 0
   (twin, real, nreal, bit, realterm) <- get
   -- if bit.zero? ...
+  if bit == 0 then
+    put (twin, real, nreal, 1, realterm + 1)
+    -- Assert.assert_equal (prealterm[0] <= nchar), true, 'More than %ld entries in real are needed'
+  else
+    put (twin, real, nreal, bit, realterm)
+  (_, _, _, bit2, realterm2) <- get
   case () of
     _ | k >= max  -> return ()
       | False     -> do
-          put (twin, real, nreal, shift bit 1, realterm)
+          put (twin, real, nreal, shift bit2 1, realterm2)
           checkReality rn bc (k + 1) weight
       | otherwise -> do
           (min, max) <- flip fix (4, 1) $ \loop (k, i) -> case () of
