@@ -117,9 +117,9 @@ testmatchSub5 = do
 
 -- ======== augment ========
 augment :: TpRingNchar -> TpBaseCol -> Int -> Int -> TpTMbind -> StateT TpUpdateState IO TpTMbind
-augment rn bc n 10000 tm = error "augment over!"
-augment rn bc n cnt   tm@(interval, weight, matchW) = do
-  checkReality rn bc 0 weight
+augment rn bc                      n 10000 tm = error "augment over!"
+augment rn bc@(depth, basecol, on) n cnt   tm@(interval, weight, matchW) = do
+  checkReality rn bc 0 weight (shift 1 (depth - 1)) (replicate 8 0)
   flip fix 1 $ \loop r -> case () of
     _ | r > n     -> return tm
       | otherwise -> do
@@ -157,33 +157,61 @@ augmentSub r i rn bc@(depth, basecol, on) n cnt tm@(interval, weight, matchW)
 
 
 -- ======== reality ========
-checkReality :: TpRingNchar -> TpBaseCol -> Int -> [[Int]] -> StateT TpUpdateState IO ()
-checkReality rn bc@(depth, col, on) k weight = do
-  let max    = shift 1 (depth - 1) :: Int
-      choice = replicate 8 0
+checkReality :: TpRingNchar -> TpBaseCol -> Int -> [[Int]] -> Int -> [Int] -> StateT TpUpdateState IO ()
+checkReality rn@(ring, nchar) bc@(depth, col, on) k weight maxK choice = do
   (twin, real, nreal, bit, realterm) <- get
   -- if bit.zero? ...
   if bit == 0 then
-    put (twin, real, nreal, 1, realterm + 1)
-    -- Assert.assert_equal (prealterm[0] <= nchar), true, 'More than %ld entries in real are needed'
+    if realterm <= nchar then
+      put (twin, real, nreal, 1, realterm + 1)
+    else
+      error "More than %ld entries in real are needed"
   else
     put (twin, real, nreal, bit, realterm)
   (_, _, _, bit2, realterm2) <- get
   case () of
-    _ | k >= max  -> return ()
-      | False     -> do
+    _ | k >= maxK                                  -> return ()
+      | fromIntegral bit .&. real !! realterm == 0 -> do
           put (twin, real, nreal, shift bit2 1, realterm2)
-          checkReality rn bc (k + 1) weight
+          checkReality rn bc (k + 1) weight maxK choice
       | otherwise -> do
           (min, max) <- flip fix (4, 1) $ \loop (k, i) -> case () of
-                  _ | i > depth -> return (k, i)
-                    | otherwise -> do
-                        loop (k, i + 1)
+                          _ | i > depth -> return (k, i)
+                            | otherwise -> do
+                                loop (k, i + 1)
           retM <- runMaybeT $ isStillReal bc choice
           --case () of
           --  _ | isNothing retM -> undefined
           --    | otherwise      -> undefined
-          checkReality rn bc (k + 1) weight
+          checkReality rn bc (k + 1) weight maxK choice
+{-
+      (bit_lshift(pbit); next) if (pbit[0] & real[prealterm[0]]).zero?
+      col, parity, left = basecol, ring & 1, k
+      (1..(depth - 1)).each do |i|
+        if (left & 1) != 0	# i.e. if a_i=1, where k=a_1+2a_2+4a_3+... */
+          parity ^= 1 # XOR
+          choice[i] = weight[i][1]
+          col += weight[i][3]
+        else
+          choice[i] = weight[i][0]
+          col += weight[i][2]
+        end
+        left >>= 1
+      end
+      if parity != 0
+        choice[depth] = weight[depth][1]
+        col += weight[depth][3]
+      else
+        choice[depth] = weight[depth][0]
+        col += weight[depth][2]
+      end
+      if still_real?(col, choice, depth, on, live)
+        pnreal[0] += 1
+      else
+        real[prealterm[0]] ^= pbit[0]
+      end
+      bit_lshift(pbit)
+-}
 
 
 isStillReal :: TpBaseCol -> [Int] -> MaybeT (StateT TpUpdateState IO) ()
