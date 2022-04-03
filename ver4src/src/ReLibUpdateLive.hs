@@ -175,10 +175,10 @@ checkReality rn@(ring, nchar) bc@(depth, col, on) k weight maxK choice = do
           put (twin, real, nreal, shift bit2 1, realterm2)
           checkReality rn bc (k + 1) weight maxK choice
       | otherwise -> do
-          (min, max) <- flip fix (4, 1) $ \loop (k, i) -> case () of
-                          _ | i > depth -> return (k, i)
-                            | otherwise -> do
-                                loop (k, i + 1)
+          (parity2, choice2, col2, left2) <- flip fix (ring .&. 1, choice, col, k, 1) $ \loop (parity, choice, col, left, i) -> case () of
+                                              _ | i >= depth -> return (parity, choice, col, left)
+                                                | otherwise  -> do
+                                                    loop (parity, choice, col, shift left (-1), i + 1)
           retM <- runMaybeT $ isStillReal bc choice
           --case () of
           --  _ | isNothing retM -> undefined
