@@ -2,7 +2,7 @@
 {-# HLINT ignore "Move brackets to avoid $" #-}
 module ReLibUpdateLive where
 
-import CoLibCConst                    ( TpLiveTwin, TpUpdateState, TpRingNchar, TpBaseCol, TpTMbind, TpRealityPack, maxring, power, simatchnumber)
+import CoLibCConst                    ( TpLiveTwin, TpUpdateState, TpUpdateState2, TpRingNchar, TpBaseCol, TpTMbind, TpRealityPack, maxring, power, simatchnumber)
 import Control.Applicative            ( empty )
 import Control.Arrow                  ( (<<<) )
 import Control.Lens                   ( (&), (.~), Ixed(ix) )
@@ -13,6 +13,46 @@ import Data.Bits                      ( Bits(shift, (.&.), (.|.)) )
 import Data.Function                  ( fix )
 import Data.Int                       ( Int8 )
 import Data.Maybe                     ( isNothing )
+
+
+updateLive2 :: TpRingNchar -> Int -> TpLiveTwin -> IO TpLiveTwin
+updateLive2 = iterateConvergenceIO testmatch2 real where
+  real = replicate (simatchnumber !! maxring `div` 8 + 2) 255
+
+
+iterateConvergenceIO :: (TpUpdateState2 -> TpUpdateState2) -> [Int] -> TpRingNchar -> Int -> TpLiveTwin -> IO TpLiveTwin 
+iterateConvergenceIO f real rn ncodes lTwin = do
+  let (lTwin2, real2, nReal, _, _, _) = f (lTwin, real, 0, 1, 0, rn)
+  (is, lTwin3) <- isUpdate2 ncodes lTwin2 nReal
+  case () of
+    _ | not is    -> return lTwin3
+      | otherwise -> iterateConvergenceIO f real2 rn ncodes lTwin3
+
+
+isUpdate2 :: Int -> TpLiveTwin -> Int -> IO (Bool, TpLiveTwin)
+isUpdate2 ncodes (nLive, live) nReal = do
+  let s1              = "\n\n\n                  ***  D-reducible  ***\n"
+      s2              = "\n\n\n                ***  Not D-reducible  ***\n"
+      live'           = if head live > 1 then live & ix 0 .~ 15 else live
+      (nLive2, live2) = flip fix (nLive, live', 0) $ \loop (nLive, live, i) -> case () of
+                          _ | i >= ncodes     -> (nLive, live)
+                            | live !! i /= 15 -> loop (nLive , live3, i + 1)
+                            | otherwise       -> loop (nLive2, live2, i + 1) where
+                                nLive2 = nLive + 1
+                                live2  = live & ix i .~ 1
+                                live3  = live & ix i .~ 0
+  putStrLn $ "                       " ++ show nReal -- right
+  putStr $ "              " ++ show nLive2           -- left
+  case () of
+    _ | 0 < nLive2 && nLive2 < nLive -> return (True, (nLive2, live2)) -- 続行
+      | otherwise                    -> do
+          if nLive2 == 0 then putStr s1 else putStr s2
+          return (False, (nLive2, live2)) -- 終了
+
+
+-- ======== testmatch ========
+testmatch2 :: TpUpdateState2 -> TpUpdateState2
+testmatch2 = undefined
 
 
 updateLive :: Int -> Int -> Int -> TpLiveTwin -> IO TpLiveTwin
