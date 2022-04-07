@@ -55,6 +55,73 @@ testmatch2 :: TpUpdateState2 -> TpUpdateState2
 testmatch2 = undefined
 
 
+-- ======== reality ========
+checkReality2 :: TpBaseCol -> Int -> [[Int]] -> Int -> [Int] -> TpUpdateState2 -> TpUpdateState2
+checkReality2 bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bit, realterm, rn@(ring, nchar))
+  | k >= maxK                                  = st
+  | fromIntegral bit .&. real !! realterm == 0 = checkReality2 bc (k + 1) weight maxK choice (lTwin, real, nReal, shift bit2 1, realterm2, rn) -- continue
+  | otherwise                                  = checkReality2 bc (k + 1) weight maxK choice (lTwin, real, nReal, bit2,         realterm2, rn) where
+      (bit2, realterm2)
+        | bit == 0 && realterm <= nchar = (1, realterm + 1)
+        | bit == 0 && realterm >  nchar = error "More than %ld entries in real are needed"
+        | otherwise                     = (bit, realterm)
+{-
+  (twin, real, nreal, bit, realterm) <- get
+  -- if bit.zero? ...
+  if bit == 0 then
+    if realterm <= nchar then
+      put (twin, real, nreal, 1, realterm + 1)
+    else
+      error "More than %ld entries in real are needed"
+  else
+    put (twin, real, nreal, bit, realterm)
+  (_, _, _, bit2, realterm2) <- get
+  case () of
+    _ | k >= maxK                                  -> return ()
+      | fromIntegral bit .&. real !! realterm == 0 -> do
+          put (twin, real, nreal, shift bit2 1, realterm2)
+          checkReality2 rn bc (k + 1) weight maxK choice
+      | otherwise -> do
+          (parity2, choice2, col2, left2) <- flip fix (ring .&. 1, choice, col, k, 1) $ \loop (parity, choice, col, left, i) -> case () of
+                                              _ | i >= depth -> return (parity, choice, col, left)
+                                                | otherwise  -> do
+                                                    loop (parity, choice, col, shift left (-1), i + 1)
+          retM <- runMaybeT $ isStillReal bc choice
+          --case () of
+          --  _ | isNothing retM -> undefined
+          --    | otherwise      -> undefined
+          checkReality2 rn bc (k + 1) weight maxK choice
+-}
+{-
+      (bit_lshift(pbit); next) if (pbit[0] & real[prealterm[0]]).zero?
+      col, parity, left = basecol, ring & 1, k
+      (1..(depth - 1)).each do |i|
+        if (left & 1) != 0	# i.e. if a_i=1, where k=a_1+2a_2+4a_3+... */
+          parity ^= 1 # XOR
+          choice[i] = weight[i][1]
+          col += weight[i][3]
+        else
+          choice[i] = weight[i][0]
+          col += weight[i][2]
+        end
+        left >>= 1
+      end
+      if parity != 0
+        choice[depth] = weight[depth][1]
+        col += weight[depth][3]
+      else
+        choice[depth] = weight[depth][0]
+        col += weight[depth][2]
+      end
+      if still_real?(col, choice, depth, on, live)
+        pnreal[0] += 1
+      else
+        real[prealterm[0]] ^= pbit[0]
+      end
+      bit_lshift(pbit)
+-}
+
+
 updateLive :: Int -> Int -> Int -> TpLiveTwin -> IO TpLiveTwin
 updateLive ring nchar ncodes lTwin =
   flip fix (lTwin, real, 0, 1, 0) $ \loop now -> do
