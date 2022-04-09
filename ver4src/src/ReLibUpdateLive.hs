@@ -9,10 +9,10 @@ import Control.Lens                   ( (&), (.~), Ixed(ix) )
 import Control.Monad.Trans.Class      ( lift )
 import Control.Monad.Trans.Maybe      ( MaybeT(..) )
 import Control.Monad.Trans.State.Lazy ( StateT(..), execStateT, get, put )
-import Data.Bits                      ( Bits(shift, (.&.), (.|.)) )    
+import Data.Bits                      ( Bits(shift, (.&.), (.|.), xor) )    
 import Data.Function                  ( fix )
 import Data.Int                       ( Int8 )
-import Data.Maybe                     ( isNothing )
+import Data.Maybe                     ( isNothing, fromJust )
 
 
 updateLive2 :: TpRingNchar -> Int -> TpLiveTwin -> IO TpLiveTwin
@@ -59,13 +59,92 @@ testmatch2 = undefined
 checkReality2 :: TpBaseCol -> Int -> [[Int]] -> Int -> [Int] -> TpUpdateState2 -> TpUpdateState2
 checkReality2 bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bit, realterm, rn@(ring, nchar))
   | k >= maxK                                  = st
-  | fromIntegral bit .&. real !! realterm == 0 = checkReality2 bc (k + 1) weight maxK choice (lTwin, real, nReal, shift bit2 1, realterm2, rn) -- continue
-  | otherwise                                  = checkReality2 bc (k + 1) weight maxK choice (lTwin, real, nReal, bit2,         realterm2, rn) where
+  | fromIntegral bit .&. real !! realterm == 0 = checkReality2 bc                (k + 1) weight maxK choice  (lTwin,  real, nReal, shift bit2 1, realterm2, rn) -- continue
+  | otherwise                                  = checkReality2 (depth, col3, on) (k + 1) weight maxK choice3 (lTwin2, real, nReal, shift bit2 1, realterm2, rn) where
       (bit2, realterm2)
         | bit == 0 && realterm <= nchar = (1, realterm + 1)
         | bit == 0 && realterm >  nchar = error "More than %ld entries in real are needed"
         | otherwise                     = (bit, realterm)
+      (parity2, choice2, col2) = flip fix (ring .&. 1, choice, col, k, 1) $ \loop (parity, choice, col, left, i) -> case () of
+                                  _ | i >= depth -> (parity, choice, col)
+                                    | otherwise  -> loop (parity', choice', col', shift left (-1), i + 1) where
+                                        (parity', choice', col')
+                                          | left .&. 1 /= 0 = (parity `xor` 1, choice & ix i .~ weight !! i !! 1,   col + weight !! i !! 3)
+                                          | otherwise       = (parity,         choice & ix i .~ head (weight !! i), col + weight !! i !! 2)
+      (choice3, col3)
+        | parity2 == 0                  = (choice & ix depth .~ head (weight !! depth), col2 + weight !! depth !! 2)
+        | otherwise                     = (choice & ix depth .~ weight !! depth !! 1,   col2 + weight !! depth !! 3)
+      retM                     = isStillReal2 bc choice lTwin
+      (real2, nReal2, lTwin2)
+        | isNothing retM                = (real & ix realterm2 .~ real !! realterm2 `xor` fromIntegral bit2, nReal,     lTwin)
+        | otherwise                     = (real,                                                             nReal + 1, fromJust retM)
+
+
+isStillReal2 :: TpBaseCol -> [Int] -> TpLiveTwin -> Maybe TpLiveTwin
+isStillReal2 bc@(depth, col, on) choice lTwin = do
+  (twi, nTw, sum, unt, nUn) <- stillRealSub2 col 0 lTwin (replicate 64 0, 0, replicate 64 0, replicate 64 0, 0)
+  return lTwin
+
+
+stillRealSub2 :: Int -> Int -> TpLiveTwin -> TpRealityPack -> Maybe TpRealityPack
+stillRealSub2 b mark (_, live) (twi, nTw, sum, unt, nUn) = do
+  case () of
+    _ | b <  0 && live !! (-b) == 0 -> empty
+      | b <  0 && live !! (-b) /= 0 -> return (twi2, nTw2, sum2, unt,  nUn)
+      | b >= 0 && live !! b    == 0 -> empty
+      | otherwise                   -> return (twi,  nTw,  sum2, unt2, nUn2) where
+          twi2 = twi & ix nTw  .~ (-b)
+          nTw2 = nTw + 1
+          sum2 = sum & ix mark .~ b
+          unt2 = unt & ix nUn  .~ b
+          nUn2 = nUn + 1
+
+
 {-
+    sum       = Array.new(64, 0)
+    twisted   = Array.new(64, 0)
+    untwisted = Array.new(64, 0)
+
+    n_twisted = n_untwisted = 0
+    if col.negative?
+      return false if (live[-col]).zero?
+      twisted[n_twisted] = -col
+      n_twisted += 1
+      sum[0] = col
+    else
+      return false if (live[col]).zero?
+      untwisted[n_untwisted] = sum[0] = col
+      n_untwisted += 1
+    end
+    twopower = mark = 1
+    2.upto(depth) do |i|
+      c = choice[i]
+      twopower.times do |j|
+        b = sum[j] - c
+        if b.negative?
+          return false if (live[-b]).zero? # b が負の場合
+          twisted[n_twisted] = -b
+          n_twisted += 1
+          sum[mark] = b
+        else
+          return false if (live[b]).zero?
+          untwisted[n_untwisted] = sum[mark] = b
+          n_untwisted += 1
+        end
+        mark += 1
+      end
+      twopower <<= 1
+    end
+    if on.zero?
+      n_twisted.times   { |i| live[twisted[i]]   |= 2 }
+      n_untwisted.times { |i| live[untwisted[i]] |= 2 }
+    else
+      n_twisted.times   { |i| live[twisted[i]]   |= 8 }
+      n_untwisted.times { |i| live[untwisted[i]] |= 4 }
+    end
+    true
+
+
   (twin, real, nreal, bit, realterm) <- get
   -- if bit.zero? ...
   if bit == 0 then
