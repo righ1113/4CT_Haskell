@@ -55,6 +55,44 @@ testmatch2 :: TpUpdateState2 -> TpUpdateState2
 testmatch2 = undefined
 
 
+-- ======== augment ========
+augment2 :: TpBaseCol -> Int -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
+augment2 bc@(depth, basecol, on) r n cnt pack@(tm@(interval, weight, matchW), st)
+  | cnt >= 10000 = error "augment over!"
+  | r > n        = pack
+  | otherwise    = augment2 bc (r + 1) n cnt ret2 where
+      lower = interval !! (2 * r - 1)
+      ret   = checkReality2 bc 0 weight (shift 1 (depth - 1)) (replicate 8 0) st
+      ret2  = augmentSub2 r (lower + 1) bc n cnt (tm, ret)
+
+
+augmentSub2 :: Int -> Int -> TpBaseCol -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
+augmentSub2 r i bc@(depth, basecol, on) n cnt pack@(tm@(interval, weight, matchW), st)
+  | i > upper = pack
+  | otherwise = augmentSub2 r (i + 1) bc n cnt pack' where
+      lower          = interval !! (2 * r - 1)
+      upper          = interval !! (2 * r)
+      (pack', newN') = flip fix (pack, n, lower) $ \loop (pack@(tm@(va, we, ma), st), newN, j) -> case () of
+                        _ | j > i     -> (pack, newN)
+                          | otherwise ->
+                              let we2   = we & ix (depth + 1) .~ ma !! i !! j       -- weight
+                                  bc'   = (depth + 1, basecol, on)
+                                  newV  = take 10 $ take (2 * r - 2) va ++ repeat 0 -- take-cycle-take
+                                  newV2_1 = newV    & ix (2 * r - 1) .~ lower
+                                  newV2_2 = newV2_1 & ix (2 * r)     .~ j - 1
+                                  newV2_3 = newV2_2 & ix (2 * r + 1) .~ j + 1
+                                  newV2_4 = newV2_2 & ix (2 * r + 2) .~ i - 1
+                                  newV2_5 = newV    & ix (2 * r - 1) .~ j + 1
+                                  newV2_6 = newV2_5 & ix (2 * r)     .~ i - 1
+                                  (newN2, newV2)
+                                    | j >  lower + 1 && i >  j + 1 = (r + 1, newV2_4)
+                                    | j >  lower + 1 && i <= j + 1 = (r,     newV2_2)
+                                    | j <= lower + 1 && i >  j + 1 = (r,     newV2_6)
+                                    | otherwise                    = (r - 1, newV)
+                                  pack'' = augment2 bc' r newN2 (cnt + 1) ((newV2, we2, ma), st)
+                              in loop (pack'', newN2, j + 1)
+
+
 -- ======== reality ========
 checkReality2 :: TpBaseCol -> Int -> [[Int]] -> Int -> [Int] -> TpUpdateState2 -> TpUpdateState2
 checkReality2 bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bit, realterm, rn@(ring, nchar))
@@ -82,12 +120,27 @@ checkReality2 bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, b
 
 isStillReal2 :: TpBaseCol -> [Int] -> TpLiveTwin -> Maybe TpLiveTwin
 isStillReal2 bc@(depth, col, on) choice lTwin = do
-  (twi, nTw, sum, unt, nUn) <- stillRealSub2 col 0 lTwin (replicate 64 0, 0, replicate 64 0, replicate 64 0, 0)
-  return lTwin
+  pack@(twi, nTw, sum, unt, nUn) <- stillRealSub1 col 0 lTwin (replicate 64 0, 0, replicate 64 0, replicate 64 0, 0)
+  (twi2, nTw2, sum2, unt2, nUn2) <- flip fix (2, 1::Int, pack) $ \loop (i, twoPow, pack) -> case () of
+                                      _ | i > depth -> return pack
+                                        | otherwise -> do
+                                            let c = choice !! i
+                                            pack2 <- flip fix (0, 1, pack) $ \loop (j, mark, pack@(_, _, sum, _, _)) -> case () of
+                                                                                _ | j > twoPow -> return pack
+                                                                                  | otherwise -> do
+                                                                                      let b = sum !! j - c
+                                                                                      pack2 <- stillRealSub1 b mark lTwin pack
+                                                                                      loop (j + 1, mark + 1, pack)
+                                            loop (i + 1, shift twoPow 1, pack2)
+  let
+    lTwin2
+      | on == 0    = stillRealSub2 0 unt2 nUn2 2 $ stillRealSub2 0 twi2 nTw2 2 lTwin
+      | otherwise  = stillRealSub2 0 unt2 nUn2 4 $ stillRealSub2 0 twi2 nTw2 8 lTwin
+  return lTwin2
 
 
-stillRealSub2 :: Int -> Int -> TpLiveTwin -> TpRealityPack -> Maybe TpRealityPack
-stillRealSub2 b mark (_, live) (twi, nTw, sum, unt, nUn) = do
+stillRealSub1 :: Int -> Int -> TpLiveTwin -> TpRealityPack -> Maybe TpRealityPack
+stillRealSub1 b mark (_, live) (twi, nTw, sum, unt, nUn) = do
   case () of
     _ | b <  0 && live !! (-b) == 0 -> empty
       | b <  0 && live !! (-b) /= 0 -> return (twi2, nTw2, sum2, unt,  nUn)
@@ -98,6 +151,13 @@ stillRealSub2 b mark (_, live) (twi, nTw, sum, unt, nUn) = do
           sum2 = sum & ix mark .~ b
           unt2 = unt & ix nUn  .~ b
           nUn2 = nUn + 1
+
+
+stillRealSub2 :: Int -> [Int] -> Int -> Int -> TpLiveTwin -> TpLiveTwin
+stillRealSub2 i twist nTwist v lTwin@(nLive, live)
+  | i > nTwist = lTwin
+  | otherwise  = stillRealSub2 (i + 1) twist nTwist v (nLive, live2) where
+      live2 = live & ix (twist !! nTwist) .~ live !! (twist !! nTwist) .|. v
 
 
 {-
