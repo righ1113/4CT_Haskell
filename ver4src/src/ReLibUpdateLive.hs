@@ -52,7 +52,63 @@ isUpdate2 ncodes (nLive, live) nReal = do
 
 -- ======== testmatch ========
 testmatch2 :: TpUpdateState2 -> TpUpdateState2
-testmatch2 = undefined
+testmatch2 st@(_, _, _, _, _, (ring, _)) = ret where
+  (_, ret) = (testmatch2Sub2wrapAug False (ring, ring)
+              . testmatch2Sub1 False
+                . testmatch2Sub2wrapAug True (2, ring - 1)
+                  . testmatch2Sub1 True) ((replicate 10 0, replicate 16 $ replicate 4 0, replicate 16 $ replicate 16 $ replicate 4 0), st)
+
+
+testmatch2Sub1 :: Bool -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
+testmatch2Sub1 flg pack@(tm@(interval, weight, matchW), st@(_, _, _, _, _, (ring, _))) = ((interval, weight, matchW2), st) where
+  matchW2 = flip fix (matchW, 2) $ \loop (matchW, a) -> case () of
+              _ | a > ring -> matchW
+                | otherwise -> loop (matchW3, a + 1) where
+                    matchW3 = flip fix (matchW, 1) $ \loop (matchW, b) -> case () of
+                                _ | b > a - 1 -> matchW
+                                  | otherwise -> loop (nextMatch, b + 1) where
+                                      matchW4_1 = matchW    & (ix a <<< ix b <<< ix 0) .~ (power !! a + power !! b) * 2
+                                      matchW4_2 = matchW4_1 & (ix a <<< ix b <<< ix 1) .~ (power !! a - power !! b) * 2
+                                      matchW4_3 = matchW4_2 & (ix a <<< ix b <<< ix 2) .~ (power !! a + power !! b)
+                                      matchW4_4 = matchW4_3 & (ix a <<< ix b <<< ix 3) .~ (power !! a - power !! b)
+                                      matchW5_1 = matchW    & (ix a <<< ix b <<< ix 0) .~ (power !! a + power !! b)
+                                      matchW5_2 = matchW5_1 & (ix a <<< ix b <<< ix 1) .~ (power !! a - power !! b)
+                                      matchW5_3 = matchW5_2 & (ix a <<< ix b <<< ix 2) .~ -power !! a + power !! b
+                                      matchW5_4 = matchW5_3 & (ix a <<< ix b <<< ix 3) .~ -power !! a -2 * power !! b
+                                      nextMatch = if flg then matchW4_4 else matchW5_4
+
+
+testmatch2Sub2wrapAug :: Bool -> (Int, Int) -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
+testmatch2Sub2wrapAug flg (start, end) pack@(tm@(interval, weight, matchW), st@(_, _, _, _, _, (ring, _))) =
+  flip fix (interval, weight, start, st) $ \loop1 (interval, weight, a, st1) -> case () of
+    _ | a > end   -> ((interval, weight, matchW), st1)
+      | otherwise -> loop1 $
+          flip fix (interval, weight, 1, st1) $ \loop (interval, weight, b, st2) -> case () of
+                                        _ | b > a - 1 -> (interval, weight, a + 1, st2)
+                                          | otherwise ->
+                                              let
+                                                weight4 = weight & ix 1 .~ matchW !! a !! b
+                                                n
+                                                  | b >= 3 && a >= b + 3 = 2
+                                                  | b >= 3 && a <  b + 3 = 1
+                                                  | b <  3 && a >= b + 3 = 1
+                                                  | otherwise            = 0
+                                                interval4_1 = interval    & ix 1           .~ 1
+                                                interval4_2 = interval4_1 & ix 2           .~ b - 1
+                                                interval4_3 = interval4_2 & ix (2 * n - 1) .~ b + 1
+                                                interval4_4 = interval4_3 & ix (2 * n)     .~ a - 1
+                                                interval5_3 = interval    & ix (2 * n - 1) .~ b + 1
+                                                interval5_4 = interval5_3 & ix (2 * n)     .~ a - 1
+                                                interval4
+                                                  | b >= 3 && a >= b + 3 = interval4_4
+                                                  | b >= 3 && a <  b + 3 = interval4_2
+                                                  | b <  3 && a >= b + 3 = interval5_4
+                                                  | otherwise            = interval
+                                                baseCol = (power !! (ring + 1) - 1) `div` 2
+                                                st3
+                                                  | flg       = snd $ augment2 (1, 0,       0) 1 n 0 ((interval4, weight4, matchW), st2)
+                                                  | otherwise = snd $ augment2 (1, baseCol, 1) 1 n 0 ((interval4, weight4, matchW), st2)
+                                              in loop (interval4, weight4, b + 1, st3)
 
 
 -- ======== augment ========
