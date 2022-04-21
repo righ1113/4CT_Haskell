@@ -12,7 +12,7 @@ import CoLibCConst     ( readFileGoodConfsR, TpConfmat, power, simatchnumber )
 import ReLibStrip      ( strip, getEdgeNo )
 import ReLibAngles     ( findangles2 )
 import ReLibFindlive   ( findlive )
-import ReLibUpdateLive ( updateLive )
+import ReLibUpdateLive ( updateLive2 )
 
 
 main :: IO ()
@@ -29,47 +29,46 @@ mainLoop gConfs
   | null gConfs = return ()
   | otherwise   = do
 
-    -- 1. strip()
-    let gConf  = head gConfs
-        vertex = head $ gConf !! 1
-        ring   = gConf !! 1 !! 1                   -- ring-size
-        edgeno = strip ring gConf
-    -- putStrLn "edgeno:"
-        edgeNo = getEdgeNo vertex ring gConf
-    -- print edgeNo
+  -- 1. strip()
+  let
+    gConf  = head gConfs
+    vertex = head $ gConf !! 1
+    ring   = gConf !! 1 !! 1                   -- ring-size
+    -- edgeno = strip ring gConf
+    edgeNo = getEdgeNo vertex ring gConf
 
-    -- 2. findangles()
-    {- "findangles" fills in the arrays "angle","diffangle","sameangle" and
-        "contract" from the input "graph". "angle" will be used to compute
-        which colourings of the ring edges extend to the configuration; the
-        others will not be used unless a contract is specified, and if so
-        they will be used in "checkcontract" below to verify that the
-        contract is correct. -}
-    -- let (angle, diffangle, sameangle, contract) = findangles gConf edgeno
-    let (angle, diffangle, sameangle, contract) = findangles2 (gConf, edgeNo)
-    --print contract2
+  -- 2. findangles()
+  {- "findangles" fills in the arrays "angle","diffangle","sameangle" and
+    "contract" from the input "graph". "angle" will be used to compute
+    which colourings of the ring edges extend to the configuration; the
+    others will not be used unless a contract is specified, and if so
+    they will be used in "checkcontract" below to verify that the
+    contract is correct. -}
+  -- let (angle, diffangle, sameangle, contract) = findangles gConf edgeno
+  let
+    (angle, diffangle, sameangle, contract) = findangles2 (gConf, edgeNo)
+  --print contract2
 
-    -- 3. findlive()
-        ncodes = (power !! ring + 1) `div` 2       -- number of codes of colorings of R
-        bigno  = (power !! (ring + 1) - 1) `div` 2 -- needed in "inlive"
-        live0  = replicate ncodes 1
-    (nlive1, live1) <- findlive ring bigno live0 ncodes angle power (gConf !! 1 !! 2)
+  -- 3. findlive()
+    ncodes = (power !! ring + 1) `div` 2       -- number of codes of colorings of R
+    bigno  = (power !! (ring + 1) - 1) `div` 2 -- needed in "inlive"
+    live0  = replicate ncodes 1
+  (nlive1, live1) <- findlive ring bigno live0 ncodes angle power (gConf !! 1 !! 2)
 
-    -- 4. updatelive()
-        --real   = replicate (simatchnumber !! maxring `div` 8 + 2) 255
-    let nchar  = (simatchnumber !! ring) `div` 8 + 1
-    -- computes {\cal M}_{i+1} from {\cal M}_i, updates the bits of "real"
-    (nlive2, live2) <- updateLive ring nchar ncodes (nlive1, live1)
-    -- computes {\cal C}_{i+1} from {\cal C}_i, updates "live"
+  -- 4. updatelive()
+  let nchar  = (simatchnumber !! ring) `div` 8 + 1
+  -- computes {\cal M}_{i+1} from {\cal M}_i, updates the bits of "real"
+  (nlive2, live2) <- updateLive2 (ring, nchar) ncodes (nlive1, live1)
+  -- computes {\cal C}_{i+1} from {\cal C}_i, updates "live"
 
-    -- 5. checkContract()
-    {- This verifies that the set claimed to be a contract for the
-        configuration really is. -}
-    --checkContract live2 nlive2 diffangle sameangle contract
+  -- 5. checkContract()
+  {- This verifies that the set claimed to be a contract for the
+    configuration really is. -}
+  --checkContract live2 nlive2 diffangle sameangle contract
 
-    -- 6 . recursion
-    -- mainLoop $ tail gConfs
-    mainLoop []
+  -- 6 . recursion
+  -- mainLoop $ tail gConfs
+  mainLoop []
 
 
 
