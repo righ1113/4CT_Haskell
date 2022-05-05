@@ -161,11 +161,10 @@ augmentSub2 r i bc@(depth, basecol, on) n cnt pack@(tm@(interval, weight, matchW
 -- ======== reality ========
 checkReality2 :: TpBaseCol -> Int -> [[Int]] -> Int -> [Int] -> TpUpdateState2 -> TpUpdateState2
 checkReality2 (16, _, _) _ _ _ _ _ = error "checkReality2 意図的なエラー!!"
-checkReality2 bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bit, realterm, rn@(ring, nchar)) = st
-{-
+checkReality2 bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bit, realterm, rn@(ring, nchar))
   | k >= maxK                                  = st
-  | fromIntegral bit .&. real !! realterm == 0 = checkReality2 bc                (k + 1) weight maxK choice  (lTwin,  real, nReal, shift bit2 1, realterm2, rn) -- continue
-  | otherwise                                  = checkReality2 (depth, col3, on) (k + 1) weight maxK choice3 (lTwin2, real, nReal, shift bit2 1, realterm2, rn) where
+  | fromIntegral bit .&. real !! realterm == 0 = checkReality2 bc                (k + 1) weight maxK choice  (lTwin,  real,  nReal,  shift bit2 1, realterm2, rn) -- continue
+  | otherwise                                  = checkReality2 (depth, col3, on) (k + 1) weight maxK choice3 (lTwin2, real2, nReal2, shift bit2 1, realterm2, rn) where
       (bit2, realterm2)
         | bit == 0 && realterm <= nchar = (1, realterm + 1)
         | bit == 0 && realterm >  nchar = error "More than %ld entries in real are needed"
@@ -179,11 +178,11 @@ checkReality2 bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, b
       (choice3, col3)
         | parity2 == 0                  = (choice & ix depth .~ head (weight !! depth), col2 + weight !! depth !! 2)
         | otherwise                     = (choice & ix depth .~ weight !! depth !! 1,   col2 + weight !! depth !! 3)
-      retM                     = isStillReal2 bc choice lTwin
-      (real2, nReal2, lTwin2)
-        | isNothing retM                = (real & ix realterm2 .~ real !! realterm2 `xor` fromIntegral bit2, nReal,     lTwin)
-        | otherwise                     = (real,                                                             nReal + 1, fromJust retM)
--}
+      --retM                     = isStillReal2 bc choice lTwin
+      (real2, nReal2, lTwin2) = (real, nReal, lTwin)
+      --  | isNothing retM                = (real & ix realterm2 .~ real !! realterm2 `xor` fromIntegral bit2, nReal,     lTwin)
+      --  | otherwise                     = (real,                                                             nReal + 1, fromJust retM)
+
 
 isStillReal2 :: TpBaseCol -> [Int] -> TpLiveTwin -> Maybe TpLiveTwin
 isStillReal2 bc@(depth, col, on) choice lTwin = do
