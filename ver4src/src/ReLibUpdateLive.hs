@@ -178,10 +178,10 @@ checkReality2 bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, b
       (choice3, col3)
         | parity2 == 0                  = (choice & ix depth .~ head (weight !! depth), col2 + weight !! depth !! 2)
         | otherwise                     = (choice & ix depth .~ weight !! depth !! 1,   col2 + weight !! depth !! 3)
-      --retM                     = isStillReal2 bc choice lTwin
-      (real2, nReal2, lTwin2) = (real, nReal, lTwin)
-      --  | isNothing retM                = (real & ix realterm2 .~ real !! realterm2 `xor` fromIntegral bit2, nReal,     lTwin)
-      --  | otherwise                     = (real,                                                             nReal + 1, fromJust retM)
+      retM                     = isStillReal2 bc choice lTwin
+      (real2, nReal2, lTwin2)
+        | isNothing retM                = (real & ix realterm2 .~ real !! realterm2 `xor` fromIntegral bit2, nReal,     lTwin)
+        | otherwise                     = (real,                                                             nReal + 1, fromJust retM)
 
 
 isStillReal2 :: TpBaseCol -> [Int] -> TpLiveTwin -> Maybe TpLiveTwin
@@ -206,7 +206,8 @@ isStillReal2 bc@(depth, col, on) choice lTwin = do
 
 
 stillRealSub1 :: Int -> Int -> TpLiveTwin -> TpRealityPack -> Maybe TpRealityPack
-stillRealSub1 b mark (_, live) (twi, nTw, sum, unt, nUn) = do
+stillRealSub1 b mark (_, live) rp@(twi, nTw, sum, unt, nUn) = Just rp --do
+{-
   case () of
     _ | b <  0 && live !! (-b) == 0 -> empty
       | b <  0 && live !! (-b) /= 0 -> return (twi2, nTw2, sum2, unt,  nUn)
@@ -217,7 +218,7 @@ stillRealSub1 b mark (_, live) (twi, nTw, sum, unt, nUn) = do
           sum2 = sum & ix mark .~ b
           unt2 = unt & ix nUn  .~ b
           nUn2 = nUn + 1
-
+-}
 
 stillRealSub2 :: Int -> [Int] -> Int -> Int -> TpLiveTwin -> TpLiveTwin
 stillRealSub2 i twist nTwist v lTwin@(nLive, live)
