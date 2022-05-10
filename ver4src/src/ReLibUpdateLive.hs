@@ -206,19 +206,26 @@ isStillReal2 bc@(depth, col, on) choice lTwin = do
 
 
 stillRealSub1 :: Int -> Int -> TpLiveTwin -> TpRealityPack -> Maybe TpRealityPack
-stillRealSub1 b mark (_, live) rp@(twi, nTw, sum, unt, nUn) = Just rp --do
-{-
+stillRealSub1 b mark (_, live) rp@(twi, nTw, sum, unt, nUn) = do
+{--}
   case () of
-    _ | b <  0 && live !! (-b) == 0 -> empty
+    _ | length live <= abs b        -> error (show (length live) ++ " " ++ show (abs b) ++ " stillRealSub1 意図的なエラー!!")
+      | b <  0 && live !! (-b) == 0 -> empty
       | b <  0 && live !! (-b) /= 0 -> return (twi2, nTw2, sum2, unt,  nUn)
       | b >= 0 && live !! b    == 0 -> empty
       | otherwise                   -> return (twi,  nTw,  sum2, unt2, nUn2) where
-          twi2 = twi & ix nTw  .~ (-b)
+          twi2
+            | b < 0     = twi & ix nTw  .~ (-b)
+            | otherwise = twi
           nTw2 = nTw + 1
-          sum2 = sum & ix mark .~ b
-          unt2 = unt & ix nUn  .~ b
+          sum2
+            | b < 0     = sum
+            | otherwise = sum & ix mark .~ b
+          unt2
+            | b < 0     = unt
+            | otherwise = unt & ix nUn  .~ b
           nUn2 = nUn + 1
--}
+{--}
 
 stillRealSub2 :: Int -> [Int] -> Int -> Int -> TpLiveTwin -> TpLiveTwin
 stillRealSub2 i twist nTwist v lTwin@(nLive, live)
