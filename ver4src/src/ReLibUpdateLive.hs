@@ -176,9 +176,9 @@ checkReality2 bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, b
                                           | left .&. 1 /= 0 = (parity `xor` 1, choice & ix i .~ weight !! i !! 1,   col + weight !! i !! 3)
                                           | otherwise       = (parity,         choice & ix i .~ head (weight !! i), col + weight !! i !! 2)
       (choice3, col3)
-        | parity2 == 0                  = (choice & ix depth .~ head (weight !! depth), col2 + weight !! depth !! 2)
-        | otherwise                     = (choice & ix depth .~ weight !! depth !! 1,   col2 + weight !! depth !! 3)
-      retM                     = isStillReal2 bc choice lTwin
+        | parity2 == 0                  = (choice2 & ix depth .~ head (weight !! depth), col2 + weight !! depth !! 2)
+        | otherwise                     = (choice2 & ix depth .~ weight !! depth !! 1,   col2 + weight !! depth !! 3)
+      retM                     = isStillReal2 (depth, col3, on) choice3 lTwin
       (real2, nReal2, lTwin2)
         | isNothing retM                = (real & ix realterm2 .~ real !! realterm2 `xor` fromIntegral bit2, nReal,     lTwin)
         | otherwise                     = (real,                                                             nReal + 1, fromJust retM)
@@ -186,7 +186,7 @@ checkReality2 bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, b
 
 isStillReal2 :: TpBaseCol -> [Int] -> TpLiveTwin -> Maybe TpLiveTwin
 isStillReal2 bc@(depth, col, on) choice lTwin = do
-  pack@(twi, nTw, sum, unt, nUn) <- stillRealSub1 col 0 lTwin (replicate 64 0, 0, replicate 64 0, replicate 64 0, 0)
+  pack                           <- stillRealSub1 col 0 lTwin (replicate 64 0, 0, replicate 64 0, replicate 64 0, 0)
   (twi2, nTw2, sum2, unt2, nUn2) <- flip fix (2, 1::Int, pack) $ \loop (i, twoPow, pack) -> case () of
                                       _ | i > depth -> return pack
                                         | otherwise -> do
@@ -195,8 +195,8 @@ isStillReal2 bc@(depth, col, on) choice lTwin = do
                                                                                 _ | j > twoPow -> return pack
                                                                                   | otherwise -> do
                                                                                       let b = sum !! j - c
-                                                                                      pack2 <- stillRealSub1 b mark lTwin pack
-                                                                                      loop (j + 1, mark + 1, pack)
+                                                                                      pack3 <- stillRealSub1 b mark lTwin pack
+                                                                                      loop (j + 1, mark + 1, pack3)
                                             loop (i + 1, shift twoPow 1, pack2)
   let
     lTwin2
