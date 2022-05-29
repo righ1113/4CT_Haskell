@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Move brackets to avoid $" #-}
+{-# LANGUAGE Strict #-}
 module ReLibUpdateLive where
 
 import CoLibCConst
@@ -22,6 +23,7 @@ import Data.Bits                      ( Bits(shift, (.&.), (.|.), xor) )
 import Data.Function                  ( fix )
 import Data.Int                       ( Int8 )
 import Data.Maybe                     ( isNothing, fromJust )
+import Debug.Trace                    ( trace )
 
 
 updateLive2 :: TpRingNchar -> Int -> TpLiveTwin -> IO TpLiveTwin
@@ -70,17 +72,17 @@ testmatch2 st@(_, _, _, _, _, (ring, _)) = ret where
 
 testmatch2Sub1 :: Bool -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
 testmatch2Sub1 flg pack@(tm@(interval, weight, matchW), st@(_, _, _, _, _, (ring, _))) = ((interval, weight, matchW2), st) where
-  matchW2 = flip fix (matchW, 2) $ \loop (matchW, a) -> case () of
-              _ | a > ring -> matchW
-                | otherwise -> loop (matchW3, a + 1) where
-                    matchW3 = flip fix (matchW, 1) $ \loop (matchW, b) -> case () of
-                                _ | b > a - 1 -> matchW
-                                  | otherwise -> loop (nextMatch, b + 1) where
-                                      matchW4_1 = matchW    & (ix a <<< ix b <<< ix 0) .~ (power !! a + power !! b) * 2
+  matchW2 = flip fix (matchW, 2) $ \loop1 (matchWin1, a) -> case () of
+              _ | a > ring -> matchWin1
+                | otherwise -> loop1 (matchW3, a + 1) where
+                    matchW3 = flip fix (matchWin1, 1) $ \loop2 (matchWin2, b) -> case () of
+                                _ | b > a - 1 -> matchWin2
+                                  | otherwise -> loop2 (nextMatch, b + 1) where
+                                      matchW4_1 = trace ("aM,bM: " ++ show a ++ " " ++ show b) $ matchWin2 & (ix a <<< ix b <<< ix 0) .~ (power !! a + power !! b) * 2
                                       matchW4_2 = matchW4_1 & (ix a <<< ix b <<< ix 1) .~ (power !! a - power !! b) * 2
                                       matchW4_3 = matchW4_2 & (ix a <<< ix b <<< ix 2) .~ (power !! a + power !! b)
                                       matchW4_4 = matchW4_3 & (ix a <<< ix b <<< ix 3) .~ (power !! a - power !! b)
-                                      matchW5_1 = matchW    & (ix a <<< ix b <<< ix 0) .~ (power !! a + power !! b)
+                                      matchW5_1 = matchWin2 & (ix a <<< ix b <<< ix 0) .~ (power !! a + power !! b)
                                       matchW5_2 = matchW5_1 & (ix a <<< ix b <<< ix 1) .~ (power !! a - power !! b)
                                       matchW5_3 = matchW5_2 & (ix a <<< ix b <<< ix 2) .~ -power !! a + power !! b
                                       matchW5_4 = matchW5_3 & (ix a <<< ix b <<< ix 3) .~ -power !! a -2 * power !! b
@@ -96,7 +98,7 @@ testmatch2Sub2wrapAug flg (start, end) pack@(tm@(interval, weight, matchW), st@(
                                         _ | b > a - 1 -> (interval, weight, a + 1, st2)
                                           | otherwise ->
                                               let
-                                                weight4 = weight & ix 1 .~ matchW !! a !! b
+                                                weight4 = trace ("a,b: " ++ show a ++ " " ++ show b) $ weight & ix 1 .~ matchW !! a !! b
                                                 n
                                                   | b >= 3 && a >= b + 3 = 2
                                                   | b >= 3 && a <  b + 3 = 1
@@ -115,74 +117,91 @@ testmatch2Sub2wrapAug flg (start, end) pack@(tm@(interval, weight, matchW), st@(
                                                   | otherwise            = interval
                                                 baseCol = (power !! (ring + 1) - 1) `div` 2
                                                 st3
-                                                  | flg       = snd $ augment2 (1, 0,       0) 1 n 0 ((interval4, weight4, matchW), st2)
-                                                  | otherwise = snd $ augment2 (1, baseCol, 1) 1 n 0 ((interval4, weight4, matchW), st2)
+                                                  | flg       = snd $ augment0 (1, 0,       0) 1 n 0 ((interval4, weight4, matchW), st2)
+                                                  | otherwise = snd $ augment0 (1, baseCol, 1) 1 n 0 ((interval4, weight4, matchW), st2)
                                               in loop (interval4, weight4, b + 1, st3)
 
 
 -- ======== augment ========
+augment0 :: TpBaseCol -> Int -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
+augment0 bc@(depth, basecol, on) r n cnt pack@(tm@(interval, weight, matchW), st) = augment2 bc r n cnt (tm, ret) where
+  ret = checkReality2 bc 0 weight (shift 1 (depth - 1)) (replicate 8 0) st
+
+
 augment2 :: TpBaseCol -> Int -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
 augment2 bc@(depth, basecol, on) r n cnt pack@(tm@(interval, weight, matchW), st)
   | cnt >= 10000 = error "augment over!"
   | r > n        = pack
   | otherwise    = augment2 bc (r + 1) n cnt ret2 where
       lower = interval !! (2 * r - 1)
-      ret   = checkReality2 bc 0 weight (shift 1 (depth - 1)) (replicate 8 0) st
-      ret2  = augmentSub2 r (lower + 1) bc n cnt (tm, ret)
+      ret2  = augmentSub2 r (lower + 1) bc n cnt pack
 
 
 augmentSub2 :: Int -> Int -> TpBaseCol -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
-augmentSub2 r i bc@(depth, basecol, on) n cnt pack@(tm@(interval, weight, matchW), st)
-  | i > upper = pack
-  | otherwise = augmentSub2 r (i + 1) bc n cnt pack' where
-      lower          = interval !! (2 * r - 1)
-      upper          = interval !! (2 * r)
-      (pack', newN') = flip fix (pack, n, lower) $ \loop (pack@(tm@(va, we, ma), st), newN, j) -> case () of
-                        _ | j > i     -> (pack, newN)
-                          | otherwise ->
-                              let we2   = we & ix (depth + 1) .~ ma !! i !! j       -- weight
-                                  bc'   = (depth + 1, basecol, on)
-                                  newV  = take 10 $ take (2 * r - 2) va ++ repeat 0 -- take-cycle-take
-                                  newV2_1 = newV    & ix (2 * r - 1) .~ lower
-                                  newV2_2 = newV2_1 & ix (2 * r)     .~ j - 1
-                                  newV2_3 = newV2_2 & ix (2 * r + 1) .~ j + 1
-                                  newV2_4 = newV2_2 & ix (2 * r + 2) .~ i - 1
-                                  newV2_5 = newV    & ix (2 * r - 1) .~ j + 1
-                                  newV2_6 = newV2_5 & ix (2 * r)     .~ i - 1
-                                  (newN2, newV2)
-                                    | j >  lower + 1 && i >  j + 1 = (r + 1, newV2_4)
-                                    | j >  lower + 1 && i <= j + 1 = (r,     newV2_2)
-                                    | j <= lower + 1 && i >  j + 1 = (r,     newV2_6)
-                                    | otherwise                    = (r - 1, newV)
-                                  pack'' = augment2 bc' r newN2 (cnt + 1) ((newV2, we2, ma), st)
-                              in loop (pack'', newN2, j + 1)
-
+augmentSub2 r i bc@(depth, basecol, on) n cnt pack@(tm@(interval, weight, matchW), st) -- = pack
+{--}
+  = if i > interval !! 2 * r then trace ("i,upper: " ++ show i ++ " " ++ show (interval !! 2 * r)) pack
+    else
+      let
+        lower          = interval !! (2 * r - 1)
+        --upper          = interval !! (2 * r)
+        (pack', newN') = flip fix (pack, n, lower) $ \loop (pack@(tm@(va, we, ma), st), newN, j) -> trace ("i,iover,j,jover: " ++ show i ++ " " ++ show (interval !! 2 * r) ++ " " ++ show j ++ " " ++ show i) $ case () of
+                          _ | j >= i    -> (pack, newN)
+                            | otherwise ->
+                                let we2   = we & ix (depth + 1) .~ ma !! i !! j       -- weight
+                                    bc'   = (depth + 1, basecol, on)
+                                    newV  = take 10 $ take (2 * r - 2) va ++ replicate 100 0 -- take-cycle-take
+                                    newV2_1 = newV    & ix (2 * r - 1) .~ lower
+                                    newV2_2 = newV2_1 & ix (2 * r)     .~ j - 1
+                                    newV2_3 = newV2_2 & ix (2 * r + 1) .~ j + 1
+                                    newV2_4 = newV2_2 & ix (2 * r + 2) .~ i - 1
+                                    newV2_5 = newV    & ix (2 * r - 1) .~ j + 1
+                                    newV2_6 = newV2_5 & ix (2 * r)     .~ i - 1
+                                    (newN2, newV2)
+                                      | j >  lower + 1 && i >  j + 1 = (r + 1, newV2_4)
+                                      | j >  lower + 1 && i <= j + 1 = (r,     newV2_2)
+                                      | j <= lower + 1 && i >  j + 1 = (r,     newV2_6)
+                                      | otherwise                    = (r - 1, newV)
+                                    pack'' = augment0 bc' r newN2 (cnt + 1) ((newV2, we2, ma), st)
+                                in loop (pack'', newN2, j + 1)
+      in augmentSub2 r (i + 1) bc n cnt pack'
+{--}
 
 -- ======== reality ========
 checkReality2 :: TpBaseCol -> Int -> [[Int]] -> Int -> [Int] -> TpUpdateState2 -> TpUpdateState2
 checkReality2 (16, _, _) _ _ _ _ _ = error "checkReality2 意図的なエラー!!"
-checkReality2 bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bit, realterm, rn@(ring, nchar))
+checkReality2 bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bit, realterm, rn@(ring, nchar)) -- = st
+{--}
   | k >= maxK                                  = st
-  | fromIntegral bit .&. real !! realterm == 0 = checkReality2 bc                (k + 1) weight maxK choice  (lTwin,  real,  nReal,  shift bit2 1, realterm2, rn) -- continue
-  | otherwise                                  = checkReality2 (depth, col3, on) (k + 1) weight maxK choice3 (lTwin2, real2, nReal2, shift bit2 1, realterm2, rn) where
-      (bit2, realterm2)
-        | bit == 0 && realterm <= nchar = (1, realterm + 1)
-        | bit == 0 && realterm >  nchar = error "More than %ld entries in real are needed"
-        | otherwise                     = (bit, realterm)
-      (parity2, choice2, col2) = flip fix (ring .&. 1, choice, col, k, 1) $ \loop (parity, choice, col, left, i) -> case () of
-                                  _ | i >= depth -> (parity, choice, col)
-                                    | otherwise  -> loop (parity', choice', col', shift left (-1), i + 1) where
-                                        (parity', choice', col')
-                                          | left .&. 1 /= 0 = (parity `xor` 1, choice & ix i .~ weight !! i !! 1,   col + weight !! i !! 3)
-                                          | otherwise       = (parity,         choice & ix i .~ head (weight !! i), col + weight !! i !! 2)
-      (choice3, col3)
-        | parity2 == 0                  = (choice2 & ix depth .~ head (weight !! depth), col2 + weight !! depth !! 2)
-        | otherwise                     = (choice2 & ix depth .~ weight !! depth !! 1,   col2 + weight !! depth !! 3)
-      retM                     = isStillReal2 (depth, col3, on) choice3 lTwin
-      (real2, nReal2, lTwin2)
-        | isNothing retM                = (real & ix realterm2 .~ real !! realterm2 `xor` fromIntegral bit2, nReal,     lTwin)
-        | otherwise                     = (real,                                                             nReal + 1, fromJust retM)
-
+  | fromIntegral bit .&. real !! realterm == 0 = 
+      let
+        (bit2, realterm2)
+          | bit == 0 && realterm <= nchar = (1, realterm + 1)
+          | bit == 0 && realterm >  nchar = error $ "More than %ld entries in real are needed " ++ show realterm ++ " " ++ show nchar
+          | otherwise                     = (bit, realterm)
+      in checkReality2 bc                (k + 1) weight maxK choice  (lTwin,  real,  nReal,  shift bit2 1, realterm2, rn) -- continue
+  | otherwise                                  =
+      let
+        (bit2, realterm2)
+          | bit == 0 && realterm <= nchar = (1, realterm + 1)
+          | bit == 0 && realterm >  nchar = error $ "More than %ld entries in real are needed " ++ show realterm ++ " " ++ show nchar
+          | otherwise                     = (bit, realterm)
+        (parity2, choice2, col2) = flip fix (ring .&. 1, choice, col, k, 1) $ \loop (parity, choice, col, left, i) -> case () of
+                                    _ | i >= depth -> (parity, choice, col)
+                                      | otherwise  -> loop (parity', choice', col', shift left (-1), i + 1) where
+                                          (parity', choice', col')
+                                            | left .&. 1 /= 0 = (parity `xor` 1, choice & ix i .~ weight !! i !! 1,   col + weight !! i !! 3)
+                                            | otherwise       = (parity,         choice & ix i .~ head (weight !! i), col + weight !! i !! 2)
+        (choice3, col3)
+          | parity2 == 0                  = (choice2 & ix depth .~ head (weight !! depth), col2 + weight !! depth !! 2)
+          | otherwise                     = (choice2 & ix depth .~ weight !! depth !! 1,   col2 + weight !! depth !! 3)
+        retM                     = trace ("col1,2,3: " ++ show col ++ " " ++ show col2 ++ " " ++ show col3) $ isStillReal2 (depth, col3, on) choice3 lTwin
+        --retM                     = trace ("d, w: " ++ show depth ++ " " ++ show weight) $ isStillReal2 (depth, col3, on) choice3 lTwin
+        (real2, nReal2, lTwin2)
+          | isNothing retM                = (real & ix realterm2 .~ real !! realterm2 `xor` fromIntegral bit2, nReal,     lTwin)
+          | otherwise                     = (real,                                                             nReal + 1, fromJust retM)
+      in checkReality2 (depth, col3, on) (k + 1) weight maxK choice3 (lTwin2, real2, nReal2, shift bit2 1, realterm2, rn)
+{--}
 
 isStillReal2 :: TpBaseCol -> [Int] -> TpLiveTwin -> Maybe TpLiveTwin
 isStillReal2 bc@(depth, col, on) choice lTwin = do
@@ -191,12 +210,13 @@ isStillReal2 bc@(depth, col, on) choice lTwin = do
                                       _ | i > depth -> return pack
                                         | otherwise -> do
                                             let c = choice !! i
-                                            pack2 <- flip fix (0, 1, pack) $ \loop (j, mark, pack@(_, _, sum, _, _)) -> case () of
+                                            pack2 <- flip fix (0, 1, pack) $ \loop2 (j, mark, pack@(_, _, sum, _, _)) -> case () of
                                                                                 _ | j > twoPow -> return pack
-                                                                                  | otherwise -> do
+                                                                                  | otherwise  -> do
                                                                                       let b = sum !! j - c
+                                                                                      --pack3 <- trace ("twoPow: " ++ show twoPow) $ stillRealSub1 b mark lTwin pack
                                                                                       pack3 <- stillRealSub1 b mark lTwin pack
-                                                                                      loop (j + 1, mark + 1, pack3)
+                                                                                      loop2 (j + 1, mark + 1, pack3)
                                             loop (i + 1, shift twoPow 1, pack2)
   let
     lTwin2
@@ -208,8 +228,9 @@ isStillReal2 bc@(depth, col, on) choice lTwin = do
 stillRealSub1 :: Int -> Int -> TpLiveTwin -> TpRealityPack -> Maybe TpRealityPack
 stillRealSub1 b mark (_, live) rp@(twi, nTw, sum, unt, nUn) = do
 {--}
+  --trace ("b: " ++ show b ++ " " ++ show rp) $ case () of
   case () of
-    _ | length live <= abs b        -> error (show (length live) ++ " " ++ show (abs b) ++ " stillRealSub1 意図的なエラー!!")
+    _ | length live <= abs b        -> error (show (length live) ++ " " ++ show b ++ " stillRealSub1 意図的なエラー!!")
       | b <  0 && live !! (-b) == 0 -> empty
       | b <  0 && live !! (-b) /= 0 -> return (twi2, nTw2, sum2, unt,  nUn)
       | b >= 0 && live !! b    == 0 -> empty
