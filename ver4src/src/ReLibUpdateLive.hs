@@ -125,7 +125,7 @@ testmatch2Sub2wrapAug flg (start, end) pack@(tm@(interval, weight, matchW), st@(
 -- ======== augment ========
 augment0 :: TpBaseCol -> Int -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
 augment0 bc@(depth, basecol, on) r n cnt pack@(tm@(interval, weight, matchW), st) = augment2 bc r n cnt (tm, ret) where
-  ret = checkReality2 bc 0 weight (shift 1 (depth - 1)) (replicate 8 0) st
+  ret = trace ("maxK: " ++ show (shift 1 (depth - 1)::Int)) checkReality2 bc 0 weight (shift 1 (depth - 1)) (replicate 8 0) st
 
 
 augment2 :: TpBaseCol -> Int -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
@@ -195,12 +195,11 @@ checkReality2 bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, b
         (choice3, col3)
           | parity2 == 0                  = (choice2 & ix depth .~ head (weight !! depth), col2 + weight !! depth !! 2)
           | otherwise                     = (choice2 & ix depth .~ weight !! depth !! 1,   col2 + weight !! depth !! 3)
-        retM                     = trace ("col1,2,3: " ++ show col ++ " " ++ show col2 ++ " " ++ show col3) $ isStillReal2 (depth, col3, on) choice3 lTwin
-        --retM                     = trace ("d, w: " ++ show depth ++ " " ++ show weight) $ isStillReal2 (depth, col3, on) choice3 lTwin
+        retM                     = trace ("col1,2,3,d,w: " ++ show col ++ " " ++ show col2 ++ " " ++ show col3 ++ " " ++ show depth ++ " " ++ show weight) $ isStillReal2 (depth, col3, on) choice3 lTwin
         (real2, nReal2, lTwin2)
           | isNothing retM                = (real & ix realterm2 .~ real !! realterm2 `xor` fromIntegral bit2, nReal,     lTwin)
           | otherwise                     = (real,                                                             nReal + 1, fromJust retM)
-      in checkReality2 (depth, col3, on) (k + 1) weight maxK choice3 (lTwin2, real2, nReal2, shift bit2 1, realterm2, rn)
+      in checkReality2 (depth, col, on) (k + 1) weight maxK choice3 (lTwin2, real2, nReal2, shift bit2 1, realterm2, rn)
 {--}
 
 isStillReal2 :: TpBaseCol -> [Int] -> TpLiveTwin -> Maybe TpLiveTwin
