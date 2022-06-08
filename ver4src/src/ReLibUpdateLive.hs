@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Move brackets to avoid $" #-}
+{-# HLINT ignore "Use head" #-}
 {-# LANGUAGE Strict #-}
 module ReLibUpdateLive where
 
@@ -44,7 +45,7 @@ isUpdate2 :: Int -> TpLiveTwin -> Int -> IO (Bool, TpLiveTwin)
 isUpdate2 ncodes (nLive, live) nReal = do
   let s1              = "\n\n\n                  ***  D-reducible  ***\n"
       s2              = "\n\n\n                ***  Not D-reducible  ***\n"
-      live'           = if head live > 1 then live & ix 0 .~ 15 else live
+      live'           = if live !! 0 > 1 then live & ix 0 .~ 15 else live
       (nLive2, live2) = flip fix (nLive, live', 0) $ \loop (nLive, live, i) -> case () of
                           _ | i >= ncodes     -> (nLive, live)
                             | live !! i /= 15 -> loop (nLive , live3, i + 1)
@@ -116,10 +117,10 @@ testmatch2Sub2wrapAug flg (start, end) pack@(tm@(interval, weight, matchW), st@(
                                                   | b <  3 && a >= b + 3 = interval5_4
                                                   | otherwise            = interval
                                                 baseCol = (power !! (ring + 1) - 1) `div` 2
-                                                st3
-                                                  | flg       = snd $ augment0 (1, 0,       0) 1 n 0 ((interval4, weight4, matchW), st2)
-                                                  | otherwise = snd $ augment0 (1, baseCol, 1) 1 n 0 ((interval4, weight4, matchW), st2)
-                                              in loop (interval4, weight4, b + 1, st3)
+                                                ((interval5, weight5, _), st3)
+                                                  | flg       = augment0 (1, 0,       0) 1 n 0 ((interval4, weight4, matchW), st2)
+                                                  | otherwise = augment0 (1, baseCol, 1) 1 n 0 ((interval4, weight4, matchW), st2)
+                                              in loop (interval5, weight5, b + 1, st3)
 
 
 -- ======== augment ========
@@ -179,7 +180,7 @@ checkReality2 bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, b
           | bit == 0 && realterm <= nchar = (1, realterm + 1)
           | bit == 0 && realterm >  nchar = error $ "More than %ld entries in real are needed " ++ show realterm ++ " " ++ show nchar
           | otherwise                     = (bit, realterm)
-      in checkReality2 bc                (k + 1) weight maxK choice  (lTwin,  real,  nReal,  shift bit2 1, realterm2, rn) -- continue
+      in trace "hogehoge" checkReality2 bc                (k + 1) weight maxK choice  (lTwin,  real,  nReal,  shift bit2 1, realterm2, rn) -- continue
   | otherwise                                  =
       let
         (bit2, realterm2)
@@ -190,11 +191,11 @@ checkReality2 bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, b
                                     _ | i >= depth -> (parity, choice, col)
                                       | otherwise  -> loop (parity', choice', col', shift left (-1), i + 1) where
                                           (parity', choice', col')
-                                            | left .&. 1 /= 0 = (parity `xor` 1, choice & ix i .~ weight !! i !! 1,   col + weight !! i !! 3)
-                                            | otherwise       = (parity,         choice & ix i .~ head (weight !! i), col + weight !! i !! 2)
+                                            | left .&. 1 == 0 = trace ("left: " ++ show left) (parity,         choice & ix i .~ weight !! i !! 0, col + weight !! i !! 2)
+                                            | otherwise       = trace ("left: " ++ show left) (parity `xor` 1, choice & ix i .~ weight !! i !! 1, col + weight !! i !! 3)
         (choice3, col3)
-          | parity2 == 0                  = (choice2 & ix depth .~ head (weight !! depth), col2 + weight !! depth !! 2)
-          | otherwise                     = (choice2 & ix depth .~ weight !! depth !! 1,   col2 + weight !! depth !! 3)
+          | parity2 == 0                  = (choice2 & ix depth .~ weight !! depth !! 0, col2 + weight !! depth !! 2)
+          | otherwise                     = (choice2 & ix depth .~ weight !! depth !! 1, col2 + weight !! depth !! 3)
         retM                     = trace ("col1,2,3,d,w: " ++ show col ++ " " ++ show col2 ++ " " ++ show col3 ++ " " ++ show depth ++ " " ++ show weight) $ isStillReal2 (depth, col3, on) choice3 lTwin
         (real2, nReal2, lTwin2)
           | isNothing retM                = (real & ix realterm2 .~ real !! realterm2 `xor` fromIntegral bit2, nReal,     lTwin)
