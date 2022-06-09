@@ -16,9 +16,9 @@ type TpConfPack      = (Bool, Int, [Bool], TpVertices, Int)
 
 type TpConfmat       = [[Int]]
 type TpAngle         = [[Int]]
-type TpEdgeno        = [[Int]]
-type TpGetENPack     = (TpConfmat, Int, Int, [Bool], Int, TpEdgeno)
-type TpAnglePack     = (TpConfmat, TpEdgeno, TpAngle, TpAngle, TpAngle, [Int])
+type TpEdgeNo        = [[Int]]
+type TpGetENPack     = (TpConfmat, Int, Int, [Bool], Int, TpEdgeNo)
+type TpAnglePack     = (TpConfmat, TpEdgeNo, TpAngle, TpAngle, TpAngle, [Int])
 type TpExtCJ         = (Bool, [Int], Int)
 type TpFliveBindPack = (TpExtCJ, (Int, [Int]), TpExtCJ, TpExtCJ, TpExtCJ, [Int])
 type TpBPSPack       = (Int, Int, Int, Int, TpExtCJ, Int)

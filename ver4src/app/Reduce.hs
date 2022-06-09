@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use head" #-}
 {-
 ◆author: righ1113
 ◆動かし方
@@ -9,7 +11,7 @@
 module Main where
 
 import CoLibCConst     ( readFileGoodConfsR, TpConfmat, power, simatchnumber ) 
-import ReLibStrip      ( strip, getEdgeNo )
+import ReLibStrip      ( getEdgeNo )
 import ReLibAngles     ( findangles2 )
 import ReLibFindlive   ( findlive )
 import ReLibUpdateLive ( updateLive2 )
@@ -29,10 +31,10 @@ mainLoop gConfs
   | null gConfs = return ()
   | otherwise   = do
 
-  -- 1. strip()
+  -- 1. getEdgeNo()
   let
     gConf  = head gConfs
-    vertex = head $ gConf !! 1
+    vertex = gConf !! 1 !! 0
     ring   = gConf !! 1 !! 1                   -- ring-size
     -- edgeno = strip ring gConf
     edgeNo = getEdgeNo vertex ring gConf

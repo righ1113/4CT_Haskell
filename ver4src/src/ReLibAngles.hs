@@ -1,17 +1,17 @@
 module ReLibAngles where
 
-import CoLibCConst   ( edges, mverts, TpAngle, TpConfmat, TpEdgeno, TpAnglePack )
+import CoLibCConst   ( edges, mverts, TpAngle, TpConfmat, TpEdgeNo, TpAnglePack )
 import Control.Arrow ( (<<<) )
 import Control.Lens  ( (&), (.~), Ixed(ix) )
 import Data.Function ( fix )
 
 
-findangles2 :: (TpConfmat, TpEdgeno) -> (TpAngle, TpAngle, TpAngle, [Int])
+findangles2 :: (TpConfmat, TpEdgeNo) -> (TpAngle, TpAngle, TpAngle, [Int])
 findangles2 = findangleSub3 . findangleSub2 1 . findangleSub1 1 . findangleSub0
 
 
 -- ======== findangleSub0 ========
-findangleSub0 :: (TpConfmat, TpEdgeno) -> TpAnglePack
+findangleSub0 :: (TpConfmat, TpEdgeNo) -> TpAnglePack
 findangleSub0 (gConf, edgeno) = (gConf, edgeno, angle3, diffangle3, sameangle0, contract2) where
   contract0  = replicate (edges + 1) 0
   angle0     = replicate edges $ replicate 5 0
