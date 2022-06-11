@@ -43,9 +43,9 @@ difNouts   = [0, 0, 0, 0, 0, 0, 0, 103, 64, 53, 53, 53] :: [Int]
 
 -- mverts     = 27 :: Int               -- max number of vertices in a free completion + 1
 edges      = 62 :: Int               -- max number of edges in a free completion + 1
-maxring    = 14 :: Int               -- max ring-size # 3^(i-1)
+maxRing    = 14 :: Int               -- max ring-size # 3^(i-1)
 power         = [0, 1, 3, 9, 27, 81, 243, 729, 2187, 6561, 19683, 59049, 177147, 531441, 1594323, 4782969, 14348907] :: [Int]
-simatchnumber = [0, 0, 1, 3, 10, 30, 95, 301, 980, 3228, 10797, 36487, 124542, 428506, 1485003] :: [Int]
+siMatchNumber = [0, 0, 1, 3, 10, 30, 95, 301, 980, 3228, 10797, 36487, 124542, 428506, 1485003] :: [Int]
 
 readFileGoodConfsR :: IO [TpConfmat]
 readFileGoodConfsR = do

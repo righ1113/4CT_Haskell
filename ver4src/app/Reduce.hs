@@ -10,11 +10,11 @@
 -}
 module Main where
 
-import CoLibCConst     ( readFileGoodConfsR, TpConfmat, power, simatchnumber ) 
+import CoLibCConst     ( readFileGoodConfsR, TpConfmat, power, siMatchNumber ) 
 import ReLibStrip      ( getEdgeNo )
 import ReLibAngles     ( findAngle )
 import ReLibFindlive   ( findLive )
-import ReLibUpdateLive ( updateLive2 )
+import ReLibUpdateLive ( updateLive )
 
 
 main :: IO ()
@@ -58,9 +58,9 @@ mainLoop gConfs
   (nlive1, live1) <- findLive ring bigno live0 ncodes angle power (gConf !! 1 !! 2)
 
   -- 4. updatelive()
-  let nchar  = (simatchnumber !! ring) `div` 8 + 1
+  let nchar  = (siMatchNumber !! ring) `div` 8 + 1
   -- computes {\cal M}_{i+1} from {\cal M}_i, updates the bits of "real"
-  (nlive2, live2) <- updateLive2 (ring, nchar) ncodes (nlive1, live1)
+  (nlive2, live2) <- updateLive (ring, nchar) ncodes (nlive1, live1)
   -- computes {\cal C}_{i+1} from {\cal C}_i, updates "live"
 
   -- 5. checkContract()

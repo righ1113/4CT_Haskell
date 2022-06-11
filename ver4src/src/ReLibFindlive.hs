@@ -1,6 +1,6 @@
 module ReLibFindlive where
 
-import CoLibCConst   ( edges, TpAngle, power, simatchnumber, TpExtCJ, TpFliveBindPack, TpBPSPack )
+import CoLibCConst   ( edges, TpAngle, power, siMatchNumber, TpExtCJ, TpFliveBindPack, TpBPSPack )
 import Control.Lens  ( (&), (.~), Ixed(ix) )
 import Data.Bits     ( Bits(shift, (.&.), (.|.)) )    
 import Data.Function ( fix )
@@ -139,7 +139,7 @@ printStatus ring totalCols extent _ = do
     ++ ", so there are "
     ++ show totalCols
     ++ " colourings total,\n"
-  putStr   $ "   and " ++ show (simatchnumber !! ring) ++ " balanced signed matchings.\n"
+  putStr   $ "   and " ++ show (siMatchNumber !! ring) ++ " balanced signed matchings.\n"
   putStr   $ "\n   There are " ++ show extent ++ " colourings that extend to the configuration."
   putStr     "\n\n            remaining               remaining balanced\n"
   putStr     "           colourings               signed matchings\n"

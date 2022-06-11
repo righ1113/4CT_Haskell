@@ -5,9 +5,9 @@
 module ReLibUpdateLive where
 
 import CoLibCConst
-    ( simatchnumber,
+    ( siMatchNumber,
       power,
-      maxring,
+      maxRing,
       TpRealityPack,
       TpBaseCol,
       TpTMbind,
@@ -27,27 +27,27 @@ import Data.Maybe                     ( isNothing, fromJust )
 import Debug.Trace                    ( trace )
 
 
-updateLive2 :: TpRingNchar -> Int -> TpLiveTwin -> IO TpLiveTwin
-updateLive2 = iterateConvergenceIO testmatch2 real where
-  real = replicate (simatchnumber !! maxring `div` 8 + 2) 255
+updateLive :: TpRingNchar -> Int -> TpLiveTwin -> IO TpLiveTwin
+updateLive = iterateConvergenceIO testMatch real where
+  real = replicate (siMatchNumber !! maxRing `div` 8 + 2) 255
 
 
 iterateConvergenceIO :: (TpUpdateState2 -> TpUpdateState2) -> [Int] -> TpRingNchar -> Int -> TpLiveTwin -> IO TpLiveTwin 
-iterateConvergenceIO f real rn ncodes lTwin = do
+iterateConvergenceIO f real rn nCodes lTwin = do
   let (lTwin2, real2, nReal, _, _, _) = f (lTwin, real, 0, 1, 0, rn)
-  (is, lTwin3) <- isUpdate2 ncodes lTwin2 nReal
+  (is, lTwin3) <- isUpdate nCodes lTwin2 nReal
   case () of
     _ | not is    -> return lTwin3
-      | otherwise -> iterateConvergenceIO f real2 rn ncodes lTwin3
+      | otherwise -> iterateConvergenceIO f real2 rn nCodes lTwin3
 
 
-isUpdate2 :: Int -> TpLiveTwin -> Int -> IO (Bool, TpLiveTwin)
-isUpdate2 ncodes (nLive, live) nReal = do
+isUpdate :: Int -> TpLiveTwin -> Int -> IO (Bool, TpLiveTwin)
+isUpdate nCodes (nLive, live) nReal = do
   let s1              = "\n\n\n                  ***  D-reducible  ***\n"
       s2              = "\n\n\n                ***  Not D-reducible  ***\n"
       live'           = if live !! 0 > 1 then live & ix 0 .~ 15 else live
       (nLive2, live2) = flip fix (nLive, live', 0) $ \loop (nLive, live, i) -> case () of
-                          _ | i >= ncodes     -> (nLive, live)
+                          _ | i >= nCodes     -> (nLive, live)
                             | live !! i /= 15 -> loop (nLive , live3, i + 1)
                             | otherwise       -> loop (nLive2, live2, i + 1) where
                                 nLive2 = nLive + 1
@@ -59,20 +59,20 @@ isUpdate2 ncodes (nLive, live) nReal = do
     _ | 0 < nLive2 && nLive2 < nLive -> return (True, (nLive2, live2)) -- 続行
       | otherwise                    -> do
           if nLive2 == 0 then putStr s1 else putStr s2
-          return (False, (nLive2, live2)) -- 終了
+          return (False, (nLive2, live2))                              -- 終了
 
 
 -- ======== testmatch ========
-testmatch2 :: TpUpdateState2 -> TpUpdateState2
-testmatch2 st@(_, _, _, _, _, (ring, _)) = ret where
-  (_, ret) = (testmatch2Sub2wrapAug False (ring, ring)
-              . testmatch2Sub1 False
-                . testmatch2Sub2wrapAug True (2, ring - 1)
-                  . testmatch2Sub1 True) ((replicate 10 0, replicate 16 $ replicate 4 0, replicate 16 $ replicate 16 $ replicate 4 0), st)
+testMatch :: TpUpdateState2 -> TpUpdateState2
+testMatch st@(_, _, _, _, _, (ring, _)) = ret where
+  (_, ret) = (testMatchSub2wrapAug False (ring, ring)
+              . testMatchSub1 False
+                . testMatchSub2wrapAug True (2, ring - 1)
+                  . testMatchSub1 True) ((replicate 10 0, replicate 16 $ replicate 4 0, replicate 16 $ replicate 16 $ replicate 4 0), st)
 
 
-testmatch2Sub1 :: Bool -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
-testmatch2Sub1 flg pack@(tm@(interval, weight, matchW), st@(_, _, _, _, _, (ring, _))) = ((interval, weight, matchW2), st) where
+testMatchSub1 :: Bool -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
+testMatchSub1 flg pack@(tm@(interval, weight, matchW), st@(_, _, _, _, _, (ring, _))) = ((interval, weight, matchW2), st) where
   matchW2 = flip fix (matchW, 2) $ \loop1 (matchWin1, a) -> case () of
               _ | a > ring -> matchWin1
                 | otherwise -> loop1 (matchW3, a + 1) where
@@ -90,8 +90,8 @@ testmatch2Sub1 flg pack@(tm@(interval, weight, matchW), st@(_, _, _, _, _, (ring
                                       nextMatch = if flg then matchW4_4 else matchW5_4
 
 
-testmatch2Sub2wrapAug :: Bool -> (Int, Int) -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
-testmatch2Sub2wrapAug flg (start, end) pack@(tm@(interval, weight, matchW), st@(_, _, _, _, _, (ring, _))) =
+testMatchSub2wrapAug :: Bool -> (Int, Int) -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
+testMatchSub2wrapAug flg (start, end) pack@(tm@(interval, weight, matchW), st@(_, _, _, _, _, (ring, _))) =
   flip fix (interval, weight, start, st) $ \loop1 (interval, weight, a, st1) -> case () of
     _ | a > end   -> ((interval, weight, matchW), st1)
       | otherwise -> loop1 $
@@ -125,21 +125,21 @@ testmatch2Sub2wrapAug flg (start, end) pack@(tm@(interval, weight, matchW), st@(
 
 -- ======== augment ========
 augment0 :: TpBaseCol -> Int -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
-augment0 bc@(depth, basecol, on) r n cnt pack@(tm@(interval, weight, matchW), st) = augment2 bc r n cnt (tm, ret) where
-  ret = trace ("maxK: " ++ show (shift 1 (depth - 1)::Int)) checkReality2 bc 0 weight (shift 1 (depth - 1)) (replicate 8 0) st
+augment0 bc@(depth, _, _) r n cnt pack@(tm@(interval, weight, matchW), st) = augment bc r n cnt (tm, ret) where
+  ret = trace ("maxK: " ++ show (shift 1 (depth - 1)::Int)) checkReality bc 0 weight (shift 1 (depth - 1)) (replicate 8 0) st
 
 
-augment2 :: TpBaseCol -> Int -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
-augment2 bc@(depth, basecol, on) r n cnt pack@(tm@(interval, weight, matchW), st)
+augment :: TpBaseCol -> Int -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
+augment bc r n cnt pack@(tm@(interval, _, _), st)
   | cnt >= 10000 = error "augment over!"
   | r > n        = pack
-  | otherwise    = augment2 bc (r + 1) n cnt ret2 where
+  | otherwise    = augment bc (r + 1) n cnt ret2 where
       lower = interval !! (2 * r - 1)
-      ret2  = augmentSub2 r (lower + 1) bc n cnt pack
+      ret2  = augmentSub r (lower + 1) bc n cnt pack
 
 
-augmentSub2 :: Int -> Int -> TpBaseCol -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
-augmentSub2 r i bc@(depth, basecol, on) n cnt pack@(tm@(interval, weight, matchW), st) -- = pack
+augmentSub :: Int -> Int -> TpBaseCol -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
+augmentSub r i bc@(depth, baseCol, on) n cnt pack@(tm@(interval, weight, matchW), st) -- = pack
 {--}
   = if i > interval !! 2 * r then trace ("i,upper: " ++ show i ++ " " ++ show (interval !! 2 * r)) pack
     else
@@ -150,7 +150,7 @@ augmentSub2 r i bc@(depth, basecol, on) n cnt pack@(tm@(interval, weight, matchW
                           _ | j >= i    -> (pack, newN)
                             | otherwise ->
                                 let we2   = we & ix (depth + 1) .~ ma !! i !! j       -- weight
-                                    bc'   = (depth + 1, basecol, on)
+                                    bc'   = (depth + 1, baseCol, on)
                                     newV  = take 10 $ take (2 * r - 2) va ++ replicate 100 0 -- take-cycle-take
                                     newV2_1 = newV    & ix (2 * r - 1) .~ lower
                                     newV2_2 = newV2_1 & ix (2 * r)     .~ j - 1
@@ -165,46 +165,39 @@ augmentSub2 r i bc@(depth, basecol, on) n cnt pack@(tm@(interval, weight, matchW
                                       | otherwise                    = (r - 1, newV)
                                     pack'' = augment0 bc' r newN2 (cnt + 1) ((newV2, we2, ma), st)
                                 in loop (pack'', newN2, j + 1)
-      in augmentSub2 r (i + 1) bc n cnt pack'
+      in augmentSub r (i + 1) bc n cnt pack'
 {--}
 
 -- ======== reality ========
-checkReality2 :: TpBaseCol -> Int -> [[Int]] -> Int -> [Int] -> TpUpdateState2 -> TpUpdateState2
-checkReality2 (16, _, _) _ _ _ _ _ = error "checkReality2 意図的なエラー!!"
-checkReality2 bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bit, realterm, rn@(ring, nchar)) -- = st
+checkReality :: TpBaseCol -> Int -> [[Int]] -> Int -> [Int] -> TpUpdateState2 -> TpUpdateState2
+checkReality (16, _, _) _ _ _ _ _ = error "checkReality2 意図的なエラー!!"
+checkReality bc k weight maxK choice st@(lTwin, real, nReal, 0, realTerm, rn@(_, nchar)) =
+  if realTerm > nchar then error "More than %ld entries in real are needed" else checkReality bc k weight maxK choice (lTwin, real, nReal, 1, realTerm + 1, rn)
+checkReality bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bit, realTerm, rn@(ring, nchar)) -- = st
 {--}
   | k >= maxK                                  = st
-  | fromIntegral bit .&. real !! realterm == 0 = 
-      let
-        (bit2, realterm2)
-          | bit == 0 && realterm <= nchar = (1, realterm + 1)
-          | bit == 0 && realterm >  nchar = error $ "More than %ld entries in real are needed " ++ show realterm ++ " " ++ show nchar
-          | otherwise                     = (bit, realterm)
-      in trace "hogehoge" checkReality2 bc                (k + 1) weight maxK choice  (lTwin,  real,  nReal,  shift bit2 1, realterm2, rn) -- continue
+  | fromIntegral bit .&. real !! realTerm == 0 = 
+      trace ("hogebit, realT, r(T): " ++ show bit ++ " " ++ show realTerm ++ " " ++ show (real !! realTerm)) checkReality bc (k + 1) weight maxK choice  (lTwin, real, nReal, bit, realTerm, rn) -- continue
   | otherwise                                  =
       let
-        (bit2, realterm2)
-          | bit == 0 && realterm <= nchar = (1, realterm + 1)
-          | bit == 0 && realterm >  nchar = error $ "More than %ld entries in real are needed " ++ show realterm ++ " " ++ show nchar
-          | otherwise                     = (bit, realterm)
-        (parity2, choice2, col2) = flip fix (ring .&. 1, choice, col, k, 1) $ \loop (parity, choice, col, left, i) -> case () of
+        (parity2, choice2, col2) = trace ("bit, realT, r(T): " ++ show bit ++ " " ++ show realTerm ++ " " ++ show (real !! realTerm)) flip fix (ring .&. 1, choice, col, k, 1) $ \loop (parity, choice, col, left, i) -> case () of
                                     _ | i >= depth -> (parity, choice, col)
                                       | otherwise  -> loop (parity', choice', col', shift left (-1), i + 1) where
                                           (parity', choice', col')
-                                            | left .&. 1 == 0 = trace ("left: " ++ show left) (parity,         choice & ix i .~ weight !! i !! 0, col + weight !! i !! 2)
-                                            | otherwise       = trace ("left: " ++ show left) (parity `xor` 1, choice & ix i .~ weight !! i !! 1, col + weight !! i !! 3)
+                                            | left .&. 1 == 0 = trace ("leftU: " ++ show left) (parity,         choice & ix i .~ weight !! i !! 0, col + weight !! i !! 2)
+                                            | otherwise       = trace ("leftD: " ++ show left) (parity `xor` 1, choice & ix i .~ weight !! i !! 1, col + weight !! i !! 3)
         (choice3, col3)
           | parity2 == 0                  = (choice2 & ix depth .~ weight !! depth !! 0, col2 + weight !! depth !! 2)
           | otherwise                     = (choice2 & ix depth .~ weight !! depth !! 1, col2 + weight !! depth !! 3)
-        retM                     = trace ("col1,2,3,d,w: " ++ show col ++ " " ++ show col2 ++ " " ++ show col3 ++ " " ++ show depth ++ " " ++ show weight) $ isStillReal2 (depth, col3, on) choice3 lTwin
+        retM                     = trace ("col1,2,3,d,w: " ++ show col ++ " " ++ show col2 ++ " " ++ show col3 ++ " " ++ show depth ++ " " ++ show weight) $ isStillReal (depth, col3, on) choice3 lTwin
         (real2, nReal2, lTwin2)
-          | isNothing retM                = (real & ix realterm2 .~ real !! realterm2 `xor` fromIntegral bit2, nReal,     lTwin)
+          | isNothing retM                = (real & ix realTerm .~ real !! realTerm `xor` fromIntegral bit, nReal,     lTwin)
           | otherwise                     = (real,                                                             nReal + 1, fromJust retM)
-      in checkReality2 (depth, col, on) (k + 1) weight maxK choice3 (lTwin2, real2, nReal2, shift bit2 1, realterm2, rn)
+      in checkReality (depth, col, on) (k + 1) weight maxK choice3 (lTwin2, real2, nReal2, shift bit 1, realTerm, rn)
 {--}
 
-isStillReal2 :: TpBaseCol -> [Int] -> TpLiveTwin -> Maybe TpLiveTwin
-isStillReal2 bc@(depth, col, on) choice lTwin = do
+isStillReal :: TpBaseCol -> [Int] -> TpLiveTwin -> Maybe TpLiveTwin
+isStillReal bc@(depth, col, on) choice lTwin = do
   pack                           <- stillRealSub1 col 0 lTwin (replicate 64 0, 0, replicate 64 0, replicate 64 0, 0)
   (twi2, nTw2, sum2, unt2, nUn2) <- flip fix (2, 1::Int, pack) $ \loop (i, twoPow, pack) -> case () of
                                       _ | i > depth -> return pack
