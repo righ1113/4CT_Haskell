@@ -13,7 +13,7 @@ module Main where
 import CoLibCConst     ( readFileGoodConfsR, TpConfmat, power, simatchnumber ) 
 import ReLibStrip      ( getEdgeNo )
 import ReLibAngles     ( findAngle )
-import ReLibFindlive   ( findlive )
+import ReLibFindlive   ( findLive )
 import ReLibUpdateLive ( updateLive2 )
 
 
@@ -55,7 +55,7 @@ mainLoop gConfs
     ncodes = (power !! ring + 1) `div` 2       -- number of codes of colorings of R
     bigno  = (power !! (ring + 1) - 1) `div` 2 -- needed in "inlive"
     live0  = replicate ncodes 1
-  (nlive1, live1) <- findlive ring bigno live0 ncodes angle power (gConf !! 1 !! 2)
+  (nlive1, live1) <- findLive ring bigno live0 ncodes angle power (gConf !! 1 !! 2)
 
   -- 4. updatelive()
   let nchar  = (simatchnumber !! ring) `div` 8 + 1
