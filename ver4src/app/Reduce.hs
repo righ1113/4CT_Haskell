@@ -12,7 +12,7 @@ module Main where
 
 import CoLibCConst     ( readFileGoodConfsR, TpConfmat, power, simatchnumber ) 
 import ReLibStrip      ( getEdgeNo )
-import ReLibAngles     ( findangles2 )
+import ReLibAngles     ( findAngle )
 import ReLibFindlive   ( findlive )
 import ReLibUpdateLive ( updateLive2 )
 
@@ -48,7 +48,7 @@ mainLoop gConfs
     contract is correct. -}
   -- let (angle, diffangle, sameangle, contract) = findangles gConf edgeno
   let
-    (angle, diffangle, sameangle, contract) = findangles2 (gConf, edgeNo)
+    (angle, diffangle, sameangle, contract) = findAngle (gConf, edgeNo)
   --print contract2
 
   -- 3. findlive()

@@ -1,51 +1,51 @@
 module ReLibAngles where
 
-import CoLibCConst   ( edges, mverts, TpAngle, TpConfmat, TpEdgeNo, TpAnglePack )
+import CoLibCConst   ( edges, TpAngle, TpConfmat, TpEdgeNo, TpAnglePack )
 import Control.Arrow ( (<<<) )
 import Control.Lens  ( (&), (.~), Ixed(ix) )
 import Data.Function ( fix )
 
 
-findangles2 :: (TpConfmat, TpEdgeNo) -> (TpAngle, TpAngle, TpAngle, [Int])
-findangles2 = findangleSub3 . findangleSub2 1 . findangleSub1 1 . findangleSub0
+findAngle :: (TpConfmat, TpEdgeNo) -> (TpAngle, TpAngle, TpAngle, [Int])
+findAngle = findAngleSub3 . findAngleSub2 1 . findAngleSub1 1 . findAngleSub0
 
 
 -- ======== findangleSub0 ========
-findangleSub0 :: (TpConfmat, TpEdgeNo) -> TpAnglePack
-findangleSub0 (gConf, edgeno) = (gConf, edgeno, angle3, diffangle3, sameangle0, contract2) where
+findAngleSub0 :: (TpConfmat, TpEdgeNo) -> TpAnglePack
+findAngleSub0 (gConf, edgeNo) = (gConf, edgeNo, angle3, diffAngle3, sameAngle0, contract2) where
   contract0  = replicate (edges + 1) 0
   angle0     = replicate edges $ replicate 5 0
-  diffangle0 = replicate edges $ replicate 5 0
-  sameangle0 = replicate edges $ replicate 5 0
+  diffAngle0 = replicate edges $ replicate 5 0
+  sameAngle0 = replicate edges $ replicate 5 0
 
   contract1 = contract0  & ix 0     .~ head (gConf !! 2) -- number of edges in contract
   contract2 = contract1  & ix edges .~ (gConf !! 1) !! 3
 
   edge       = 3 * head (gConf !! 1)  - 3 - (gConf !! 1) !! 1
-  diffangle1 = diffangle0  & (ix 0 <<< ix 0) .~ head (gConf !! 1)
-  diffangle2 = diffangle1  & (ix 0 <<< ix 1) .~ (gConf !! 1) !! 1
-  diffangle3 = diffangle2  & (ix 0 <<< ix 2) .~ edge
-  angle1     = angle0      & (ix 0 <<< ix 0) .~ head (head diffangle3)
-  angle2     = angle1      & (ix 0 <<< ix 1) .~ head diffangle3 !! 1
-  angle3     = angle2      & (ix 0 <<< ix 2) .~ head diffangle3 !! 2
+  diffAngle1 = diffAngle0  & (ix 0 <<< ix 0) .~ head (gConf !! 1)
+  diffAngle2 = diffAngle1  & (ix 0 <<< ix 1) .~ (gConf !! 1) !! 1
+  diffAngle3 = diffAngle2  & (ix 0 <<< ix 2) .~ edge
+  angle1     = angle0      & (ix 0 <<< ix 0) .~ head (head diffAngle3)
+  angle2     = angle1      & (ix 0 <<< ix 1) .~ head diffAngle3 !! 1
+  angle3     = angle2      & (ix 0 <<< ix 2) .~ head diffAngle3 !! 2
 
 
 -- ======== findangleSub1 ========
-findangleSub1 :: Int -> TpAnglePack -> TpAnglePack
-findangleSub1 i pack@(gConf, edgeno, angle, diffangle, sameangle, contract)
+findAngleSub1 :: Int -> TpAnglePack -> TpAnglePack
+findAngleSub1 i pack@(gConf, edgeNo, angle, diffAngle, sameAngle, contract)
   | i > head contract = pack
-  | otherwise         = findangleSub1 (i + 1) (gConf, edgeno, angle, diffangle, sameangle, contract2) where
+  | otherwise         = findAngleSub1 (i + 1) (gConf, edgeNo, angle, diffAngle, sameAngle, contract2) where
       u = (gConf !! 2) !! (2 * i - 1)
       v = (gConf !! 2) !!  2 * i
-      contract2 = if (edgeno !! u) !! v < 1 then error "***  ERROR: CONTRACT CONTAINS NON-EDGE  ***" else contract & ix ((edgeno !! u) !! v) .~ 1
+      contract2 = if edgeNo !! u !! v < 1 then error "***  ERROR: CONTRACT CONTAINS NON-EDGE  ***" else contract & ix (edgeNo !! u !! v) .~ 1
 
 
 
 -- ======== findangleSub2 ========
-findangleSub2 :: Int -> TpAnglePack -> TpAnglePack
-findangleSub2 v pack@(gConf, edgeno, angle, diffangle, sameangle, contract)
+findAngleSub2 :: Int -> TpAnglePack -> TpAnglePack
+findAngleSub2 v pack@(gConf, _, _, _, _, _)
   | v > head (gConf !! 1) = pack
-  | otherwise             = findangleSub2 (v + 1) nextPack where
+  | otherwise             = findAngleSub2 (v + 1) nextPack where
       nextPack = flip fix (pack, 1) $ \loop (pack2@(gc, ed, an, di, sa, co), h) -> case () of
                   _ | h > (gc !! (v + 2)) !! 1                         ->       pack2         -- end
                     | v <= (gc !! 1) !! 1 && h == (gc !! (v + 2)) !! 1 -> loop (pack2, h + 1) -- next
@@ -64,17 +64,17 @@ findangleSub2 v pack@(gConf, edgeno, angle, diffangle, sameangle, contract)
 setAngle :: Int -> Int -> Int -> TpAnglePack -> TpAnglePack
 setAngle x y c pack@(gc, ed, an, di, sa, co) =
   let
-    an2 = an & (ix c <<< ix 0) .~ head (an !! c) + 1
-    d = head (an2 !! c)
-    an3 = an2 & (ix c <<< ix d) .~ x
+    an2   = an & (ix c <<< ix 0) .~ head (an !! c) + 1
+    d     = head (an2 !! c)
+    an3   = an2 & (ix c <<< ix d) .~ x
     bool1 = 0 == co !! x && 0 == co !! y && 0 == co !! c
-    di2 = di & (ix c <<< ix 0) .~ head (di !! c) + 1
-    e = head (di2 !! c)
-    di3 = di2 & (ix c <<< ix e) .~ x
+    di2   = di & (ix c <<< ix 0) .~ head (di !! c) + 1
+    e     = head (di2 !! c)
+    di3   = di2 & (ix c <<< ix e) .~ x
     bool2 = 0 == co !! y
-    sa2 = sa2 & (ix c <<< ix 0) .~ head (sa !! c) + 1
-    f = head (sa2 !! c)
-    sa3 = sa2 & (ix c <<< ix f) .~ x
+    sa2   = sa2 & (ix c <<< ix 0) .~ head (sa !! c) + 1
+    f     = head (sa2 !! c)
+    sa3   = sa2 & (ix c <<< ix f) .~ x
   in case () of
     _ | x <= c    -> pack
       | bool1     -> case () of
@@ -87,8 +87,8 @@ setAngle x y c pack@(gc, ed, an, di, sa, co) =
 
 -- ======== findangleSub3 ========
 -- check assert
-findangleSub3 :: TpAnglePack -> (TpAngle, TpAngle, TpAngle, [Int])
-findangleSub3 (gc, ed, an, di, sa, co) = (an, di, sa, co)
+findAngleSub3 :: TpAnglePack -> (TpAngle, TpAngle, TpAngle, [Int])
+findAngleSub3 (gc, ed, an, di, sa, co) = (an, di, sa, co)
 
 
 

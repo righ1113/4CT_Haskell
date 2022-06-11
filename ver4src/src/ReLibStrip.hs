@@ -35,10 +35,10 @@ newEdgeNo v ring edgeNo
 
 
 getEdgeList :: Int -> Int -> TpConfmat -> [[Int]]
-getEdgeList vertex ring gConf = trace ("$$$ edgeLists: " ++ show (concatMap (toTupleList []) (eList1 ++ eList2))) (reverse eList1 ++ reverse eList2) where
+getEdgeList vertex ring gConf = trace ("$$$ edgeLists: " ++ show (concatMap (toTupleList []) (edgeList1 ++ edgeList2))) (reverse edgeList1 ++ reverse edgeList2) where
   edgeLists = splitAt ring . take vertex . drop 3 $ gConf
-  eList1    = zipWith (++) (map (: []) [1..ring])          (map (sortOn Down . filter (> ring))        $ fst edgeLists)
-  eList2    = zipWith (++) (map (: []) [(ring+1)..vertex]) (map (sortOn Down . filter (> ring) . tail) $ snd edgeLists)
+  edgeList1 = zipWith (++) (map (: []) [1..ring])          (map (sortOn Down . filter (> ring))        $ fst edgeLists)
+  edgeList2 = zipWith (++) (map (: []) [(ring+1)..vertex]) (map (sortOn Down . filter (> ring) . tail) $ snd edgeLists)
 
 
 toTupleList :: [[Int]] -> [Int] -> [[Int]]
