@@ -85,8 +85,8 @@ testMatchSub1 flg pack@(tm@(interval, weight, matchW), st@(_, _, _, _, _, (ring,
                                       matchW4_4 = matchW4_3 & (ix a <<< ix b <<< ix 3) .~ (power !! a - power !! b)
                                       matchW5_1 = matchWin2 & (ix a <<< ix b <<< ix 0) .~ (power !! a + power !! b)
                                       matchW5_2 = matchW5_1 & (ix a <<< ix b <<< ix 1) .~ (power !! a - power !! b)
-                                      matchW5_3 = matchW5_2 & (ix a <<< ix b <<< ix 2) .~ -power !! a + power !! b
-                                      matchW5_4 = matchW5_3 & (ix a <<< ix b <<< ix 3) .~ -power !! a -2 * power !! b
+                                      matchW5_3 = matchW5_2 & (ix a <<< ix b <<< ix 2) .~ -power !! a - power !! b
+                                      matchW5_4 = matchW5_3 & (ix a <<< ix b <<< ix 3) .~ -power !! a -(2 * power !! b)
                                       nextMatch = if flg then matchW4_4 else matchW5_4
 
 
@@ -136,22 +136,23 @@ augment bc r n cnt pack@(tm@(interval, _, _), st)
   | otherwise    = augment bc (r + 1) n cnt ret2 where
       lower = interval !! (2 * r - 1)
       upper = interval !! (2 * r)
-      ret2  = augmentSub r (lower + 1) lower upper bc n cnt pack
+      ret2  = augmentSub r (lower + 1) lower upper bc n cnt 0 pack
 
 
-augmentSub :: Int -> Int -> Int -> Int -> TpBaseCol -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
-augmentSub r i lower upper bc@(depth, baseCol, on) n cnt pack@(tm@(interval, weight, matchW), st) -- = pack
+augmentSub :: Int -> Int -> Int -> Int -> TpBaseCol -> Int -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
+augmentSub 1 i lower upper bc@(depth, baseCol, on) n cnt 0 pack = trace "### r=1 ###" augmentSub 1 i lower upper bc n cnt 1 pack
+augmentSub r i lower upper bc@(depth, baseCol, on) n cnt _ pack@(tm@(interval, weight, matchW), st) -- = pack
 {--}
-  = trace ("i,upper: " ++ show i ++ " " ++ show upper) $ if i > upper then pack
+  = trace ("i, upper,  r, interval: " ++ show i ++ " " ++ show upper ++ "  " ++ show r ++ " " ++ show interval) $ if i > upper then pack
     else
       let
         --lower          = interval !! (2 * r - 1)
         (pack', newN') = flip fix (pack, n, lower) $ \loop (pack@(tm@(va, we, ma), st), newN, j) -> trace ("i,iover,j,jover: " ++ show i ++ " " ++ show upper ++ " " ++ show j ++ " " ++ show i) $ case () of
                           _ | j >= i    -> (pack, newN)
                             | otherwise ->
-                                let we2   = we & ix (depth + 1) .~ ma !! i !! j       -- weight
+                                let we2   = trace ("w: " ++ show i ++ " " ++ show j ++ " " ++ show (ma !! i !! j)) $ we & ix (depth + 1) .~ ma !! i !! j -- weight
                                     bc'   = (depth + 1, baseCol, on)
-                                    newV  = take 10 $ take (2 * r - 2) va ++ replicate 100 0 -- take-cycle-take
+                                    newV  = take 10 $ take (2 * r - 2 + 1) va ++ replicate 100 0 -- take-cycle-take
                                     newV2_1 = newV    & ix (2 * r - 1) .~ lower
                                     newV2_2 = newV2_1 & ix (2 * r)     .~ j - 1
                                     newV2_3 = newV2_2 & ix (2 * r + 1) .~ j + 1
@@ -163,9 +164,9 @@ augmentSub r i lower upper bc@(depth, baseCol, on) n cnt pack@(tm@(interval, wei
                                       | j >  lower + 1 && i <= j + 1 = (r,     newV2_2)
                                       | j <= lower + 1 && i >  j + 1 = (r,     newV2_6)
                                       | otherwise                    = (r - 1, newV)
-                                    pack'' = augment0 bc' r newN2 (cnt + 1) ((newV2, we2, ma), st)
-                                in loop (pack'', newN2, j + 1)
-      in augmentSub r (i + 1) lower upper bc n cnt pack'
+                                    pack''@((va3, we3, ma3), st3) = augment0 bc' 1 newN2 (cnt + 1) ((newV2, we2, ma), st)
+                                in loop (((va, we3, ma3), st3), newN, j + 1)
+      in augmentSub r (i + 1) lower upper bc n cnt 1 pack'
 {--}
 
 -- ======== reality ========
