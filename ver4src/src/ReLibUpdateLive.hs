@@ -126,17 +126,17 @@ testMatchSub2wrapAug flg (start, end) pack@(tm@(interval, weight, matchW), st@(_
 -- ======== augment ========
 augment0 :: TpBaseCol -> Int -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
 augment0 bc@(depth, _, _) r n cnt pack@(tm@(interval, weight, matchW), st) = augment bc r n cnt (tm, ret) where
-  ret = trace ("maxK: " ++ show (shift 1 (depth - 1)::Int)) checkReality bc 0 weight (shift 1 (depth - 1)) (replicate 8 0) st
+  ret = trace ("maxK, n: " ++ show (shift 1 (depth - 1)::Int)++ " " ++ show n) checkReality bc 0 weight (shift 1 (depth - 1)) (replicate 8 0) st
 
 
 augment :: TpBaseCol -> Int -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
 augment bc r n cnt pack@(tm@(interval, _, _), st)
   | cnt >= 10000 = error "augment over!"
-  | r > n        = pack
+  | r > n        = trace ("### r>n pass!! " ++ show r ++ " " ++ show n) pack
   | otherwise    = augment bc (r + 1) n cnt ret2 where
       lower = interval !! (2 * r - 1)
       upper = interval !! (2 * r)
-      ret2  = augmentSub r (lower + 1) lower upper bc n cnt 0 pack
+      ret2  = if r > n then pack else augmentSub r (lower + 1) lower upper bc n cnt 0 pack
 
 
 augmentSub :: Int -> Int -> Int -> Int -> TpBaseCol -> Int -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
@@ -165,7 +165,7 @@ augmentSub r i lower upper bc@(depth, baseCol, on) n cnt _ pack@(tm@(interval, w
                                       | j <= lower + 1 && i >  j + 1 = (r,     newV2_6)
                                       | otherwise                    = (r - 1, newV)
                                     pack''@((va3, we3, ma3), st3) = augment0 bc' 1 newN2 (cnt + 1) ((newV2, we2, ma), st)
-                                in loop (((va, we3, ma3), st3), newN, j + 1)
+                                in loop (((va, we3, ma3), st3), newN2, j + 1)
       in augmentSub r (i + 1) lower upper bc n cnt 1 pack'
 {--}
 
