@@ -193,8 +193,8 @@ checkReality bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bi
         retM                     = trace ("col1,2,3,d,w: " ++ show col ++ " " ++ show col2 ++ " " ++ show col3 ++ " " ++ show depth ++ " " ++ show weight) $ isStillReal (depth, col3, on) choice3 lTwin
         (real2, nReal2, lTwin2)
           | isNothing retM                = (real & ix realTerm .~ real !! realTerm `xor` fromIntegral bit, nReal,     lTwin)
-          | otherwise                     = (real,                                                             nReal + 1, fromJust retM)
-      in checkReality (depth, col, on) (k + 1) weight maxK choice3 (lTwin2, real2, nReal2, shift bit 1, realTerm, rn)
+          | otherwise                     = (real,                                                          nReal + 1, fromJust retM)
+      in trace ("### lTwin2, nReal: " ++ show lTwin2 ++ " " ++ show nReal2) checkReality (depth, col, on) (k + 1) weight maxK choice3 (lTwin2, real2, nReal2, shift bit 1, realTerm, rn)
 {--}
 
 isStillReal :: TpBaseCol -> [Int] -> TpLiveTwin -> Maybe TpLiveTwin
@@ -244,9 +244,10 @@ stillRealSub1 b mark (_, live) rp@(twi, nTw, sum, unt, nUn) = do
 
 stillRealSub2 :: Int -> [Int] -> Int -> Int -> TpLiveTwin -> TpLiveTwin
 stillRealSub2 i twist nTwist v lTwin@(nLive, live)
-  | i > nTwist = lTwin
-  | otherwise  = stillRealSub2 (i + 1) twist nTwist v (nLive, live2) where
-      live2 = live & ix (twist !! nTwist) .~ live !! (twist !! nTwist) .|. v
+  | i >= nTwist = lTwin
+  | otherwise   = stillRealSub2 (i + 1) twist nTwist v (nLive, live2) where
+      live2 = if i >= nTwist then live
+              else trace ("%%% i, t, nT,  index, value: " ++ show i ++ " " ++ show twist ++ " " ++ show nTwist ++ "  " ++ show (twist !! i) ++ " " ++ show ((twist !! i) .|. v)) live & ix (twist !! i) .~ live !! (twist !! i) .|. v
 
 
 
