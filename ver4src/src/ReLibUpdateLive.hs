@@ -200,16 +200,16 @@ checkReality bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bi
 isStillReal :: TpBaseCol -> [Int] -> TpLiveTwin -> Maybe TpLiveTwin
 isStillReal bc@(depth, col, on) choice lTwin = do
   pack                           <- stillRealSub1 col 0 lTwin (replicate 64 0, 0, replicate 64 0, replicate 64 0, 0)
-  (twi2, nTw2, sum2, unt2, nUn2) <- flip fix (2, 1::Int, pack) $ \loop (i, twoPow, pack) -> case () of
-                                      _ | i > depth -> return pack
+  (twi2, nTw2, sum2, unt2, nUn2) <- flip fix (2, 1::Int, pack) $ \loop (i, twoPow, packA) -> case () of
+                                      _ | i > depth -> return packA
                                         | otherwise -> do
                                             let c = choice !! i
-                                            pack2 <- flip fix (0, 1, pack) $ \loop2 (j, mark, pack@(_, _, sum, _, _)) -> case () of
-                                                                                _ | j > twoPow -> return pack
+                                            pack2 <- flip fix (0, 1, packA) $ \loop2 (j, mark, packB@(_, _, sum, _, _)) -> case () of
+                                                                                _ | j >= twoPow -> return packB
                                                                                   | otherwise  -> do
                                                                                       let b = sum !! j - c
                                                                                       --pack3 <- trace ("twoPow: " ++ show twoPow) $ stillRealSub1 b mark lTwin pack
-                                                                                      pack3 <- stillRealSub1 b mark lTwin pack
+                                                                                      pack3 <- stillRealSub1 b mark lTwin packB
                                                                                       loop2 (j + 1, mark + 1, pack3)
                                             loop (i + 1, shift twoPow 1, pack2)
   let
