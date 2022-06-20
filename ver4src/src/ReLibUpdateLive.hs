@@ -46,7 +46,7 @@ isUpdate nCodes (nLive, live) nReal = do
   let s1              = "\n\n\n                  ***  D-reducible  ***\n"
       s2              = "\n\n\n                ***  Not D-reducible  ***\n"
       live'           = if live !! 0 > 1 then live & ix 0 .~ 15 else live
-      (nLive2, live2) = flip fix (nLive, live', 0) $ \loop (nLive, live, i) -> case () of
+      (nLive2, live2) = flip fix (0, live', 0) $ \loop (nLive, live, i) -> case () of
                           _ | i >= nCodes     -> (nLive, live)
                             | live !! i /= 15 -> loop (nLive , live3, i + 1)
                             | otherwise       -> loop (nLive2, live2, i + 1) where
@@ -207,7 +207,7 @@ isStillReal bc@(depth, col, on) choice lTwin = do
                                             pack2 <- flip fix (0, 1, packA) $ \loop2 (j, mark, packB@(_, _, sum, _, _)) -> case () of
                                                                                 _ | j >= twoPow -> return packB
                                                                                   | otherwise  -> do
-                                                                                      let b = sum !! j - c
+                                                                                      let b = trace ("%%%%%% s_j, c: " ++ show (sum !! j) ++ " " ++ show c) sum !! j - c
                                                                                       --pack3 <- trace ("twoPow: " ++ show twoPow) $ stillRealSub1 b mark lTwin pack
                                                                                       pack3 <- stillRealSub1 b mark lTwin packB
                                                                                       loop2 (j + 1, mark + 1, pack3)
@@ -233,9 +233,9 @@ stillRealSub1 b mark (_, live) rp@(twi, nTw, sum, unt, nUn) = do
             | b < 0     = twi & ix nTw  .~ (-b)
             | otherwise = twi
           nTw2 = nTw + 1
-          sum2
-            | b < 0     = sum
-            | otherwise = sum & ix mark .~ b
+          sum2 = sum & ix mark .~ b
+          --  | b < 0     = sum
+          --  | otherwise = sum & ix mark .~ b
           unt2
             | b < 0     = unt
             | otherwise = unt & ix nUn  .~ b
@@ -247,7 +247,7 @@ stillRealSub2 i twist nTwist v lTwin@(nLive, live)
   | i >= nTwist = lTwin
   | otherwise   = stillRealSub2 (i + 1) twist nTwist v (nLive, live2) where
       live2 = if i >= nTwist then live
-              else trace ("%%% i, t, nT,  index, value: " ++ show i ++ " " ++ show twist ++ " " ++ show nTwist ++ "  " ++ show (twist !! i) ++ " " ++ show ((twist !! i) .|. v)) live & ix (twist !! i) .~ live !! (twist !! i) .|. v
+              else trace ("%%% i, t, nT,  index, value: " ++ show i ++ " " ++ show twist ++ " " ++ show nTwist ++ "  " ++ show (twist !! i) ++ " " ++ show (live !! (twist !! i) .|. v)) live & ix (twist !! i) .~ live !! (twist !! i) .|. v
 
 
 
