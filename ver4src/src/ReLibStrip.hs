@@ -1,15 +1,14 @@
 module ReLibStrip where
 
-import CoLibCConst   ( edges, TpConfmat, TpEdgeNo )
+import CoLibCConst   ( edges, debugLogStrip, TpConfmat, TpEdgeNo )
 import Control.Arrow ( (<<<) )
 import Control.Lens  ( (&), (.~), Ixed(ix) )
 import Data.List     ( sortOn )
 import Data.Ord      ( Down(..) )
-import Debug.Trace   ( trace )
 
 
 getEdgeNo :: Int -> Int -> TpConfmat -> TpEdgeNo
-getEdgeNo vertex ring gConf = trace ("$$$ vertex: " ++ show edgeNo) edgeNo where
+getEdgeNo vertex ring gConf = debugLogStrip ("$$$ vertex: " ++ show edgeNo) edgeNo where
   edgeNo   = getEdgeNoSub edgeList (ring + 1) edgeNo0
   edgeNo0  = newEdgeNo 1 ring (replicate edges $ replicate edges 0)
   edgeList = concatMap (toTupleList []) $ getEdgeList vertex ring gConf
@@ -35,7 +34,7 @@ newEdgeNo v ring edgeNo
 
 
 getEdgeList :: Int -> Int -> TpConfmat -> [[Int]]
-getEdgeList vertex ring gConf = trace ("$$$ edgeLists: " ++ show (concatMap (toTupleList []) (edgeList1 ++ edgeList2))) (reverse edgeList1 ++ reverse edgeList2) where
+getEdgeList vertex ring gConf = debugLogStrip ("$$$ edgeLists: " ++ show (concatMap (toTupleList []) (edgeList1 ++ edgeList2))) (reverse edgeList1 ++ reverse edgeList2) where
   edgeLists = splitAt ring . take vertex . drop 3 $ gConf
   edgeList1 = zipWith (++) (map (: []) [1..ring])          (map (sortOn Down . filter (> ring))        $ fst edgeLists)
   edgeList2 = zipWith (++) (map (: []) [(ring+1)..vertex]) (map (sortOn Down . filter (> ring) . tail) $ snd edgeLists)

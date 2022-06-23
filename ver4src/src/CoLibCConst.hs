@@ -1,6 +1,7 @@
 module CoLibCConst where
 
-import Data.Int ( Int8 )
+import Data.Int    ( Int8 )
+import Debug.Trace ( trace )
 
 type TpAxle          = ([[Int]], [[Int]], Int)
 type TpAxleI         = ([Int], [Int])
@@ -47,10 +48,20 @@ maxRing    = 14 :: Int               -- max ring-size # 3^(i-1)
 power         = [0, 1, 3, 9, 27, 81, 243, 729, 2187, 6561, 19683, 59049, 177147, 531441, 1594323, 4782969, 14348907] :: [Int]
 siMatchNumber = [0, 0, 1, 3, 10, 30, 95, 301, 980, 3228, 10797, 36487, 124542, 428506, 1485003] :: [Int]
 
+
 readFileGoodConfsR :: IO [TpConfmat]
 readFileGoodConfsR = do
   unaStr <- readFile "4ctdata/ReGoodConfs.txt"
   return (read unaStr :: [TpConfmat])
+
+debugLog :: Bool -> String -> a -> a
+debugLog False _ a = a
+debugLog True  s a = trace s a
+
+debugLogStrip :: String -> a -> a
+debugLogStrip = debugLog False
+debugLogUpdateLive :: String -> a -> a
+debugLogUpdateLive = debugLog False
 
 
 

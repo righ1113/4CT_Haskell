@@ -8,6 +8,7 @@ import CoLibCConst
     ( siMatchNumber,
       power,
       maxRing,
+      debugLogUpdateLive,
       TpRealityPack,
       TpBaseCol,
       TpTMbind,
@@ -24,7 +25,6 @@ import Data.Bits                      ( Bits(shift, (.&.), (.|.), xor) )
 import Data.Function                  ( fix )
 import Data.Int                       ( Int8 )
 import Data.Maybe                     ( isNothing, fromJust )
-import Debug.Trace                    ( trace )
 
 
 updateLive :: TpRingNchar -> Int -> TpLiveTwin -> IO TpLiveTwin
@@ -79,7 +79,7 @@ testMatchSub1 flg pack@(tm@(interval, weight, matchW), st@(_, _, _, _, _, (ring,
                     matchW3 = flip fix (matchWin1, 1) $ \loop2 (matchWin2, b) -> case () of
                                 _ | b > a - 1 -> matchWin2
                                   | otherwise -> loop2 (nextMatch, b + 1) where
-                                      matchW4_1 = trace ("aM,bM: " ++ show a ++ " " ++ show b) $ matchWin2 & (ix a <<< ix b <<< ix 0) .~ (power !! a + power !! b) * 2
+                                      matchW4_1 = debugLogUpdateLive ("aM,bM: " ++ show a ++ " " ++ show b) $ matchWin2 & (ix a <<< ix b <<< ix 0) .~ (power !! a + power !! b) * 2
                                       matchW4_2 = matchW4_1 & (ix a <<< ix b <<< ix 1) .~ (power !! a - power !! b) * 2
                                       matchW4_3 = matchW4_2 & (ix a <<< ix b <<< ix 2) .~ (power !! a + power !! b)
                                       matchW4_4 = matchW4_3 & (ix a <<< ix b <<< ix 3) .~ (power !! a - power !! b)
@@ -99,7 +99,7 @@ testMatchSub2wrapAug flg (start, end) pack@(tm@(interval, weight, matchW), st@(_
                                         _ | b > a - 1 -> (interval, weight, a + 1, st2)
                                           | otherwise ->
                                               let
-                                                weight4 = trace ("a,b: " ++ show a ++ " " ++ show b) $ weight & ix 1 .~ matchW !! a !! b
+                                                weight4 = debugLogUpdateLive ("a,b: " ++ show a ++ " " ++ show b) $ weight & ix 1 .~ matchW !! a !! b
                                                 n
                                                   | b >= 3 && a >= b + 3 = 2
                                                   | b >= 3 && a <  b + 3 = 1
@@ -126,13 +126,13 @@ testMatchSub2wrapAug flg (start, end) pack@(tm@(interval, weight, matchW), st@(_
 -- ======== augment ========
 augment0 :: TpBaseCol -> Int -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
 augment0 bc@(depth, _, _) r n cnt pack@(tm@(interval, weight, matchW), st) = augment bc r n cnt (tm, ret) where
-  ret = trace ("maxK, n: " ++ show (shift 1 (depth - 1)::Int)++ " " ++ show n) checkReality bc 0 weight (shift 1 (depth - 1)) (replicate 8 0) st
+  ret = debugLogUpdateLive ("maxK, n: " ++ show (shift 1 (depth - 1)::Int)++ " " ++ show n) checkReality bc 0 weight (shift 1 (depth - 1)) (replicate 8 0) st
 
 
 augment :: TpBaseCol -> Int -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
 augment bc r n cnt pack@(tm@(interval, _, _), st)
   | cnt >= 10000 = error "augment over!"
-  | r > n        = trace ("### r>n pass!! " ++ show r ++ " " ++ show n) pack
+  | r > n        = debugLogUpdateLive ("### r>n pass!! " ++ show r ++ " " ++ show n) pack
   | otherwise    = augment bc (r + 1) n cnt ret2 where
       lower = interval !! (2 * r - 1)
       upper = interval !! (2 * r)
@@ -140,17 +140,17 @@ augment bc r n cnt pack@(tm@(interval, _, _), st)
 
 
 augmentSub :: Int -> Int -> Int -> Int -> TpBaseCol -> Int -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
-augmentSub 1 i lower upper bc@(depth, baseCol, on) n cnt 0 pack = trace "### r=1 ###" augmentSub 1 i lower upper bc n cnt 1 pack
+augmentSub 1 i lower upper bc@(depth, baseCol, on) n cnt 0 pack = debugLogUpdateLive "### r=1 ###" augmentSub 1 i lower upper bc n cnt 1 pack
 augmentSub r i lower upper bc@(depth, baseCol, on) n cnt _ pack@(tm@(interval, weight, matchW), st) -- = pack
 {--}
-  = trace ("i, upper,  r, interval: " ++ show i ++ " " ++ show upper ++ "  " ++ show r ++ " " ++ show interval) $ if i > upper then pack
+  = debugLogUpdateLive ("i, upper,  r, interval: " ++ show i ++ " " ++ show upper ++ "  " ++ show r ++ " " ++ show interval) $ if i > upper then pack
     else
       let
         --lower          = interval !! (2 * r - 1)
-        (pack', newN') = flip fix (pack, n, lower) $ \loop (pack@(tm@(va, we, ma), st), newN, j) -> trace ("i,iover,j,jover: " ++ show i ++ " " ++ show upper ++ " " ++ show j ++ " " ++ show i) $ case () of
+        (pack', newN') = flip fix (pack, n, lower) $ \loop (pack@(tm@(va, we, ma), st), newN, j) -> debugLogUpdateLive ("i,iover,j,jover: " ++ show i ++ " " ++ show upper ++ " " ++ show j ++ " " ++ show i) $ case () of
                           _ | j >= i    -> (pack, newN)
                             | otherwise ->
-                                let we2   = trace ("w: " ++ show i ++ " " ++ show j ++ " " ++ show (ma !! i !! j)) $ we & ix (depth + 1) .~ ma !! i !! j -- weight
+                                let we2   = debugLogUpdateLive ("w: " ++ show i ++ " " ++ show j ++ " " ++ show (ma !! i !! j)) $ we & ix (depth + 1) .~ ma !! i !! j -- weight
                                     bc'   = (depth + 1, baseCol, on)
                                     newV  = take 10 $ take (2 * r - 2 + 1) va ++ replicate 100 0 -- take-cycle-take
                                     newV2_1 = newV    & ix (2 * r - 1) .~ lower
@@ -178,23 +178,23 @@ checkReality bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bi
 {--}
   | k >= maxK                                  = st
   | fromIntegral bit .&. real !! realTerm == 0 = 
-      trace ("hogebit, realT, r(T): " ++ show bit ++ " " ++ show realTerm ++ " " ++ show (real !! realTerm)) checkReality bc (k + 1) weight maxK choice  (lTwin, real, nReal, shift bit 1, realTerm, rn) -- continue
+      debugLogUpdateLive ("hogebit, realT, r(T): " ++ show bit ++ " " ++ show realTerm ++ " " ++ show (real !! realTerm)) checkReality bc (k + 1) weight maxK choice  (lTwin, real, nReal, shift bit 1, realTerm, rn) -- continue
   | otherwise                                  =
       let
-        (parity2, choice2, col2) = trace ("bit, realT, r(T): " ++ show bit ++ " " ++ show realTerm ++ " " ++ show (real !! realTerm)) flip fix (ring .&. 1, choice, col, k, 1) $ \loop (parity, choice, col, left, i) -> case () of
+        (parity2, choice2, col2) = debugLogUpdateLive ("bit, realT, r(T): " ++ show bit ++ " " ++ show realTerm ++ " " ++ show (real !! realTerm)) flip fix (ring .&. 1, choice, col, k, 1) $ \loop (parity, choice, col, left, i) -> case () of
                                     _ | i >= depth -> (parity, choice, col)
                                       | otherwise  -> loop (parity', choice', col', shift left (-1), i + 1) where
                                           (parity', choice', col')
-                                            | left .&. 1 == 0 = trace ("leftU: " ++ show left) (parity,         choice & ix i .~ weight !! i !! 0, col + weight !! i !! 2)
-                                            | otherwise       = trace ("leftD: " ++ show left) (parity `xor` 1, choice & ix i .~ weight !! i !! 1, col + weight !! i !! 3)
+                                            | left .&. 1 == 0 = debugLogUpdateLive ("leftU: " ++ show left) (parity,         choice & ix i .~ weight !! i !! 0, col + weight !! i !! 2)
+                                            | otherwise       = debugLogUpdateLive ("leftD: " ++ show left) (parity `xor` 1, choice & ix i .~ weight !! i !! 1, col + weight !! i !! 3)
         (choice3, col3)
           | parity2 == 0                  = (choice2 & ix depth .~ weight !! depth !! 0, col2 + weight !! depth !! 2)
           | otherwise                     = (choice2 & ix depth .~ weight !! depth !! 1, col2 + weight !! depth !! 3)
-        retM                     = trace ("col1,2,3,d,w: " ++ show col ++ " " ++ show col2 ++ " " ++ show col3 ++ " " ++ show depth ++ " " ++ show weight) $ isStillReal (depth, col3, on) choice3 lTwin
+        retM                     = debugLogUpdateLive ("col1,2,3,d,w: " ++ show col ++ " " ++ show col2 ++ " " ++ show col3 ++ " " ++ show depth ++ " " ++ show weight) $ isStillReal (depth, col3, on) choice3 lTwin
         (real2, nReal2, lTwin2)
           | isNothing retM                = (real & ix realTerm .~ real !! realTerm `xor` fromIntegral bit, nReal,     lTwin)
           | otherwise                     = (real,                                                          nReal + 1, fromJust retM)
-      in trace ("### lTwin2, nReal: " ++ show lTwin2 ++ " " ++ show nReal2) checkReality (depth, col, on) (k + 1) weight maxK choice3 (lTwin2, real2, nReal2, shift bit 1, realTerm, rn)
+      in debugLogUpdateLive ("### lTwin2, nReal: " ++ show lTwin2 ++ " " ++ show nReal2) checkReality (depth, col, on) (k + 1) weight maxK choice3 (lTwin2, real2, nReal2, shift bit 1, realTerm, rn)
 {--}
 
 isStillReal :: TpBaseCol -> [Int] -> TpLiveTwin -> Maybe TpLiveTwin
@@ -207,8 +207,8 @@ isStillReal bc@(depth, col, on) choice lTwin = do
                                             pack2 <- flip fix (0, 1, packA) $ \loop2 (j, mark, packB@(_, _, sum, _, _)) -> case () of
                                                                                 _ | j >= twoPow -> return packB
                                                                                   | otherwise  -> do
-                                                                                      let b = trace ("%%%%%% s_j, c: " ++ show (sum !! j) ++ " " ++ show c) sum !! j - c
-                                                                                      --pack3 <- trace ("twoPow: " ++ show twoPow) $ stillRealSub1 b mark lTwin pack
+                                                                                      let b = debugLogUpdateLive ("%%%%%% s_j, c: " ++ show (sum !! j) ++ " " ++ show c) sum !! j - c
+                                                                                      --pack3 <- debugLogUpdateLive ("twoPow: " ++ show twoPow) $ stillRealSub1 b mark lTwin pack
                                                                                       pack3 <- stillRealSub1 b mark lTwin packB
                                                                                       loop2 (j + 1, mark + 1, pack3)
                                             loop (i + 1, shift twoPow 1, pack2)
@@ -222,7 +222,7 @@ isStillReal bc@(depth, col, on) choice lTwin = do
 stillRealSub1 :: Int -> Int -> TpLiveTwin -> TpRealityPack -> Maybe TpRealityPack
 stillRealSub1 b mark (_, live) rp@(twi, nTw, sum, unt, nUn) = do
 {--}
-  --trace ("b: " ++ show b ++ " " ++ show rp) $ case () of
+  --debugLogUpdateLive ("b: " ++ show b ++ " " ++ show rp) $ case () of
   case () of
     _ | length live <= abs b        -> error (show (length live) ++ " " ++ show b ++ " stillRealSub1 意図的なエラー!!")
       | b <  0 && live !! (-b) == 0 -> empty
@@ -247,7 +247,7 @@ stillRealSub2 i twist nTwist v lTwin@(nLive, live)
   | i >= nTwist = lTwin
   | otherwise   = stillRealSub2 (i + 1) twist nTwist v (nLive, live2) where
       live2 = if i >= nTwist then live
-              else trace ("%%% i, t, nT,  index, value: " ++ show i ++ " " ++ show twist ++ " " ++ show nTwist ++ "  " ++ show (twist !! i) ++ " " ++ show (live !! (twist !! i) .|. v)) live & ix (twist !! i) .~ live !! (twist !! i) .|. v
+              else debugLogUpdateLive ("%%% i, t, nT,  index, value: " ++ show i ++ " " ++ show twist ++ " " ++ show nTwist ++ "  " ++ show (twist !! i) ++ " " ++ show (live !! (twist !! i) .|. v)) live & ix (twist !! i) .~ live !! (twist !! i) .|. v
 
 
 

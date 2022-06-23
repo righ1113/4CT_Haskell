@@ -25,8 +25,8 @@ findLive ring bigNo live nCodes angle _ extentC
 findLiveSub :: TpBPSPack -> Int -> [Int] -> TpAngle -> [Int] -> Int -> IO (Int, [Int])
 findLiveSub _ _ _ _ _ 128 = error "findlive_sub : It was not good though it was repeated 262144 times!意図的なエラー"
 findLiveSub (ring, nCodes, extent, extentC, (_, c, j), ed) bigNo live angle forbi cnt = do
-  print angle
-  putStrLn $ "cnt: " ++ show cnt
+  --print angle
+  --putStrLn $ "cnt: " ++ show cnt
   -- ここは Applicative(<*>) では出来ないので、bind(=<<) でおこなう
   ((exit1, c2, j2), (extent2, live2), (exit2, c3, j3), (exit3, _, j4), (_, cNext, jNext), forbi2)
     <- findLiveSsub5 ring
@@ -47,7 +47,7 @@ findLiveSsub1 :: TpBPSPack -> [Int] ->  [Int] -> IO TpFliveBindPack
 findLiveSsub1 (ring, nCodes, extent, extentC, (_, c, j), ed) forbi live =
   flip fix (False, c, j) $ \loop (exitSub, c, j) -> case () of
     _ | exitSub                        -> return ((True,  c, j), (extent, live), (False, [], 0), (False, [], 0), (False, [], 0), forbi)
-      | (forbi !! j) .&. (c !! j) == 0 -> do{ print (forbi !! j); print (c !! j); print ((forbi !! j) .&. (c !! j));
+      | (forbi !! j) .&. (c !! j) == 0 -> do{ {-print (forbi !! j); print (c !! j); print ((forbi !! j) .&. (c !! j));-}
                                               return ((False, c, j), (extent, live), (False, [], 0), (False, [], 0), (False, [], 0), forbi) }
       | otherwise                      -> beforePrintStatus (ring, nCodes, extent, extentC, (False, c, j), ed) >>= loop
 
@@ -74,9 +74,6 @@ findLiveSsub4 angle ring ((exit1, c2, j2), exLive, second, _, fourth, forbi) = d
       exit3  = j4 < 0
       u3     = foldl (\x y -> x .|. c4 !! y) 0 $ tail (angle !! j4)
       forbi2 = if j2 == ring + 1 then forbi else forbi & ix j4 .~ u3
-  -- putStrLn $ "forbi2: " ++ show (forbi2 !! j4) ++ "  " ++ show u3
-  -- print c4
-  -- print forbi2
   return ((exit1, c2, j2), exLive, second, (exit3, c4, j4), fourth, forbi2)
 
 
@@ -118,11 +115,11 @@ record col ring angle bigNo extent live
 beforePrintStatus :: TpBPSPack -> IO TpExtCJ
 beforePrintStatus (ring, nCodes, extent, extentC, (_, c, j), ed) = do
   let c2 = c & ix j .~ shift (c !! j) 1
-  putStrLn "here"
+  {-putStrLn "here"
   print c2
   print j
   print ed
-  print ring
+  print ring-}
   flip fix (c2, j) $ \loop (c, j) -> case () of
     _ | 8 .&. (c !! j) == 0 -> return (False, c, j)
       | j >= ed - 1         -> do{ printStatus ring nCodes extent extentC; return (True, c, j) }
