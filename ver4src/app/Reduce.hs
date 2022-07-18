@@ -15,6 +15,7 @@ import ReLibStrip      ( getEdgeNo )
 import ReLibAngles     ( findAngle )
 import ReLibFindlive   ( findLive )
 import ReLibUpdateLive ( updateLive )
+import ReLibCRedu      ( checkCReduce )
 
 
 main :: IO ()
@@ -52,7 +53,7 @@ mainLoop gConfs
   --print contract2
 
   -- 3. findlive()
-    ncodes = (power !! ring + 1) `div` 2       -- number of codes of colorings of R
+    ncodes = (power !!  ring      + 1) `div` 2 -- number of codes of colorings of R
     bigno  = (power !! (ring + 1) - 1) `div` 2 -- needed in "inlive"
     live0  = replicate ncodes 1
   (nlive1, live1) <- findLive ring bigno live0 ncodes angle power (gConf !! 1 !! 2)
@@ -66,7 +67,14 @@ mainLoop gConfs
   -- 5. checkContract()
   {- This verifies that the set claimed to be a contract for the
     configuration really is. -}
-  --checkContract live2 nlive2 diffangle sameangle contract
+  if nlive2 == 0 then
+    if contract !! 0 == 0 then
+      -- D可約 のときは、checkCReduce() を呼ばない
+      return True
+    else
+      error "         ***  ERROR: CONTRACT PROPOSED  ***\n\n"
+  else
+    checkCReduce ring bigno nlive2 live2 diffangle sameangle contract
 
   -- 6 . recursion
   -- mainLoop $ tail gConfs
