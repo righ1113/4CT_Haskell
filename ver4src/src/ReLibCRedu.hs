@@ -55,19 +55,33 @@ checkCReduce ring bigno nLive live diffangle sameangle contract = do
 checkCReduceSub :: Int -> [Int] -> [Int] -> [Int] -> Int -> Int -> [[Int]] -> [[Int]] -> Int -> Int -> [Int] -> IO Bool
 checkCReduceSub 2097152 _ _ _ _ _ _ _ _ _ _ = error "checkCReduceSub : It was not good though it was repeated 2097152 times!"
 checkCReduceSub cnt forbidden c contract j start diffangle sameangle bigno ring live
-  | j1 == 1 && ret2 = do {putStrLn "               ***  Contract confirmed ***"; return True}
-  | otherwise       = checkCReduceSub (cnt + 1) forbidden c2 contract j2 start diffangle sameangle bigno ring live where
-      (ret1, c1, j1) = ccrSubSub c  j  contract start
-      (ret2, c2, j2) = ccrSubSub c1 j1 contract start
+  | j1 == 1 && not (inLive c1 ring live bigno) = error "ERROR: INPUT CONTRACT IS INCORRECT  ***\n\n"
+  | j1 == 1 && ret2                            = do {putStrLn "               ***  Contract confirmed ***"; return True}
+  | j1 <= 0                                    = error "checkCReduceSub : error!"
+  | otherwise                                  = checkCReduceSub (cnt + 1) forbidden c2 contract j2 start diffangle sameangle bigno ring live where
+      (ret1, c1, j1) = ccrSubSub1 c  j  contract start forbidden
+      (ret2, c2, j2) = ccrSubSub2 c1 j1 contract start
 
 
-ccrSubSub :: [Int] -> Int -> [Int] -> Int -> (Bool, [Int], Int)
-ccrSubSub c j contract start
+ccrSubSub1 :: [Int] -> Int -> [Int] -> Int -> [Int] -> (Bool, [Int], Int)
+ccrSubSub1 c j contract start forbidden
+  | forbidden !! j .&. c !! j == 0 = (False, c, j)
+  | ret2                           = (True, c2, j2)
+  | otherwise                      = ccrSubSub1 c2 j2 contract start forbidden where
+      (ret2, c2, j2) = ccrSubSub2 c j contract start
+
+
+ccrSubSub2 :: [Int] -> Int -> [Int] -> Int -> (Bool, [Int], Int)
+ccrSubSub2 c j contract start
   | c2 !! j .&. 8 == 0 = (False, c2, j)
   | j2 >= start        = (True, c2, j2)
-  | otherwise          = ccrSubSub (c2 & ix j2 .~ shift (c2 !! j2) (-1)) j2 contract start where
+  | otherwise          = ccrSubSub2 (c2 & ix j2 .~ shift (c2 !! j2) (-1)) j2 contract start where
       c2 = c & ix j .~ shift (c !! j) (-1)
       j2 = j - (length . takeWhile (/=0)) contract
+
+
+inLive :: [Int] -> Int -> [Int] -> Int -> Bool
+inLive c ring live bigno = True
 
 
 

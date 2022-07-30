@@ -22,16 +22,17 @@ main :: IO ()
 main = do
   putStrLn "これは四色定理の可約性を調べるプログラムです"
   gConfs <- readFileGoodConfsR
-  mainLoop gConfs
+  mainLoop 0 gConfs
   -- putStrLn "633個の好配置は全て、Ｄ可約 or Ｃ可約です"
   putStrLn "プログラムは正常終了しました"
 
 
-mainLoop :: [TpConfmat] -> IO ()
-mainLoop gConfs
+mainLoop :: Int -> [TpConfmat] -> IO ()
+mainLoop cnt gConfs
   | null gConfs = return ()
   | otherwise   = do
 
+  print cnt
   -- 1. getEdgeNo()
   let
     gConf  = head gConfs
@@ -77,8 +78,10 @@ mainLoop gConfs
     checkCReduce ring bigno nlive2 live2 diffangle sameangle contract
 
   -- 6 . recursion
-  -- mainLoop $ tail gConfs
-  mainLoop []
+  if cnt < 0 then
+    mainLoop (cnt + 1) $ tail gConfs
+  else
+    mainLoop (cnt + 1) []
 
 
 
