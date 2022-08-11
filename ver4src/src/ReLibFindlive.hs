@@ -23,7 +23,7 @@ findLive ring bigNo live nCodes angle _ extentC
 
 -- ======== findliveSub ========
 findLiveSub :: TpBPSPack -> Int -> [Int] -> TpAngle -> [Int] -> Int -> IO (Int, [Int])
-findLiveSub _ _ _ _ _ 128 = error "findlive_sub : It was not good though it was repeated 262144 times!意図的なエラー"
+findLiveSub _ _ _ _ _ 262144 = error "findlive_sub : It was not good though it was repeated 262144 times!意図的なエラー"
 findLiveSub (ring, nCodes, extent, extentC, (_, c, j), ed) bigNo live angle forbi cnt = do
   --print angle
   --putStrLn $ "cnt: " ++ show cnt

@@ -173,7 +173,8 @@ augmentSub r i lower upper bc@(depth, baseCol, on) n cnt _ pack@(tm@(interval, w
 checkReality :: TpBaseCol -> Int -> [[Int]] -> Int -> [Int] -> TpUpdateState2 -> TpUpdateState2
 checkReality (16, _, _) _ _ _ _ _ = error "checkReality2 意図的なエラー!!"
 checkReality bc k weight maxK choice st@(lTwin, real, nReal, 0, realTerm, rn@(_, nchar)) =
-  if realTerm > nchar then error "More than %ld entries in real are needed" else checkReality bc k weight maxK choice (lTwin, real, nReal, 1, realTerm + 1, rn)
+  if k < maxK && realTerm > nchar then error $ "More than %ld entries in real are needed " ++ show realTerm ++ " " ++ show nchar
+  else checkReality bc k weight maxK choice (lTwin, real, nReal, 1, realTerm + 1, rn)
 checkReality bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bit, realTerm, rn@(ring, nchar)) -- = st
 {--}
   | k >= maxK                                  = st
