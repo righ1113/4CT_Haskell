@@ -125,8 +125,9 @@ testMatchSub2wrapAug flg (start, end) pack@(tm@(interval, weight, matchW), st@(_
 
 -- ======== augment ========
 augment0 :: TpBaseCol -> Int -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
-augment0 bc@(depth, _, _) r n cnt pack@(tm@(interval, weight, matchW), st) = augment bc r n cnt (tm, ret) where
-  ret = debugLogUpdateLive ("maxK, n: " ++ show (shift 1 (depth - 1)::Int)++ " " ++ show n) checkReality bc 0 weight (shift 1 (depth - 1)) (replicate 8 0) st
+augment0 bc@(depth, _, _) r n cnt pack@(tm@(interval, weight, matchW), st@(_, _, _, _, realTerm, rn@(_, nchar))) = augment bc r n cnt (tm, ret) where
+  ret = debugLogUpdateLive ("maxK, n: " ++ show (shift 1 (depth - 1)::Int)++ " " ++ show n ++ " ___ " ++ show realTerm ++ " " ++ show nchar ++ " ___ " ++ show depth)
+    checkReality bc 0 weight (shift 1 (depth - 1)) (replicate 8 0) st
 
 
 augment :: TpBaseCol -> Int -> Int -> Int -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
@@ -147,34 +148,37 @@ augmentSub r i lower upper bc@(depth, baseCol, on) n cnt _ pack@(tm@(interval, w
     else
       let
         --lower          = interval !! (2 * r - 1)
-        (pack', newN') = flip fix (pack, n, lower) $ \loop (pack@(tm@(va, we, ma), st), newN, j) -> debugLogUpdateLive ("i,iover,j,jover: " ++ show i ++ " " ++ show upper ++ " " ++ show j ++ " " ++ show i) $ case () of
-                          _ | j >= i    -> (pack, newN)
-                            | otherwise ->
-                                let we2   = debugLogUpdateLive ("w: " ++ show i ++ " " ++ show j ++ " " ++ show (ma !! i !! j)) $ we & ix (depth + 1) .~ ma !! i !! j -- weight
-                                    bc'   = (depth + 1, baseCol, on)
-                                    newV  = take 10 $ take (2 * r - 2 + 1) va ++ replicate 100 0 -- take-cycle-take
-                                    newV2_1 = newV    & ix (2 * r - 1) .~ lower
-                                    newV2_2 = newV2_1 & ix (2 * r)     .~ j - 1
-                                    newV2_3 = newV2_2 & ix (2 * r + 1) .~ j + 1
-                                    newV2_4 = newV2_2 & ix (2 * r + 2) .~ i - 1
-                                    newV2_5 = newV    & ix (2 * r - 1) .~ j + 1
-                                    newV2_6 = newV2_5 & ix (2 * r)     .~ i - 1
-                                    (newN2, newV2)
-                                      | j >  lower + 1 && i >  j + 1 = (r + 1, newV2_4)
-                                      | j >  lower + 1 && i <= j + 1 = (r,     newV2_2)
-                                      | j <= lower + 1 && i >  j + 1 = (r,     newV2_6)
-                                      | otherwise                    = (r - 1, newV)
-                                    pack''@((va3, we3, ma3), st3) = augment0 bc' 1 newN2 (cnt + 1) ((newV2, we2, ma), st)
-                                in loop (((va, we3, ma3), st3), newN2, j + 1)
+        pack' =
+          if i > upper then pack
+          else flip fix (pack, n, lower) $ \loop (pack@(tm@(va, we, ma), st), newN, j) -> debugLogUpdateLive ("i,iover,j,jover: " ++ show i ++ " " ++ show upper ++ " " ++ show j ++ " " ++ show i) $ case () of
+                _ | j >= i    -> pack
+                  | otherwise ->
+                      let we2   = debugLogUpdateLive ("w: " ++ show i ++ " " ++ show j ++ " " ++ show (ma !! i !! j)) $ we & ix (depth + 1) .~ ma !! i !! j -- weight
+                          bc'   = (depth + 1, baseCol, on)
+                          newV  = take 10 $ take (2 * r - 2 + 1) va ++ replicate 100 0 -- take-cycle-take
+                          newV2_1 = newV    & ix (2 * r - 1) .~ lower
+                          newV2_2 = newV2_1 & ix (2 * r)     .~ j - 1
+                          newV2_3 = newV2_2 & ix (2 * r + 1) .~ j + 1
+                          newV2_4 = newV2_2 & ix (2 * r + 2) .~ i - 1
+                          newV2_5 = newV    & ix (2 * r - 1) .~ j + 1
+                          newV2_6 = newV2_5 & ix (2 * r)     .~ i - 1
+                          (newN2, newV2)
+                            | j >  lower + 1 && i >  j + 1 = (r + 1, newV2_4)
+                            | j >  lower + 1 && i <= j + 1 = (r,     newV2_2)
+                            | j <= lower + 1 && i >  j + 1 = (r,     newV2_6)
+                            | otherwise                    = (r - 1, newV)
+                          pack''@((va3, we3, ma3), st3) = if j >= i then pack else augment0 bc' 1 newN2 (cnt + 1) ((newV2, we2, ma), st)
+                      in loop (((va, we3, ma3), st3), newN2, j + 1)
       in augmentSub r (i + 1) lower upper bc n cnt 1 pack'
 {--}
 
 -- ======== reality ========
 checkReality :: TpBaseCol -> Int -> [[Int]] -> Int -> [Int] -> TpUpdateState2 -> TpUpdateState2
 checkReality (16, _, _) _ _ _ _ _ = error "checkReality2 意図的なエラー!!"
-checkReality bc k weight maxK choice st@(lTwin, real, nReal, 0, realTerm, rn@(_, nchar)) =
-  if k < maxK && realTerm > nchar then error $ "More than %ld entries in real are needed " ++ show realTerm ++ " " ++ show nchar
-  else checkReality bc k weight maxK choice (lTwin, real, nReal, 1, realTerm + 1, rn)
+checkReality bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, 0, realTerm, rn@(_, nchar))
+  | k >= maxK = st
+  | otherwise = if realTerm > nchar then error $ "More than %ld entries in real are needed " ++ show k ++ " " ++ show maxK ++ " " ++ show realTerm ++ " " ++ show nchar
+                else debugLogUpdateLive ("^^^ " ++ show realTerm ++ " " ++ show depth) checkReality bc k weight maxK choice (lTwin, real, nReal, 1, realTerm + 1, rn)
 checkReality bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bit, realTerm, rn@(ring, nchar)) -- = st
 {--}
   | k >= maxK                                  = st
@@ -195,7 +199,7 @@ checkReality bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bi
         (real2, nReal2, lTwin2)
           | isNothing retM                = (real & ix realTerm .~ real !! realTerm `xor` fromIntegral bit, nReal,     lTwin)
           | otherwise                     = (real,                                                          nReal + 1, fromJust retM)
-      in debugLogUpdateLive ("### lTwin2, nReal: " ++ show lTwin2 ++ " " ++ show nReal2) checkReality (depth, col, on) (k + 1) weight maxK choice3 (lTwin2, real2, nReal2, shift bit 1, realTerm, rn)
+      in debugLogUpdateLive ("### lTwin2, nReal: " ++ show lTwin2 ++ " " ++ show nReal2 ++ " ___ " ++ show k ++ " " ++ show maxK ++ " " ++ show realTerm ++ " " ++ show nchar) checkReality (depth, col, on) (k + 1) weight maxK choice3 (lTwin2, real2, nReal2, shift bit 1, realTerm, rn)
 {--}
 
 isStillReal :: TpBaseCol -> [Int] -> TpLiveTwin -> Maybe TpLiveTwin
@@ -208,7 +212,8 @@ isStillReal bc@(depth, col, on) choice lTwin = do
                                             pack2 <- flip fix (0, 1, packA) $ \loop2 (j, mark, packB@(_, _, sum, _, _)) -> case () of
                                                                                 _ | j >= twoPow -> return packB
                                                                                   | otherwise  -> do
-                                                                                      let b = debugLogUpdateLive ("%%%%%% s_j, c: " ++ show (sum !! j) ++ " " ++ show c) sum !! j - c
+                                                                                      --let b = debugLogUpdateLive ("%%%%%% s_j, c: " ++ show (sum !! j) ++ " " ++ show c) sum !! j - c
+                                                                                      let b = sum !! j - c
                                                                                       --pack3 <- debugLogUpdateLive ("twoPow: " ++ show twoPow) $ stillRealSub1 b mark lTwin pack
                                                                                       pack3 <- stillRealSub1 b mark lTwin packB
                                                                                       loop2 (j + 1, mark + 1, pack3)
@@ -248,7 +253,8 @@ stillRealSub2 i twist nTwist v lTwin@(nLive, live)
   | i >= nTwist = lTwin
   | otherwise   = stillRealSub2 (i + 1) twist nTwist v (nLive, live2) where
       live2 = if i >= nTwist then live
-              else debugLogUpdateLive ("%%% i, t, nT,  index, value: " ++ show i ++ " " ++ show twist ++ " " ++ show nTwist ++ "  " ++ show (twist !! i) ++ " " ++ show (live !! (twist !! i) .|. v)) live & ix (twist !! i) .~ live !! (twist !! i) .|. v
+              --else debugLogUpdateLive ("%%% i, t, nT,  index, value: " ++ show i ++ " " ++ show twist ++ " " ++ show nTwist ++ "  " ++ show (twist !! i) ++ " " ++ show (live !! (twist !! i) .|. v)) live & ix (twist !! i) .~ live !! (twist !! i) .|. v
+              else live & ix (twist !! i) .~ live !! (twist !! i) .|. v
 
 
 
