@@ -61,7 +61,7 @@ debugLog True  s a = trace s a
 debugLogStrip :: String -> a -> a
 debugLogStrip = debugLog False
 debugLogUpdateLive :: String -> a -> a
-debugLogUpdateLive = debugLog True
+debugLogUpdateLive = debugLog False
 
 
 

@@ -117,10 +117,10 @@ testMatchSub2wrapAug flg (start, end) pack@(tm@(interval, weight, matchW), st@(_
                                                   | b <  3 && a >= b + 3 = interval5_4
                                                   | otherwise            = interval
                                                 baseCol = (power !! (ring + 1) - 1) `div` 2
-                                                ((interval5, weight5, _), st3)
+                                                ((_, weight5, _), st3)
                                                   | flg       = augment0 (1, 0,       0) 1 n 0 ((interval4, weight4, matchW), st2)
                                                   | otherwise = augment0 (1, baseCol, 1) 1 n 0 ((interval4, weight4, matchW), st2)
-                                              in loop (interval5, weight5, b + 1, st3)
+                                              in loop (interval4, weight5, b + 1, st3)
 
 
 -- ======== augment ========
@@ -144,13 +144,13 @@ augmentSub :: Int -> Int -> Int -> Int -> TpBaseCol -> Int -> Int -> Int -> (TpT
 augmentSub 1 i lower upper bc@(depth, baseCol, on) n cnt 0 pack = debugLogUpdateLive "### r=1 ###" augmentSub 1 i lower upper bc n cnt 1 pack
 augmentSub r i lower upper bc@(depth, baseCol, on) n cnt _ pack@(tm@(interval, weight, matchW), st) -- = pack
 {--}
-  = debugLogUpdateLive ("i, upper,  r, interval: " ++ show i ++ " " ++ show upper ++ "  " ++ show r ++ " " ++ show interval) $ if i > upper then pack
+  = debugLogUpdateLive ("i, upper,  r, interval: " ++ show i ++ " " ++ show upper ++ "  " ++ show r ++ " " ++ show interval ++ " ___ " ++ show n) $ if i > upper then pack
     else
       let
         --lower          = interval !! (2 * r - 1)
         pack' =
           if i > upper then pack
-          else flip fix (pack, n, lower) $ \loop (pack@(tm@(va, we, ma), st), newN, j) -> debugLogUpdateLive ("i,iover,j,jover: " ++ show i ++ " " ++ show upper ++ " " ++ show j ++ " " ++ show i) $ case () of
+          else flip fix (pack, n, lower) $ \loop (pack@(tm@(va, we, ma), st), newN, j) -> debugLogUpdateLive ("i,iover,j,jover: " ++ show i ++ " " ++ show upper ++ " " ++ show j ++ " " ++ show (i-1)) $ case () of
                 _ | j >= i    -> pack
                   | otherwise ->
                       let we2   = debugLogUpdateLive ("w: " ++ show i ++ " " ++ show j ++ " " ++ show (ma !! i !! j)) $ we & ix (depth + 1) .~ ma !! i !! j -- weight
@@ -159,7 +159,7 @@ augmentSub r i lower upper bc@(depth, baseCol, on) n cnt _ pack@(tm@(interval, w
                           newV2_1 = newV    & ix (2 * r - 1) .~ lower
                           newV2_2 = newV2_1 & ix (2 * r)     .~ j - 1
                           newV2_3 = newV2_2 & ix (2 * r + 1) .~ j + 1
-                          newV2_4 = newV2_2 & ix (2 * r + 2) .~ i - 1
+                          newV2_4 = newV2_3 & ix (2 * r + 2) .~ i - 1
                           newV2_5 = newV    & ix (2 * r - 1) .~ j + 1
                           newV2_6 = newV2_5 & ix (2 * r)     .~ i - 1
                           (newN2, newV2)

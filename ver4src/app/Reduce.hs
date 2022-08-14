@@ -78,7 +78,7 @@ mainLoop cnt gConfs
     checkCReduce ring bigno nlive2 live2 diffangle sameangle contract
 
   -- 6 . recursion
-  if cnt < 1 then
+  if cnt < 30 then
     mainLoop (cnt + 1) $ tail gConfs
   else
     mainLoop (cnt + 1) []
