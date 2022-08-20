@@ -36,8 +36,8 @@ findAngleSub1 i pack@(gConf, edgeNo, angle, diffAngle, sameAngle, contract)
   | i > head contract = pack
   | otherwise         = findAngleSub1 (i + 1) (gConf, edgeNo, angle, diffAngle, sameAngle, contract2) where
       u = (gConf !! 2) !! (2 * i - 1)
-      v = (gConf !! 2) !!  2 * i
-      contract2 = if edgeNo !! u !! v < 1 then error "***  ERROR: CONTRACT CONTAINS NON-EDGE  ***" else contract & ix (edgeNo !! u !! v) .~ 1
+      v = (gConf !! 2) !! (2 * i)
+      contract2 = if edgeNo !! u !! v < 1 then error ("***  ERROR: CONTRACT CONTAINS NON-EDGE  *** " ++ show u ++ " " ++ show v) else contract & ix (edgeNo !! u !! v) .~ 1
 
 
 

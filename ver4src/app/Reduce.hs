@@ -35,7 +35,7 @@ mainLoop cnt gConfs
   print cnt
   -- 1. getEdgeNo()
   let
-    gConf  = head gConfs
+    gConf  = gConfs !! 3
     vertex = gConf !! 1 !! 0
     ring   = gConf !! 1 !! 1                   -- ring-size
     -- edgeno = strip ring gConf
