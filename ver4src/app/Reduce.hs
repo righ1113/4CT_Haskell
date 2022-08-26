@@ -35,7 +35,7 @@ mainLoop cnt gConfs
   print cnt
   -- 1. getEdgeNo()
   let
-    gConf  = gConfs !! 3
+    gConf  = gConfs !! 0
     vertex = gConf !! 1 !! 0
     ring   = gConf !! 1 !! 1                   -- ring-size
     -- edgeno = strip ring gConf
@@ -75,10 +75,11 @@ mainLoop cnt gConfs
     else
       error "         ***  ERROR: CONTRACT PROPOSED  ***\n\n"
   else
-    checkCReduce ring bigno nlive2 live2 diffangle sameangle contract
+    --checkCReduce ring bigno nlive2 live2 diffangle sameangle contract
+    return True
 
   -- 6 . recursion
-  if cnt < 30 then
+  if cnt < 3 then
     mainLoop (cnt + 1) $ tail gConfs
   else
     mainLoop (cnt + 1) []

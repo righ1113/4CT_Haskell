@@ -205,19 +205,19 @@ checkReality bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bi
 isStillReal :: TpBaseCol -> [Int] -> TpLiveTwin -> Maybe TpLiveTwin
 isStillReal bc@(depth, col, on) choice lTwin = do
   pack                           <- stillRealSub1 col 0 lTwin (replicate 64 0, 0, replicate 64 0, replicate 64 0, 0)
-  (twi2, nTw2, sum2, unt2, nUn2) <- flip fix (2, 1::Int, pack) $ \loop (i, twoPow, packA) -> case () of
+  (twi2, nTw2, sum2, unt2, nUn2) <- flip fix (2, 1::Int, pack, 1) $ \loop (i, twoPow, packA, markA) -> case () of
                                       _ | i > depth -> return packA
                                         | otherwise -> do
                                             let c = choice !! i
-                                            pack2 <- flip fix (0, 1, packA) $ \loop2 (j, mark, packB@(_, _, sum, _, _)) -> case () of
-                                                                                _ | j >= twoPow -> return packB
-                                                                                  | otherwise  -> do
-                                                                                      --let b = debugLogUpdateLive ("%%%%%% s_j, c: " ++ show (sum !! j) ++ " " ++ show c) sum !! j - c
-                                                                                      let b = sum !! j - c
-                                                                                      --pack3 <- debugLogUpdateLive ("twoPow: " ++ show twoPow) $ stillRealSub1 b mark lTwin pack
-                                                                                      pack3 <- stillRealSub1 b mark lTwin packB
-                                                                                      loop2 (j + 1, mark + 1, pack3)
-                                            loop (i + 1, shift twoPow 1, pack2)
+                                            (pack2, mark2) <- flip fix (0, markA, packA) $ \loop2 (j, markB, packB@(_, _, sum, _, _)) -> case () of
+                                                                _ | j >= twoPow -> return (packB, markB)
+                                                                  | otherwise  -> do
+                                                                      --let b = debugLogUpdateLive ("%%%%%% s_j, c: " ++ show (sum !! j) ++ " " ++ show c) sum !! j - c
+                                                                      let b = sum !! j - c
+                                                                      --pack3 <- debugLogUpdateLive ("twoPow: " ++ show twoPow) $ stillRealSub1 b mark lTwin pack
+                                                                      pack3 <- stillRealSub1 b markB lTwin packB
+                                                                      loop2 (j + 1, markB + 1, pack3)
+                                            loop (i + 1, shift twoPow 1, pack2, mark2)
   let
     lTwin2
       | on == 0    = stillRealSub2 0 unt2 nUn2 2 $ stillRealSub2 0 twi2 nTw2 2 lTwin
