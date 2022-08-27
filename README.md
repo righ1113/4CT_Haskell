@@ -40,7 +40,7 @@ RSSTに沿った内容のpdf。日本語。
 
 ### 「Coq-proof」  
 [Formal proof of the Four Color Theorem](https://github.com/math-comp/fourcolor)  
-Georges Gonthierによる、定理証明支援系Coqを用いた証明。  
+Georges Gonthierによる、定理証明支援系Coqを用いた証明。　RSST を踏襲している。  
 
 ### 「四色問題」　Robin Wilson 著,　茂木健一郎 訳   
 [link](https://www.amazon.co.jp/%E5%9B%9B%E8%89%B2%E5%95%8F%E9%A1%8C-%E6%96%B0%E6%BD%AE%E6%96%87%E5%BA%AB-%E3%83%AD%E3%83%93%E3%83%B3-%E3%82%A6%E3%82%A3%E3%83%AB%E3%82%BD%E3%83%B3/dp/4102184619)  
