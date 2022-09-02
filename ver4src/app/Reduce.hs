@@ -75,8 +75,8 @@ mainLoop cnt gConfs
     else
       error "         ***  ERROR: CONTRACT PROPOSED  ***\n\n"
   else
-    --checkCReduce ring bigno nlive2 live2 diffangle sameangle contract
-    return True
+    checkCReduce ring bigno nlive2 live2 diffangle sameangle contract
+    --return True
 
   -- 6 . recursion
   if cnt < 3 then

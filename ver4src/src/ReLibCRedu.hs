@@ -59,8 +59,8 @@ checkCReduceSub cnt forbidden c contract j start diffangle sameangle bigno ring 
   | j1 == 1 && ret2                            = do {putStrLn "               ***  Contract confirmed ***"; return True}
   | j1 <= 0                                    = error "checkCReduceSub : error!"
   | otherwise                                  = checkCReduceSub (cnt + 1) forbidden c2 contract j2 start diffangle sameangle bigno ring live where
-      (ret1, c1, j1) = ccrSubSub1 c  j  contract start forbidden
-      (ret2, c2, j2) = ccrSubSub2 c1 j1 contract start
+      (ret1, c1, j1) = (True, c, 1) --ccrSubSub1 c  j  contract start forbidden
+      (ret2, c2, j2) = (True, c, j) --ccrSubSub2 c1 j1 contract start
 
 
 ccrSubSub1 :: [Int] -> Int -> [Int] -> Int -> [Int] -> (Bool, [Int], Int)
