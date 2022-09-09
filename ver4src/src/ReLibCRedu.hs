@@ -81,7 +81,24 @@ ccrSubSub2 c j contract start
 
 
 inLive :: [Int] -> Int -> [Int] -> Int -> Bool
-inLive c ring live bigno = True
+inLive col ring live bigno
+  | length live <= colno = False 
+  | live !! colno == 0   = True
+  | otherwise            = False where
+      colno      = bigno - 2 * min - max
+      (min, max) = flip fix (weight !! 4, weight !! 4, 1) $ \loop (min0, max0, i) -> case () of
+                    _ | i > 2     -> (min0, max0)
+                      | otherwise -> loop (min1, max1, i + 1) where
+                          w    = weight !! i
+                          min1 = if w < min0 then w else min0
+                          max1 = if w > max0 then w else max0
+      weight0    = replicate 5 0
+      weight     = flip fix (weight0, 1) $ \loop (weight1, i) -> case () of
+                    _ | i > ring  -> weight1
+                      | otherwise -> loop (weight2, i + 1) where
+                          i2      = if i >= edges then edges - 1 else i
+                          colI    = if col !! i2 > 4 then 4 else col !! i2
+                          weight2 = weight1 & ix colI .~ weight1 !! colI + power !! i
 
 
 
