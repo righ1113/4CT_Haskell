@@ -4,7 +4,7 @@ module ReLibCRedu( checkCReduce ) where
 
 import CoLibCConst
     ( edges,
-      power)
+      power )
 import Control.Lens                   ( (&), (.~), Ixed(ix) )
 import Data.Bits                      ( Bits(shift, (.&.), (.|.)) )
 import Data.Function                  ( fix )
@@ -44,31 +44,32 @@ checkCReduceSub cnt forbidden c contract j start diffangle sameangle bigno ring 
   | j1 <= 0                                      = error "checkCReduceSub : error!"
   | otherwise                                    = checkCReduceSub (cnt + 1) forbidden c2 contract j2 start diffangle sameangle bigno ring live where
       one = 1::Int
-      (_,    c1, j1) = (True, c, 1::Int) --ccrSubSub1 c  j  contract start forbidden
-      (ret2, c2, j2) = (True, c, j) --ccrSubSub2 c1 j1 contract start
+      (_,    c1, j1) = ccrSubSub1 0 c  j  contract start forbidden
+      (ret2, c2, j2) = ccrSubSub2 0 c1 j1 contract start
 
 
--- bug有り!!
-ccrSubSub1 :: [Int] -> Int -> [Int] -> Int -> [Int] -> (Bool, [Int], Int)
-ccrSubSub1 c j contract start forbidden
+ccrSubSub1 :: Int -> [Int] -> Int -> [Int] -> Int -> [Int] -> (Bool, [Int], Int)
+ccrSubSub1 0 _ _ _ _ _ = error "ccrSubSub1 rec error!!"
+ccrSubSub1 cnt c j contract start forbidden
   | forbidden !! j .&. c !! j == 0 = (False, c, j)
   | ret2                           = (True, c2, j2)
-  | otherwise                      = ccrSubSub1 c2 j2 contract start forbidden where
-      (ret2, c2, j2) = ccrSubSub2 c j contract start
+  | otherwise                      = ccrSubSub1 (cnt + 1) c2 j2 contract start forbidden where
+      (ret2, c2, j2) = (True, c, j) --ccrSubSub2 0 c j contract start
 
 
-ccrSubSub2 :: [Int] -> Int -> [Int] -> Int -> (Bool, [Int], Int)
-ccrSubSub2 c j contract start
+ccrSubSub2 :: Int -> [Int] -> Int -> [Int] -> Int -> (Bool, [Int], Int)
+ccrSubSub2 1000 _ _ _ _ = error "ccrSubSub2 rec error!!"
+ccrSubSub2 cnt c j contract start
   | c2 !! j .&. 8 == 0 = (False, c2, j)
   | j2 >= start        = (True, c2, j2)
-  | otherwise          = ccrSubSub2 (c2 & ix j2 .~ shift (c2 !! j2) (-1)) j2 contract start where
+  | otherwise          = ccrSubSub2 (cnt + 1) (c2 & ix j2 .~ shift (c2 !! j2) (-1)) j2 contract start where
       c2 = c & ix j .~ shift (c !! j) (-1)
       j2 = j - (length . takeWhile (/=0)) contract
 
 
 inLive :: [Int] -> Int -> [Int] -> Int -> Bool
-inLive col ring live bigno = True
-{-
+inLive col ring live bigno
+{--}
   | length live <= colno = error "inLive length over!!"
   | live !! colno == 0   = True
   | otherwise            = False where
@@ -86,7 +87,7 @@ inLive col ring live bigno = True
                             i2      = if i >= edges then edges - 1 else i
                             colI    = if col !! i2 > 4 then 4 else col !! i2
                             weight2 = weight1 & ix colI .~ weight1 !! colI + power !! i
--}
+{--}
 
 
 
