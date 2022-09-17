@@ -100,5 +100,3 @@ inLive col ring live bigno
                           colI    = if col !! i2 > 4 then 4 else col !! i2
                           weight2 = weight1 & ix colI .~ weight1 !! colI + power !! i
 
-
-
