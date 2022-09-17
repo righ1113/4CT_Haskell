@@ -1,0 +1,11 @@
+cradle:
+  stack:
+    - path: "app/Discharge.hs"
+      component: "ver5src:exe:discharge-exe"
+    - path: "app/Reduce.hs"
+      component: "ver5src:exe:reduce-exe"
+    - path: "src"
+      component: "ver5src:lib"
+
+
+
