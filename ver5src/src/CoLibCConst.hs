@@ -46,6 +46,7 @@ module CoLibCConst
 
           readFileGoodConfsR,
           debugLogStrip,
+          debugLogAngles,
           debugLogUpdateLive
         ) where
 
@@ -123,6 +124,8 @@ debugLog True  s a = trace s a
 
 debugLogStrip :: String -> a -> a
 debugLogStrip = debugLog False
+debugLogAngles :: String -> a -> a
+debugLogAngles = debugLog False
 debugLogUpdateLive :: String -> a -> a
 debugLogUpdateLive = debugLog False
 
