@@ -11,7 +11,7 @@
 module Main( main ) where
 
 import CoLibCConst     ( readFileGoodConfsR, TpConfmat, power, siMatchNumber ) 
-import ReLibStrip      ( getEdgeNo )
+import ReLibStrip      ( getEdgeNo, strip )
 import ReLibAngles     ( findAngle )
 import ReLibFindlive   ( findLive )
 import ReLibUpdateLive ( updateLive )
@@ -35,11 +35,11 @@ mainLoop cnt gConfs
   print cnt
   -- 1. getEdgeNo()
   let
-    gConf  = gConfs !! 0
+    gConf  = gConfs !! 10
     vertex = gConf !! 1 !! 0
     ring   = gConf !! 1 !! 1                   -- ring-size
-    -- edgeno = strip ring gConf
-    edgeNo = getEdgeNo vertex ring gConf
+    edgeno = strip ring gConf
+    --edgeNo = getEdgeNo vertex ring gConf
 
   -- 2. findangles()
   {- "findangles" fills in the arrays "angle","diffangle","sameangle" and
@@ -50,7 +50,7 @@ mainLoop cnt gConfs
     contract is correct. -}
   -- let (angle, diffangle, sameangle, contract) = findangles gConf edgeno
   let
-    (angle, diffangle, sameangle, contract) = findAngle (gConf, edgeNo)
+    (angle, diffangle, sameangle, contract) = findAngle (gConf, edgeno)
   --print contract2
 
   -- 3. findlive()
@@ -79,7 +79,7 @@ mainLoop cnt gConfs
           --return True
 
   -- 6 . recursion
-  if cnt < 3 then
+  if cnt < -1 then
     mainLoop (cnt + 1) $ tail gConfs
   else
     mainLoop (cnt + 1) []

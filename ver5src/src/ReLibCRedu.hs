@@ -36,6 +36,7 @@ checkCReduce ring bigno nLive live diffAngle sameAngle contract = do
     u3         = foldl (\x y -> x .|. c3 !! y) u2 (take imax2 . tail $ sm)
     forbidden2 = forbidden & ix j2 .~ u3
 
+  putStrLn ("contract: " ++ show contract)
   putStrLn ("start2: " ++ show start2)
   putStrLn ("f c j: " ++ show forbidden2 ++ " " ++ show c3 ++ " " ++ show j2)
   _ <- runMaybeT $ checkCReduceSub 0 forbidden2 c3 contract j2 start2 diffAngle sameAngle bigno ring live
@@ -61,6 +62,7 @@ checkCReduceSub cnt forbidden c contract j start diffAngle sameAngle bigno ring 
     u1         = 0
     u2         = ccrSubSub4 u1 c3 dm sm 1
     forbidden2 = forbidden & ix j3 .~ u2
+  liftIO $ putStrLn ("fob: " ++ show u2 ++ " " ++ show u1 ++ " " ++ show dm ++ " " ++ show sm ++ " " ++ show j3)
   --liftIO $ putStrLn "checkCReduceSub chk 3."
   checkCReduceSub (cnt + 1) forbidden2 c3 contract j3 start diffAngle sameAngle bigno ring live
 
@@ -70,6 +72,7 @@ ccrSubSub1 100000 _ _ _ _ _ = error "ccrSubSub1 rec error!!"
 ccrSubSub1 cnt c j contract start forbidden
   | b         = return (c, j)
   | otherwise = do
+      --liftIO $ putStrLn ("fob: " ++ show forbidden)
       liftIO $ putStrLn ("c j: " ++ show c ++ " " ++ show j)
       (c3, j2) <- ccrSubSub2 0 c2 j contract start
       ccrSubSub1 (cnt + 1) c3 j2 contract start forbidden where

@@ -39,6 +39,7 @@ module CoLibCConst
           maxlev,
           difNouts,
 
+          mverts,
           edges,
           maxRing,
           power,
@@ -102,7 +103,8 @@ maxlev     = 12               -- max level of an input line + 1
 difNouts      :: [Int]
 difNouts   = [0, 0, 0, 0, 0, 0, 0, 103, 64, 53, 53, 53]
 
--- mverts     = 27 :: Int               -- max number of vertices in a free completion + 1
+mverts        :: Int
+mverts     = 27               -- max number of vertices in a free completion + 1
 edges         :: Int
 edges      = 62               -- max number of edges in a free completion + 1
 maxRing       :: Int
@@ -125,7 +127,7 @@ debugLog True  s a = trace s a
 debugLogStrip :: String -> a -> a
 debugLogStrip = debugLog False
 debugLogAngles :: String -> a -> a
-debugLogAngles = debugLog False
+debugLogAngles = debugLog True
 debugLogUpdateLive :: String -> a -> a
 debugLogUpdateLive = debugLog False
 
