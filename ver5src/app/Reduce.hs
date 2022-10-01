@@ -11,7 +11,7 @@
 module Main( main ) where
 
 import CoLibCConst     ( readFileGoodConfsR, TpConfmat, power, siMatchNumber ) 
-import ReLibStrip      ( getEdgeNo, strip )
+import ReLibStrip      ( getEdgeNo )
 import ReLibAngles     ( findAngle )
 import ReLibFindlive   ( findLive )
 import ReLibUpdateLive ( updateLive )
@@ -38,8 +38,8 @@ mainLoop cnt gConfs
     gConf  = gConfs !! 10
     vertex = gConf !! 1 !! 0
     ring   = gConf !! 1 !! 1                   -- ring-size
-    edgeno = strip ring gConf
-    --edgeNo = getEdgeNo vertex ring gConf
+    --edgeno = strip ring gConf
+    edgeNo = getEdgeNo vertex ring gConf
 
   -- 2. findangles()
   {- "findangles" fills in the arrays "angle","diffangle","sameangle" and
@@ -50,7 +50,7 @@ mainLoop cnt gConfs
     contract is correct. -}
   -- let (angle, diffangle, sameangle, contract) = findangles gConf edgeno
   let
-    (angle, diffangle, sameangle, contract) = findAngle (gConf, edgeno)
+    (angle, diffangle, sameangle, contract) = findAngle (gConf, edgeNo)
   --print contract2
 
   -- 3. findlive()

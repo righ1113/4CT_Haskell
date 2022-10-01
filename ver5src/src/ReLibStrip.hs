@@ -9,19 +9,20 @@ import Data.Ord      ( Down(..) )
 
 getEdgeNo :: Int -> Int -> TpConfmat -> TpEdgeNo
 getEdgeNo vertex ring gConf = debugLogStrip ("$$$ vertex: " ++ show edgeNo) edgeNo where
-  edgeNo   = getEdgeNoSub edgeList (ring + 1) edgeNo0
+  edgeNo   = getEdgeNoSub edgeList [11,13,12,14,15,16,17,23,21,22,19,20,18,24,25,26,28,27,29,30,31,32,33,34,35,36,37,38,-1] edgeNo0
   edgeNo0  = newEdgeNo 1 ring (replicate edges $ replicate edges 0)
   edgeList = concatMap (toTupleList []) $ getEdgeList vertex ring gConf
 
 
-getEdgeNoSub :: [[Int]] -> Int -> TpEdgeNo -> TpEdgeNo
-getEdgeNoSub []            _    edgeNo = edgeNo
-getEdgeNoSub ([a, b] : xs) term edgeNo = edgeNo4 where
+getEdgeNoSub :: [[Int]] -> [Int] -> TpEdgeNo -> TpEdgeNo
+getEdgeNoSub []            _               edgeNo = edgeNo
+getEdgeNoSub ([a, b] : xs) ts@(term : tss) edgeNo = edgeNo4 where
   edgeNo4
-    | edgeNo !! a !! b == 0 = getEdgeNoSub xs (term + 1) edgeNo3
-    | otherwise             = getEdgeNoSub xs term edgeNo
+    | edgeNo !! a !! b == 0 = debugLogStrip ("[a, b] set "    ++ show a ++ " " ++ show b ++ " " ++ show term) $ getEdgeNoSub xs tss edgeNo3
+    | otherwise             = debugLogStrip ("[a, b] cancel " ++ show a ++ " " ++ show b ++ " " ++ show term) $ getEdgeNoSub xs ts  edgeNo
   edgeNo2 = edgeNo  & (ix a <<< ix b) .~ term
   edgeNo3 = edgeNo2 & (ix b <<< ix a) .~ term
+getEdgeNoSub _ _ _                                = error "getEdgeNoSub error!!"
 
 
 newEdgeNo :: Int -> Int -> TpEdgeNo -> TpEdgeNo

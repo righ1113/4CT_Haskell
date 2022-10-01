@@ -125,7 +125,7 @@ debugLog False _ a = a
 debugLog True  s a = trace s a
 
 debugLogStrip :: String -> a -> a
-debugLogStrip = debugLog False
+debugLogStrip = debugLog True
 debugLogAngles :: String -> a -> a
 debugLogAngles = debugLog True
 debugLogUpdateLive :: String -> a -> a
