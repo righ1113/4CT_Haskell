@@ -9,7 +9,7 @@ import Data.Ord      ( Down(..) )
 
 getEdgeNo :: Int -> Int -> TpConfmat -> TpEdgeNo
 getEdgeNo vertex ring gConf = debugLogStrip ("$$$ vertex: " ++ show edgeNo) edgeNo where
-  edgeNo   = getEdgeNoSub edgeList [11,13,12,14,15,16,17,23,21,22,19,20,18,24,25,26,28,27,29,30,31,32,33,34,35,36,37,38,-1] edgeNo0
+  edgeNo   = getEdgeNoSub edgeList [11,13,12,14,15,16,17,23,21,22,19,20,18,24,25,26,28,27,35,34,30,29,36,37,38,31,32,33,-1] edgeNo0
   edgeNo0  = newEdgeNo 1 ring (replicate edges $ replicate edges 0)
   edgeList = concatMap (toTupleList []) $ getEdgeList vertex ring gConf
 
@@ -75,72 +75,72 @@ newEdgeno v ring edgeno
 -- ======== getEdgenoSub2 ========
 -- This eventually lists all the internal edges of the configuration
 getEdgenoSub2 :: Int -> Int -> [Int] -> TpGetENPack -> TpGetENPack
-getEdgenoSub2 i best max pack@(gConf, verts, ring, done, term, edgeno) 
+getEdgenoSub2 i best max0 pack@(gConf, verts, ring, done, _, _) 
   | i > verts = pack -- This eventually lists all the internal edges of the configuration
   | otherwise = getEdgenoSub2 (i + 1) best2 max2 pack2 where
       d                    =          gConf !! (best + 2) !! 1
       previous             = done !! (gConf !! (best + 2) !! (d + 1))
-      (best2, max2, pack2) = (getES2DoneBestTrue . getES2Sub4 (-1) d . getES2Sub3 previous 1 d . getES2Sub2 0 1 best . getES2Sub1 0 0 max (ring + 1)) pack
+      (best2, max2, pack2) = (getES2DoneBestTrue . getES2Sub4 (-1) d . getES2Sub3 previous 1 d . getES2Sub2 0 1 best . getES2Sub1 0 0 max0 (ring + 1)) pack
 
 
 -- First we find all vertices from the interior that meet the "done"
 -- vertices in an interval, and write them in max[1] .. max[maxes]
 getES2Sub1 :: Int -> Int -> [Int] -> Int -> TpGetENPack -> (Int, [Int], TpGetENPack)
-getES2Sub1 maxint maxes max v pack@(gConf, verts, _, done, _, _)
-  | v > verts = (maxes, max, pack)
-  | done !! v = getES2Sub1 maxint  maxes  max  (v + 1) pack
+getES2Sub1 maxint maxes max0 v pack@(gConf, verts, _, done, _, _)
+  | v > verts = (maxes, max0, pack)
+  | done !! v = getES2Sub1 maxint  maxes  max0 (v + 1) pack
   | otherwise = getES2Sub1 maxint2 maxes2 max2 (v + 1) pack where
       inter = inInterval (gConf !! (v + 2)) done
       (maxint2, maxes2, max2)
-            = if inter > maxint then (inter, 1, max & ix 1 .~ v) else (maxint, maxes + 1, max & ix (maxes + 1) .~ v)
+            = if inter > maxint then (inter, 1, max0 & ix 1 .~ v) else (maxint, maxes + 1, max0 & ix (maxes + 1) .~ v)
 
 
 -- From the terms in max we choose the one of maximum degree
 -- So now, the vertex "best" will be the next vertex to be done
 getES2Sub2 :: Int -> Int -> Int -> (Int, [Int], TpGetENPack) -> (Int, [Int], TpGetENPack)
-getES2Sub2 maxdeg h best big@(maxes, max, pack@(gConf, _, _, _, _, _))
-  | h > maxes = (best, max, pack)
+getES2Sub2 maxdeg h best big@(maxes, max0, pack@(gConf, _, _, _, _, _))
+  | h > maxes = (best, max0, pack)
   | otherwise = getES2Sub2 maxdeg2 (h + 1) best2 big where
-      d                = gConf !! (max !! h + 2) !! 1
-      (maxdeg2, best2) = if d > maxdeg then (d, max !! h) else (maxdeg, best)
+      d                = gConf !! (max0 !! h + 2) !! 1
+      (maxdeg2, best2) = if d > maxdeg then (d, max0 !! h) else (maxdeg, best)
 
 
 getES2Sub3 :: Bool -> Int -> Int -> (Int, [Int], TpGetENPack) -> (Int, Int, [Int], TpGetENPack)
-getES2Sub3 previous first d (best, max, pack@(gConf, _, _, done, _, _))
-  | not previous && doneGConf = (first, best, max, pack)
-  | first > d                 = (1,     best, max, pack)
-  | otherwise                 = getES2Sub3 doneGConf (first + 1) d (best, max, pack) where
+getES2Sub3 previous first d (best, max0, pack@(gConf, _, _, done, _, _))
+  | not previous && doneGConf = (first, best, max0, pack)
+  | first > d                 = (1,     best, max0, pack)
+  | otherwise                 = getES2Sub3 doneGConf (first + 1) d (best, max0, pack) where
       doneGConf = done !! (gConf !! (best + 2) !! (first + 1))
 
 
 getES2Sub4 :: Int -> Int -> (Int, Int, [Int], TpGetENPack) -> (Int, [Int], TpGetENPack)
-getES2Sub4 (-1) d (first, best, max, pack) = getES2Sub4 first d (first, best, max, pack)
-getES2Sub4 h    d (first, best, max, pack@(gConf, verts, ring, done, term, edgeno))
-  | not $ done !! gConfBH = debugLogStrip ("BH: " ++ show gConfBH ++ " " ++ show best ++ " " ++ show h ++ " " ++ show done) (best, max, pack)
-  | h == d && first == 1 = (best, max, (gConf, verts, ring, done, term - 1, edgeno3))
-  | h == d && first /= 1  = getES2Sub4 1       d (first, best, max, (gConf, verts, ring, debugLogStrip "none: " done, term - 1, edgeno3))
-  | otherwise             = getES2Sub4 (h + 1) d (first, best, max, (gConf, verts, ring, debugLogStrip ("done: " ++ show done) done, term - 1, edgeno3)) where
+getES2Sub4 (-1) d (first, best, max0, pack) = getES2Sub4 first d (first, best, max0, pack)
+getES2Sub4 h    d (first, best, max0, pack@(gConf, verts, ring, done, term, edgeno))
+  | not $ done !! gConfBH = debugLogStrip ("BH: " ++ show gConfBH ++ " " ++ show best ++ " " ++ show h ++ " " ++ show done) (best, max0, pack)
+  | h == d && first == 1 = (best, max0, (gConf, verts, ring, done, term - 1, edgeno3))
+  | h == d && first /= 1  = getES2Sub4 1       d (first, best, max0, (gConf, verts, ring, debugLogStrip "none: " done, term - 1, edgeno3))
+  | otherwise             = getES2Sub4 (h + 1) d (first, best, max0, (gConf, verts, ring, debugLogStrip ("done: " ++ show done) done, term - 1, edgeno3)) where
       gConfBH = gConf !! (best + 2) !! (h + 1)
       edgeno2 = edgeno  & (ix best <<< ix gConfBH) .~ term
       edgeno3 = edgeno2 & (ix gConfBH <<< ix best) .~ term
 
 
 getES2DoneBestTrue :: (Int, [Int], TpGetENPack) -> (Int, [Int], TpGetENPack)
-getES2DoneBestTrue (best, max, (gConf, verts, ring, done, term, edgeno)) = (best, max, (gConf, verts, ring, done2, term, edgeno)) where
+getES2DoneBestTrue (best, max0, (gConf, verts, ring, done, term, edgeno)) = (best, max0, (gConf, verts, ring, done2, term, edgeno)) where
   done2 = done & ix best .~ True
 
 
 -- ======== getEdgenoSub3 ========
 -- Now we must list the edges between the interior and the ring
 getEdgenoSub3 :: Int -> TpGetENPack -> TpEdgeNo
-getEdgenoSub3 i pack@(gConf, verts, ring, done, term, edgeno)
+getEdgenoSub3 i (gConf, verts, ring, done, term, edgeno)
   | i >= ring = edgeno
   | otherwise = debugLogStrip ("term: " ++ show term) $ getEdgenoSub3 (i + 1) pack2 where
       pack2 = getES3DoneBestTrue <<< (getES3Sub2 True ||| getES3Sub2 False) <<< getES3Sub1 0 0 1 $ (gConf, verts, ring, done, term, edgeno)
 
 
 getES3Sub1 :: Int -> Int -> Int -> TpGetENPack -> Either (Int, Int, TpGetENPack) (Int, Int, TpGetENPack) 
-getES3Sub1 maxint best v pack@(gConf, verts, ring, done, term, edgeno)
+getES3Sub1 maxint best v pack@(gConf, _, ring, done, _, _)
   | v > ring                                          = debugLogStrip ("best: " ++ show best ++ " " ++ show done) ret
   | done !! v || (not (done !! v) && inter <= maxint) = getES3Sub1 maxint best (v + 1) pack
   | otherwise                                         = getES3Sub1 inter  v    (v + 1) pack where
@@ -173,16 +173,16 @@ getES3DoneBestTrue (best, (gConf, verts, ring, done, term, edgeno)) = (gConf, ve
 -- ======== inInterval ========
 inInterval :: [Int] -> [Bool] -> Int
 inInterval grav done
-  | first == d = if done !! (grav !! (d + 1)) then 1 else 0
-  | last  == d = length
-  | first > 1  = inIntervalSub1 grav done d length (last + 2)
-  | chg        = 0
-  | otherwise  = len where
+  | first == d  = if done !! (grav !! (d + 1)) then 1 else 0
+  | last0  == d = length0
+  | first > 1   = inIntervalSub1 grav done d length0 (last0 + 2)
+  | chg         = 0
+  | otherwise   = len where
       d          = grav !! (0 + 1)
       first      = getFirst grav done d 1
-      last       = getLast  grav done d first
-      length     = last - first + 1
-      (len, chg) = inIntervalSub2 grav done d False length (last + 2)
+      last0      = getLast  grav done d first
+      length0    = last0 - first + 1
+      (len, chg) = inIntervalSub2 grav done d False length0 (last0 + 2)
 
 
 getFirst :: [Int] -> [Bool] -> Int -> Int -> Int
@@ -192,24 +192,24 @@ getFirst grav done d first
 
 
 getLast :: [Int] -> [Bool] -> Int -> Int -> Int
-getLast grav done d last
-  | last >= d || not (done !! (grav !! (1 + last + 1))) = last
-  | otherwise = getFirst grav done d (last + 1)
+getLast grav done d last0
+  | last0 >= d || not (done !! (grav !! (1 + last0 + 1))) = last0
+  | otherwise = getFirst grav done d (last0 + 1)
 
 
 inIntervalSub1 :: [Int] -> [Bool] -> Int -> Int -> Int -> Int
-inIntervalSub1 grav done d length j
-  | j > d                     = length
+inIntervalSub1 grav done d length0 j
+  | j > d                     = length0
   | done !! (grav !! (j + 1)) = 0
-  | otherwise                 = inIntervalSub1 grav done d length (j + 1)
+  | otherwise                 = inIntervalSub1 grav done d length0 (j + 1)
 
 
 inIntervalSub2 :: [Int] -> [Bool] -> Int -> Bool -> Int -> Int -> (Int, Bool)
-inIntervalSub2 grav done d worried length j
-  | j > d                                      = (length, False)
-  | done !! (grav !! (j + 1))                  = inIntervalSub2 grav done d True    (length + 1) (j + 1)
-  | not (done !! (grav !! (j + 1))) && worried = (length, True)
-  | otherwise                                  = inIntervalSub2 grav done d worried length       (j + 1)
+inIntervalSub2 grav done d worried length0 j
+  | j > d                                      = (length0, False)
+  | done !! (grav !! (j + 1))                  = inIntervalSub2 grav done d True    (length0 + 1) (j + 1)
+  | not (done !! (grav !! (j + 1))) && worried = (length0, True)
+  | otherwise                                  = inIntervalSub2 grav done d worried length0       (j + 1)
 
 
 
