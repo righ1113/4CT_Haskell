@@ -62,7 +62,7 @@ checkCReduceSub cnt forbidden c contract j start diffAngle sameAngle bigno ring 
     u1         = 0
     u2         = ccrSubSub4 u1 c3 dm sm 1
     forbidden2 = forbidden & ix j3 .~ u2
-  liftIO $ putStrLn ("fob: " ++ show u2 ++ " " ++ show u1 ++ " " ++ show dm ++ " " ++ show sm ++ " " ++ show j3)
+  liftIO $ putStrLn ("fob: " ++ show u2 ++ " " ++ show u1 ++ " " ++ show dm ++ " " ++ show sm ++ " " ++ show j3 ++ " " ++ show c3)
   --liftIO $ putStrLn "checkCReduceSub chk 3."
   checkCReduceSub (cnt + 1) forbidden2 c3 contract j3 start diffAngle sameAngle bigno ring live
 
@@ -108,8 +108,8 @@ ccrSubSub4 :: Int -> [Int] -> [Int] -> [Int] -> Int -> Int
 ccrSubSub4 u c dm sm i
   | i > 4     = u
   | otherwise = ccrSubSub4 u3 c dm sm (i + 1) where
-      u2 = if i <= dm !! 0 then u .|.             c !! (dm !! i)  else u
-      u3 = if i <= sm !! 0 then u .|. complement (c !! (sm !! i)) else u2
+      u2 = if i <= dm !! 0 then u  .|.             c !! (dm !! i)  else u
+      u3 = if i <= sm !! 0 then u2 .|. complement (c !! (sm !! i)) else u2
 
 
 inLive :: [Int] -> Int -> [Int] -> Int -> Bool
