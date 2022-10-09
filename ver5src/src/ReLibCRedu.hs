@@ -46,14 +46,11 @@ checkCReduce ring bigno nLive live diffAngle sameAngle contract = do
 checkCReduceSub :: Int -> [Int] -> [Int] -> [Int] -> Int -> Int -> [[Int]] -> [[Int]] -> Int -> Int -> [Int] -> MaybeT IO Bool
 checkCReduceSub 2097152 _ _ _ _ _ _ _ _ _ _      = error "checkCReduceSub : It was not good though it was repeated 2097152 times!"
 checkCReduceSub cnt forbidden c contract j start diffAngle sameAngle bigno ring live = do
-  --liftIO $ putStrLn "checkCReduceSub start."
   (c1, j1) <- ccrSubSub1 0 c j contract start forbidden
-  --liftIO $ putStrLn "checkCReduceSub chk 1."
   _        <- if j1 == 1 && not (inLive c1 ring live bigno) then error "ERROR: INPUT CONTRACT IS INCORRECT  ***\n\n" else return True
   (c2, j2) <- ccrSubSub2 0 (c1 & ix j1 .~ shift (c1 !! j1) 1) j1 contract start
   _        <- if j1 == 1 then checkCReduceSub (cnt + 1) forbidden c2 contract j2 start diffAngle sameAngle bigno ring live else return True
   _        <- if j2 <= 0 then error "checkCReduceSub : error!" else return True
-  --liftIO $ putStrLn "checkCReduceSub chk 2."
   let
     j3         = ccrSubSub3 (j1 - 1) contract
     dm         = diffAngle !! j3
@@ -62,8 +59,7 @@ checkCReduceSub cnt forbidden c contract j start diffAngle sameAngle bigno ring 
     u1         = 0
     u2         = ccrSubSub4 u1 c3 dm sm 1
     forbidden2 = forbidden & ix j3 .~ u2
-  liftIO $ putStrLn ("fob: " ++ show u2 ++ " " ++ show u1 ++ " " ++ show dm ++ " " ++ show sm ++ " " ++ show j3 ++ " " ++ show c3)
-  --liftIO $ putStrLn "checkCReduceSub chk 3."
+  --liftIO $ putStrLn ("fob: " ++ show u2 ++ " " ++ show u1 ++ " " ++ show dm ++ " " ++ show sm ++ " " ++ show j3 ++ " " ++ show c3)
   checkCReduceSub (cnt + 1) forbidden2 c3 contract j3 start diffAngle sameAngle bigno ring live
 
 
@@ -72,8 +68,7 @@ ccrSubSub1 100000 _ _ _ _ _ = error "ccrSubSub1 rec error!!"
 ccrSubSub1 cnt c j contract start forbidden
   | b         = return (c, j)
   | otherwise = do
-      --liftIO $ putStrLn ("fob: " ++ show forbidden)
-      liftIO $ putStrLn ("c j: " ++ show c ++ " " ++ show j)
+      --liftIO $ putStrLn ("c j: " ++ show c ++ " " ++ show j)
       (c3, j2) <- ccrSubSub2 0 c2 j contract start
       ccrSubSub1 (cnt + 1) c3 j2 contract start forbidden where
         b  = forbidden !! j .&. c !! j == 0
@@ -86,7 +81,7 @@ ccrSubSub2 cnt c j contract start
   | c !! j .&. 8 == 0 = return (c, j)
   | j2 >= start       = do{ liftIO $ putStrLn "               ***  Contract confirmed ***"; empty }
   | otherwise         = do
-      liftIO $ putStrLn ("    c j: " ++ show c ++ " " ++ show j ++ " " ++ show j2)
+      --liftIO $ putStrLn ("    c j: " ++ show c ++ " " ++ show j ++ " " ++ show j2)
       ccrSubSub2 (cnt + 1) c2 j2 contract start where
         j2 = ccrSubSub3_2 (j + 1) contract
         c2 = c & ix j2 .~ shift (c !! j2) 1

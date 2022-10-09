@@ -9,7 +9,10 @@ import Data.Ord      ( Down(..) )
 
 getEdgeNo :: Int -> Int -> TpConfmat -> TpEdgeNo
 getEdgeNo vertex ring gConf = debugLogStrip ("$$$ vertex: " ++ show edgeNo) edgeNo where
-  edgeNo   = getEdgeNoSub edgeList [11,13,12,14,15,16,17,23,21,22,19,20,18,24,25,26,28,27,35,34,30,29,36,37,38,31,32,33,-1] edgeNo0
+  gConfL   = last gConf
+  edgeNo
+    | null gConfL = getEdgeNoSub edgeList [(ring + 1)..] edgeNo0
+    | otherwise   = getEdgeNoSub edgeList gConfL edgeNo0
   edgeNo0  = newEdgeNo 1 ring (replicate edges $ replicate edges 0)
   edgeList = concatMap (toTupleList []) $ getEdgeList vertex ring gConf
 
