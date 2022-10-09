@@ -22,7 +22,7 @@ main :: IO ()
 main = do
   putStrLn "これは四色定理の可約性を調べるプログラムです"
   gConfs <- readFileGoodConfsR
-  mainLoop 0 $ drop 10 gConfs
+  mainLoop 0 gConfs
   -- putStrLn "633個の好配置は全て、Ｄ可約 or Ｃ可約です"
   putStrLn "プログラムは正常終了しました"
 
@@ -79,7 +79,7 @@ mainLoop cnt gConfs
           --return True
 
   -- 6 . recursion
-  if cnt < 1 then
+  if cnt < 11 then
     mainLoop (cnt + 1) $ tail gConfs
   else
     mainLoop (cnt + 1) []

@@ -11,8 +11,8 @@ getEdgeNo :: Int -> Int -> TpConfmat -> TpEdgeNo
 getEdgeNo vertex ring gConf = debugLogStrip ("$$$ vertex: " ++ show edgeNo) edgeNo where
   gConfL   = last gConf
   edgeNo
-    | null gConfL = getEdgeNoSub edgeList [(ring + 1)..] edgeNo0
-    | otherwise   = getEdgeNoSub edgeList gConfL edgeNo0
+    | null gConfL = getEdgeNoSub edgeList [(ring + 1)..] edgeNo0 -- D reducible
+    | otherwise   = getEdgeNoSub edgeList gConfL edgeNo0         -- C reducible
   edgeNo0  = newEdgeNo 1 ring (replicate edges $ replicate edges 0)
   edgeList = concatMap (toTupleList []) $ getEdgeList vertex ring gConf
 
@@ -53,6 +53,7 @@ toTupleList acm (x:y:xs) = toTupleList (acm ++ [[x,y]]) (x:xs)
 
 
 
+-- 残骸だけど、残しておく
 strip :: Int -> TpConfmat -> TpEdgeNo
 strip ring = getEdgenoSub3 0 . getEdgenoSub2 (ring + 1) 1 (replicate mverts 0) . getEdgenoSub1 ring
 
