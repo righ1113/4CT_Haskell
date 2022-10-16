@@ -129,7 +129,7 @@ debugLogStrip = debugLog True
 debugLogAngles :: String -> a -> a
 debugLogAngles = debugLog False
 debugLogUpdateLive :: String -> a -> a
-debugLogUpdateLive = debugLog False
+debugLogUpdateLive = debugLog True
 
 
 

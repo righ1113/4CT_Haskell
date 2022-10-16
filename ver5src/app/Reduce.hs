@@ -22,7 +22,8 @@ main :: IO ()
 main = do
   putStrLn "これは四色定理の可約性を調べるプログラムです"
   gConfs <- readFileGoodConfsR
-  mainLoop 0 gConfs
+  --mainLoop 0 gConfs
+  mainLoop 0 $ drop (10+4) gConfs
   -- putStrLn "633個の好配置は全て、Ｄ可約 or Ｃ可約です"
   putStrLn "プログラムは正常終了しました"
 
@@ -58,11 +59,13 @@ mainLoop cnt gConfs
     bigno  = (power !! (ring + 1) - 1) `div` 2 -- needed in "inlive"
     live0  = replicate ncodes 1
   (nlive1, live1) <- findLive ring bigno live0 ncodes angle power (gConf !! 1 !! 2)
+    --(nlive1, live1) = (0, live0)
 
   -- 4. updatelive()
   let nchar  = (siMatchNumber !! ring) `div` 8 + 1
   -- computes {\cal M}_{i+1} from {\cal M}_i, updates the bits of "real"
   (nlive2, live2) <- updateLive (ring, nchar) ncodes (nlive1, live1)
+      --(nlive2, live2) = (1, live1)
   -- computes {\cal C}_{i+1} from {\cal C}_i, updates "live"
 
   -- 5. checkContract()
@@ -75,11 +78,14 @@ mainLoop cnt gConfs
           else
             error "         ***  ERROR: CONTRACT PROPOSED  ***\n\n"
         else
-          checkCReduce ring bigno nlive2 live2 diffangle sameangle contract
-          --return True
+          --checkCReduce ring bigno nlive2 live2 diffangle sameangle contract
+          return True
+
+  --print edgeNo
 
   -- 6 . recursion
-  if cnt < 11 then
+  --if cnt < 9 then
+  if cnt < 4 then
     mainLoop (cnt + 1) $ tail gConfs
   else
     mainLoop (cnt + 1) []

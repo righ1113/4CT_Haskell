@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Move brackets to avoid $" #-}
 {-# HLINT ignore "Use head" #-}
-{-# LANGUAGE Strict #-}
+--{-# LANGUAGE Strict #-}
 module ReLibUpdateLive( updateLive ) where
 
 import CoLibCConst
@@ -33,12 +33,15 @@ updateLive = iterateConvergenceIO testMatch real where
 
 
 iterateConvergenceIO :: (TpUpdateState2 -> TpUpdateState2) -> [Int] -> TpRingNchar -> Int -> TpLiveTwin -> IO TpLiveTwin 
+--iterateConvergenceIO f real rn nCodes lTwin = return lTwin
+{--}
 iterateConvergenceIO f real rn nCodes lTwin = do
   let (lTwin2, real2, nReal, _, _, _) = f (lTwin, real, 0, 1, 0, rn)
   (is, lTwin3) <- isUpdate nCodes lTwin2 nReal
   case () of
     _ | not is    -> return lTwin3
       | otherwise -> iterateConvergenceIO f real2 rn nCodes lTwin3
+{--}
 
 
 isUpdate :: Int -> TpLiveTwin -> Int -> IO (Bool, TpLiveTwin)
@@ -199,7 +202,8 @@ checkReality bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bi
         (real2, nReal2, lTwin2)
           | isNothing retM                = (real & ix realTerm .~ real !! realTerm `xor` fromIntegral bit, nReal,     lTwin)
           | otherwise                     = (real,                                                          nReal + 1, fromJust retM)
-      in debugLogUpdateLive ("### lTwin2, nReal: " ++ show lTwin2 ++ " " ++ show nReal2 ++ " ___ " ++ show k ++ " " ++ show maxK ++ " " ++ show realTerm ++ " " ++ show nchar) checkReality (depth, col, on) (k + 1) weight maxK choice3 (lTwin2, real2, nReal2, shift bit 1, realTerm, rn)
+      --in debugLogUpdateLive ("### lTwin2, nReal: " ++ show lTwin2 ++ " " ++ show nReal2 ++ " ___ " ++ show k ++ " " ++ show maxK ++ " " ++ show realTerm ++ " " ++ show nchar) checkReality (depth, col, on) (k + 1) weight maxK choice3 (lTwin2, real2, nReal2, shift bit 1, realTerm, rn)
+      in checkReality (depth, col, on) (k + 1) weight maxK choice3 (lTwin2, real2, nReal2, shift bit 1, realTerm, rn)
 {--}
 
 isStillReal :: TpBaseCol -> [Int] -> TpLiveTwin -> Maybe TpLiveTwin
@@ -226,10 +230,10 @@ isStillReal (depth, col, on) choice lTwin = do
 
 
 stillRealSub1 :: Int -> Int -> TpLiveTwin -> TpRealityPack -> Maybe TpRealityPack
-stillRealSub1 b mark (_, live) (twi, nTw, sum0, unt, nUn) = do
+stillRealSub1 b mark (_, live) rp@(twi, nTw, sum0, unt, nUn) = do -- return rp
 {--}
-  --debugLogUpdateLive ("b: " ++ show b ++ " " ++ show rp) $ case () of
-  case () of
+  debugLogUpdateLive ("b: " ++ show b ++ " " ++ show rp) $ case () of
+  --case () of
     _ | length live <= abs b        -> error (show (length live) ++ " " ++ show b ++ " stillRealSub1 意図的なエラー!!")
       | b <  0 && live !! (-b) == 0 -> empty
       | b <  0 && live !! (-b) /= 0 -> return (twi2, nTw2, sum2, unt,  nUn)
@@ -240,8 +244,6 @@ stillRealSub1 b mark (_, live) (twi, nTw, sum0, unt, nUn) = do
             | otherwise = twi
           nTw2 = nTw + 1
           sum2 = sum0 & ix mark .~ b
-          --  | b < 0     = sum
-          --  | otherwise = sum & ix mark .~ b
           unt2
             | b < 0     = unt
             | otherwise = unt & ix nUn  .~ b
