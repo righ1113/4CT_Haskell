@@ -17,11 +17,11 @@ import CoLibCConst
       TpRingNchar )
 import Control.Applicative            ( empty )
 import Control.Arrow                  ( (<<<) )
-import Control.Lens                   ( (&), (.~), Ixed(ix) )
+import Control.Lens                   ( (&), (.~), Ixed(ix), (%~) )
 -- import Control.Monad.Trans.Class      ( lift )
 -- import Control.Monad.Trans.Maybe      ( MaybeT(..) )
 -- import Control.Monad.Trans.State.Lazy ( StateT(..), execStateT, get, put )
-import Data.Bits                      ( Bits(shift, (.&.), (.|.), xor) )    
+import Data.Bits                      ( Bits(shift, (.&.), (.|.), xor) )
 import Data.Function                  ( fix )
 -- import Data.Int                       ( Int8 )
 import Data.Maybe                     ( isNothing, fromJust )
@@ -32,7 +32,7 @@ updateLive = iterateConvergenceIO testMatch real where
   real = replicate (siMatchNumber !! maxRing `div` 8 + 2) 255
 
 
-iterateConvergenceIO :: (TpUpdateState2 -> TpUpdateState2) -> [Int] -> TpRingNchar -> Int -> TpLiveTwin -> IO TpLiveTwin 
+iterateConvergenceIO :: (TpUpdateState2 -> TpUpdateState2) -> [Int] -> TpRingNchar -> Int -> TpLiveTwin -> IO TpLiveTwin
 --iterateConvergenceIO f real rn nCodes lTwin = return lTwin
 {--}
 iterateConvergenceIO f real rn nCodes lTwin = do
@@ -182,10 +182,10 @@ checkReality bc@(depth, _, _) k weight maxK choice st@(lTwin, real, nReal, 0, re
   | k >= maxK = st
   | otherwise = if realTerm > nchar then error $ "More than %ld entries in real are needed " ++ show k ++ " " ++ show maxK ++ " " ++ show realTerm ++ " " ++ show nchar
                 else debugLogUpdateLive ("^^^ " ++ show realTerm ++ " " ++ show depth) checkReality bc k weight maxK choice (lTwin, real, nReal, 1, realTerm + 1, rn)
-checkReality bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bit, realTerm, rn@(ring, nchar)) -- = st
+checkReality bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bit, realTerm, rn@(ring, _)) -- = st
 {--}
   | k >= maxK                                  = st
-  | fromIntegral bit .&. real !! realTerm == 0 = 
+  | fromIntegral bit .&. real !! realTerm == 0 =
       debugLogUpdateLive ("hogebit, realT, r(T): " ++ show bit ++ " " ++ show realTerm ++ " " ++ show (real !! realTerm)) checkReality bc (k + 1) weight maxK choice  (lTwin, real, nReal, shift bit 1, realTerm, rn) -- continue
   | otherwise                                  =
       let
@@ -254,9 +254,10 @@ stillRealSub2 :: Int -> [Int] -> Int -> Int -> TpLiveTwin -> TpLiveTwin
 stillRealSub2 i twist nTwist v lTwin@(nLive, live)
   | i >= nTwist = lTwin
   | otherwise   = stillRealSub2 (i + 1) twist nTwist v (nLive, live2) where
+      index = twist !! i
       live2 = if i >= nTwist then live
               --else debugLogUpdateLive ("%%% i, t, nT,  index, value: " ++ show i ++ " " ++ show twist ++ " " ++ show nTwist ++ "  " ++ show (twist !! i) ++ " " ++ show (live !! (twist !! i) .|. v)) live & ix (twist !! i) .~ live !! (twist !! i) .|. v
-              else live & ix (twist !! i) .~ live !! (twist !! i) .|. v
+              else live & ix index %~ (.|. v)
 
 
 

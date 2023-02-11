@@ -4,13 +4,13 @@
 ◆author: righ1113
 ◆動かし方
 1. $ stack run reduce-exe
-1. $ stack ghci --main-is ver4src:exe:reduce-exe
+1. $ stack ghci --main-is ver5src:exe:reduce-exe
 2. > main
 2. > :l app/Reduce
 -}
 module Main( main ) where
 
-import CoLibCConst     ( readFileGoodConfsR, TpConfmat, power, siMatchNumber ) 
+import CoLibCConst     ( readFileGoodConfsR, TpConfmat, power, siMatchNumber )
 import ReLibStrip      ( getEdgeNo )
 import ReLibAngles     ( findAngle )
 import ReLibFindlive   ( findLive )
@@ -85,7 +85,8 @@ mainLoop cnt gConfs
 
   -- 6 . recursion
   --if cnt < 9 then
-  if cnt < 4 then
+  --if cnt < 4 then
+  if cnt < 0 then
     mainLoop (cnt + 1) $ tail gConfs
   else
     mainLoop (cnt + 1) []
