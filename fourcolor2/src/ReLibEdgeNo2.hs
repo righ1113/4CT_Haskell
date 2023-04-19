@@ -10,7 +10,7 @@ import Data.Ord      ( Down(..) )
 
 getEdgeNo :: Int -> Int -> Int -> TpConfFmt -> TpEdgeNo
 getEdgeNo vertex ring term gConf = debugLogStrip ("$$$ vertex: " ++ show edgeNo) edgeNo where
-  edgeNo    = getEdgeNoSub2 edgeList2 term . getEdgeNoSub1 edgeList1 $ edgeNo0
+  edgeNo    = getEdgeNoSub2 edgeList2 term ring . getEdgeNoSub1 edgeList1 $ edgeNo0
   edgeNo0   = newEdgeNo 1 ring (replicate edgesM $ replicate edgesM 0)
   edgeList1 = concatMap (toTupleList []) $ getEdgeList vertex ring gConf
   edgeList2 = getEdgeList2 ring vertex
@@ -29,15 +29,15 @@ getEdgeNoSub1 ([a, b] : xs) edgeNo = edgeNo4 where
   edgeNo3 = edgeNo2 & (ix b <<< ix a) .~ checkNum
 getEdgeNoSub1 _ _                                = error "getEdgeNoSub1 error!!"
 -- チェック2回目、書き込み
-getEdgeNoSub2 :: [[Int]] -> Int -> TpEdgeNo -> TpEdgeNo
-getEdgeNoSub2 []            _    edgeNo = edgeNo
-getEdgeNoSub2 ([a, b] : xs) term edgeNo = edgeNo4 where
+getEdgeNoSub2 :: [[Int]] -> Int -> Int -> TpEdgeNo -> TpEdgeNo
+getEdgeNoSub2 []            term ring edgeNo = if ring == term then edgeNo else error ("ring /= term " ++ show ring ++ " " ++ show term)
+getEdgeNoSub2 ([a, b] : xs) term ring edgeNo = edgeNo4 where
   edgeNo4
-    | edgeNo !! a !! b == checkNum = getEdgeNoSub2 xs (term - 1) edgeNo3
-    | otherwise                    = getEdgeNoSub2 xs term       edgeNo
+    | edgeNo !! a !! b == checkNum = getEdgeNoSub2 xs (term - 1) ring edgeNo3
+    | otherwise                    = getEdgeNoSub2 xs term       ring edgeNo
   edgeNo2 = edgeNo  & (ix a <<< ix b) .~ term
   edgeNo3 = edgeNo2 & (ix b <<< ix a) .~ term
-getEdgeNoSub2 _ _ _                    = error "getEdgeNoSub2 error!!"
+getEdgeNoSub2 _ _ _ _                        = error "getEdgeNoSub2 error!!"
 getEdgeList2 :: Int -> Int -> [[Int]]
 getEdgeList2 ring vertex = [[x, y] | x <- [(ring + 2)..vertex], y <- [(ring + 1)..(x - 1)]]
   ++ [[x, y] | x <- [1..ring], y <- [(ring + 1)..vertex]]
