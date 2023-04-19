@@ -73,8 +73,8 @@ updateLive (twin, real, nReal, _, _, m, d, _, _) = (twin2, real, nReal, 1, 0, m,
   (b1, b2, twin2) = isUpdate (ncodes m) twin nReal
   isUpdate :: Int -> TpLiveTwin -> Int -> (Bool, Bool, TpLiveTwin)
   isUpdate nCodes (nLive, live) _nReal =
-    let _s1              = "\n\n\n                  ***  D-reducible  ***\n"
-        _s2              = "\n\n\n                ***  Not D-reducible  ***\n"
+    let _s1             = "\n\n\n                  ***  D-reducible  ***\n"
+        _s2             = "\n\n\n                ***  Not D-reducible  ***\n"
         liveB           = if live !!| 0 > 1 then live & ix 0 .~ 15 else live
         (nLive2, live2) = flip fix (0, liveB, 0) $ \loop (nLive', live', i) -> case () of
                             _ | i >= nCodes      -> (nLive', live')
@@ -86,10 +86,9 @@ updateLive (twin, real, nReal, _, _, m, d, _, _) = (twin2, real, nReal, 1, 0, m,
     --putStrLn $ "                       " ++ show nReal -- right
     --putStr $ "              " ++ show nLive2           -- left
     in case () of
-      _ | 0 < nLive2 && nLive2 < nLive -> (False, False, (nLive2, live2)) -- 続行
-        | otherwise                    ->
+      _ | 0 < nLive2 && nLive2 < nLive -> trace (show _nReal ++ " " ++ show nLive2) (False, False,       (nLive2, live2)) -- 続行
+        | otherwise                    -> trace (show _nReal ++ " " ++ show nLive2) (True,  nLive2 == 0, (nLive2, live2)) -- 終了
             --if nLive2 == 0 then putStr s1 else putStr s2
-            (True, nLive2 == 0, (nLive2, live2))                          -- 終了
 
 
 chkCReduce :: TpUpdateState2 -> Bool
