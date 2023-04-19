@@ -12,7 +12,7 @@ bug-reports:    https://github.com/githubuser/fourcolor2/issues
 author:         Author name here
 maintainer:     example@example.com
 copyright:      2023 Author name here
-license:        BSD3
+license:        MIT
 build-type:     Simple
 extra-source-files:
     README.md

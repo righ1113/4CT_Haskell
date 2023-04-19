@@ -4,6 +4,7 @@ import CoLibCConst   ( edgesM, TpAngle, power, siMatchNumber, TpExtCJ, TpFliveBi
 import Control.Lens  ( (&), (.~), Ixed(ix) )
 import Data.Bits     ( Bits(shift, (.&.), (.|.)) )
 import Data.Function ( fix )
+import Debug.Trace   ( trace )
 
 
 -- computes {\cal C}_0 and stores it in live. That is, computes codes of
@@ -32,7 +33,7 @@ findLiveSub (ring, nCodes, extent, extentC, (_, c, j), ed) bigNo live angle forb
                 . findLiveSsub2 angle bigNo ring
                   . findLiveSsub1 (ring, nCodes, extent, extentC, (False, c, j), ed)) (forbi, live)
   -- totalling
-  in case () of
+  in trace ("findLive cnt=" ++ show cnt) $ case () of
     _ | exit1                   -> (nCodes - extent,  live)
       | exit2 && j2 == ring + 1 -> (nCodes - extent2, live2)
       | exit3 && j2 /= ring + 1 -> (nCodes - extent2, live2)

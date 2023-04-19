@@ -11,8 +11,7 @@ import CoLibCConst
       TpLiveTwin,
       power,
       siMatchNumber,
-      maxRing,
-      (!!|) )
+      maxRing )
 
 import ReLibEdgeNo2                   ( getEdgeNo )
 import ReLibAngles                    ( findAngle )
@@ -61,7 +60,7 @@ makeAngle (a, m, c) = (m, findAngle (a, c))
 makeLive :: (GConfMajor, TpAnglePack) -> TpUpdateState2
 makeLive (m, d@(_, _, an, _, _, _)) = (fl, real, 0, 1, 0, m, d, False, True) where
   fl   = findLive (ring m) (bigno m) (replicate (ncodes m) 1) (ncodes m) an (claim m)
-  real = replicate (siMatchNumber !!| maxRing `div` 8 + 2) 255
+  real = replicate (siMatchNumber !! maxRing `div` 8 + 2) 255
 
 
 chkDReduce :: TpUpdateState2 -> TpUpdateState2
@@ -75,7 +74,7 @@ updateLive (twin, real, nReal, _, _, m, d, _, _) = (twin2, real, nReal, 1, 0, m,
   isUpdate nCodes (nLive, live) _nReal =
     let _s1             = "\n\n\n                  ***  D-reducible  ***\n"
         _s2             = "\n\n\n                ***  Not D-reducible  ***\n"
-        liveB           = if live !!| 0 > 1 then live & ix 0 .~ 15 else live
+        liveB           = if live !! 0 > 1 then live & ix 0 .~ 15 else live
         (nLive2, live2) = flip fix (0, liveB, 0) $ \loop (nLive', live', i) -> case () of
                             _ | i >= nCodes      -> (nLive', live')
                               | live' !! i /= 15 -> loop (nLive',  live'3, i + 1)

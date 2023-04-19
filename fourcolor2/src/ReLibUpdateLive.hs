@@ -12,8 +12,7 @@ import CoLibCConst
       TpUpdateState2,
       TpLiveTwin,
       power,
-      debugLogUpdateLive,
-      (!!|) )
+      debugLogUpdateLive )
 
 import Control.Applicative            ( empty )
 import Control.Arrow                  ( (<<<) )
@@ -45,14 +44,14 @@ testMatchSub1 flg ((interval, weight, matchW), st@(_, _, _, _, _, m, _, _, _)) =
                     matchW3 = flip fix (matchWin1, 1) $ \loop2 (matchWin2, b) -> case () of
                                 _ | b > a - 1 -> matchWin2
                                   | otherwise -> loop2 (nextMatch, b + 1) where
-                                      matchW4_1 = debugLogUpdateLive ("aM,bM: " ++ show a ++ " " ++ show b) $ matchWin2 & (ix a <<< ix b <<< ix 0) .~ (power !!| a + power !!| b) * 2
-                                      matchW4_2 = matchW4_1 & (ix a <<< ix b <<< ix 1) .~ (power !!| a - power !!| b) * 2
-                                      matchW4_3 = matchW4_2 & (ix a <<< ix b <<< ix 2) .~ (power !!| a + power !!| b)
-                                      matchW4_4 = matchW4_3 & (ix a <<< ix b <<< ix 3) .~ (power !!| a - power !!| b)
-                                      matchW5_1 = matchWin2 & (ix a <<< ix b <<< ix 0) .~ (power !!| a + power !!| b)
-                                      matchW5_2 = matchW5_1 & (ix a <<< ix b <<< ix 1) .~ (power !!| a - power !!| b)
-                                      matchW5_3 = matchW5_2 & (ix a <<< ix b <<< ix 2) .~ -power !!| a - power !!| b
-                                      matchW5_4 = matchW5_3 & (ix a <<< ix b <<< ix 3) .~ -power !!| a -(2 * power !!| b)
+                                      matchW4_1 = debugLogUpdateLive ("aM,bM: " ++ show a ++ " " ++ show b) $ matchWin2 & (ix a <<< ix b <<< ix 0) .~ (power !! a + power !! b) * 2
+                                      matchW4_2 = matchW4_1 & (ix a <<< ix b <<< ix 1) .~ (power !! a - power !! b) * 2
+                                      matchW4_3 = matchW4_2 & (ix a <<< ix b <<< ix 2) .~ (power !! a + power !! b)
+                                      matchW4_4 = matchW4_3 & (ix a <<< ix b <<< ix 3) .~ (power !! a - power !! b)
+                                      matchW5_1 = matchWin2 & (ix a <<< ix b <<< ix 0) .~ (power !! a + power !! b)
+                                      matchW5_2 = matchW5_1 & (ix a <<< ix b <<< ix 1) .~ (power !! a - power !! b)
+                                      matchW5_3 = matchW5_2 & (ix a <<< ix b <<< ix 2) .~ -power !! a - power !! b
+                                      matchW5_4 = matchW5_3 & (ix a <<< ix b <<< ix 3) .~ -power !! a -(2 * power !! b)
                                       nextMatch = if flg then matchW4_4 else matchW5_4
 
 
@@ -65,7 +64,7 @@ testMatchSub2wrapAug flg (start, end) ((interval0, weight0, matchW), st@(_, _, _
                                         _ | b > a - 1 -> (interval2, weight2, a + 1, st2)
                                           | otherwise ->
                                               let
-                                                weight4 = debugLogUpdateLive ("a,b: " ++ show a ++ " " ++ show b) $ weight2 & ix 1 .~ matchW !!| a !!| b
+                                                weight4 = debugLogUpdateLive ("a,b: " ++ show a ++ " " ++ show b) $ weight2 & ix 1 .~ matchW !! a !! b
                                                 n
                                                   | b >= 3 && a >= b + 3 = 2
                                                   | b >= 3 && a <  b + 3 = 1
@@ -82,7 +81,7 @@ testMatchSub2wrapAug flg (start, end) ((interval0, weight0, matchW), st@(_, _, _
                                                   | b >= 3 && a <  b + 3 = interval4_2
                                                   | b <  3 && a >= b + 3 = interval5_4
                                                   | otherwise            = interval2
-                                                baseCol = (power !!| (ring m + 1) - 1) `div` 2
+                                                baseCol = (power !! (ring m + 1) - 1) `div` 2
                                                 ((_, weight5, _), st3)
                                                   | flg       = augment0 (1, 0,       0) 1 n 0 ((interval4, weight4, matchW), st2)
                                                   | otherwise = augment0 (1, baseCol, 1) 1 n 0 ((interval4, weight4, matchW), st2)
@@ -103,8 +102,8 @@ augment bc r n cnt pack@((interval, _, _), _)
   | cnt >= 10000 = error "augment over!"
   | r > n        = debugLogUpdateLive ("### r>n pass! " ++ show r ++ " " ++ show n) pack
   | otherwise    = augment bc (r + 1) n cnt ret2 where
-      lower = interval !!| (2 * r - 1)
-      upper = interval !!| (2 * r)
+      lower = interval !! (2 * r - 1)
+      upper = interval !! (2 * r)
       ret2  = if r > n then pack else augmentSub r (lower + 1) lower upper bc n cnt 0 pack
 
 
@@ -119,7 +118,7 @@ augmentSub r i lower upper bc@(depth, baseCol, on) n cnt _ pack@((interval, _, _
           else flip fix (pack, n, lower) $ \loop (pack2@((va, we, ma), st), _, j) -> debugLogUpdateLive ("i,iover,j,jover: " ++ show i ++ " " ++ show upper ++ " " ++ show j ++ " " ++ show (i-1)) $ case () of
                 _ | j >= i    -> pack2
                   | otherwise ->
-                      let we2   = debugLogUpdateLive ("w: " ++ show i ++ " " ++ show j ++ " " ++ show (ma !!| i !!| j)) $ we & ix (depth + 1) .~ ma !!| i !!| j -- weight
+                      let we2   = debugLogUpdateLive ("w: " ++ show i ++ " " ++ show j ++ " " ++ show (ma !! i !! j)) $ we & ix (depth + 1) .~ ma !! i !! j -- weight
                           bc'   = (depth + 1, baseCol, on)
                           newV  = take 10 $ take (2 * r - 2 + 1) va ++ replicate 100 0 -- take-cycle-take
                           newV2_1 = newV    & ix (2 * r - 1) .~ lower
@@ -163,8 +162,8 @@ checkReality bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bi
           | otherwise                     = (choice2 & ix depth .~ weight !! depth !! 1, col2 + weight !! depth !! 3)
         retM                     = debugLogUpdateLive ("col1,2,3,d,w: " ++ show col ++ " " ++ show col2 ++ " " ++ show col3 ++ " " ++ show depth ++ " " ++ show weight) $ isStillReal (depth, col3, on) choice3 lTwin
         (real2, nReal2, lTwin2)
-          | isNothing retM                = (real & ix realTerm .~ real !! realTerm `xor` fromIntegral bit, nReal,     lTwin)
-          | otherwise                     = (real,                                                          nReal + 1, fromJust retM)
+          | isNothing retM                = (real & ix realTerm %~ (`xor` fromIntegral bit), nReal,     lTwin)
+          | otherwise                     = (real,                                           nReal + 1, fromJust retM)
       in checkReality (depth, col, on) (k + 1) weight maxK choice3 (lTwin2, real2, nReal2, shift bit 1, realTerm, m, d, b1, b2)
 {--}
 
@@ -192,9 +191,9 @@ stillRealSub1 :: Int -> Int -> TpLiveTwin -> TpRealityPack -> Maybe TpRealityPac
 stillRealSub1 b mark (_, live) rp@(twi, nTw, sum0, unt, nUn) = do
   debugLogUpdateLive ("b: " ++ show b ++ " " ++ show rp) $ case () of
     _ | length live <= abs b        -> error (show (length live) ++ " " ++ show b ++ " stillRealSub1 意図的なエラー!!")
-      | b <  0 && live !!| (-b) == 0 -> empty
-      | b <  0 && live !!| (-b) /= 0 -> return (twi2, nTw2, sum2, unt,  nUn)
-      | b >= 0 && live !!| b    == 0 -> empty
+      | b <  0 && live !! (-b) == 0 -> empty
+      | b <  0 && live !! (-b) /= 0 -> return (twi2, nTw2, sum2, unt,  nUn)
+      | b >= 0 && live !! b    == 0 -> empty
       | otherwise                   -> return (twi,  nTw,  sum2, unt2, nUn2) where
           twi2
             | b < 0     = twi & ix nTw  .~ (-b)
