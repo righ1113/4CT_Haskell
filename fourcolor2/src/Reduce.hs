@@ -31,6 +31,7 @@ reduce gStr =
   map (chkCReduce . chkDReduce . makeLive . makeAngle . makeEdgeNo . makeGConfMajor) gConfs where
     gConfs = take 12 (read gStr :: [TpConfFmt])
 
+
 makeGConfMajor :: TpConfFmt -> (TpConfFmt, GConfMajor)
 makeGConfMajor gConf = trace "major ok." (
   gConf,
@@ -48,22 +49,25 @@ makeGConfMajor gConf = trace "major ok." (
   verts0 = gConf !! 1 !! 0
   ring0  = gConf !! 1 !! 1
 
+
 makeEdgeNo :: (TpConfFmt, GConfMajor) -> (TpConfFmt, GConfMajor, TpEdgeNo)
 makeEdgeNo (gConf, m) = (gConf, m, getEdgeNo (verts m) (ring m) (term m) gConf)
 
+
 makeAngle :: (TpConfFmt, GConfMajor, TpEdgeNo) -> (GConfMajor, TpAnglePack)
 makeAngle (a, m, c) = (m, findAngle (a, c))
+
 
 makeLive :: (GConfMajor, TpAnglePack) -> TpUpdateState2
 makeLive (m, d@(_, _, an, _, _, _)) = (fl, real, 0, 1, 0, m, d, False, True) where
   fl   = findLive (ring m) (bigno m) (replicate (ncodes m) 1) (ncodes m) an (claim m)
   real = replicate (siMatchNumber !!| maxRing `div` 8 + 2) 255
 
+
 chkDReduce :: TpUpdateState2 -> TpUpdateState2
 chkDReduce = until p (updateLive . testMatch) where
   p :: TpUpdateState2 -> Bool
   p (_, _, _, _, _, _, _, b1, _) = b1
-
 updateLive :: TpUpdateState2 -> TpUpdateState2
 updateLive (twin, real, nReal, _, _, m, d, _, _) = (twin2, real, nReal, 1, 0, m, d, b1, b2) where
   (b1, b2, twin2) = isUpdate (ncodes m) twin nReal
@@ -71,14 +75,14 @@ updateLive (twin, real, nReal, _, _, m, d, _, _) = (twin2, real, nReal, 1, 0, m,
   isUpdate nCodes (nLive, live) _nReal =
     let _s1              = "\n\n\n                  ***  D-reducible  ***\n"
         _s2              = "\n\n\n                ***  Not D-reducible  ***\n"
-        live'           = if live !!| 0 > 1 then live & ix 0 .~ 15 else live
-        (nLive2, live2) = flip fix (0, live', 0) $ \loop (nLive1, live1, i) -> case () of
-                            _ | i >= nCodes      -> (nLive1, live1)
-                              | live1 !!| i /= 15 -> loop (nLive1,   live3,   i + 1)
-                              | otherwise        -> loop (nLive2_2, live2_2, i + 1) where
-                                  nLive2_2 = nLive1 + 1
-                                  live2_2  = live1 & ix i .~ 1
-                                  live3    = live1 & ix i .~ 0
+        liveB           = if live !!| 0 > 1 then live & ix 0 .~ 15 else live
+        (nLive2, live2) = flip fix (0, liveB, 0) $ \loop (nLive', live', i) -> case () of
+                            _ | i >= nCodes      -> (nLive', live')
+                              | live' !! i /= 15 -> loop (nLive',  live'3, i + 1)
+                              | otherwise        -> loop (nLive'2, live'2, i + 1) where
+                                  nLive'2 = nLive' + 1
+                                  live'2  = live' & ix i .~ 1
+                                  live'3  = live' & ix i .~ 0
     --putStrLn $ "                       " ++ show nReal -- right
     --putStr $ "              " ++ show nLive2           -- left
     in case () of
@@ -86,7 +90,6 @@ updateLive (twin, real, nReal, _, _, m, d, _, _) = (twin2, real, nReal, 1, 0, m,
         | otherwise                    ->
             --if nLive2 == 0 then putStr s1 else putStr s2
             (True, nLive2 == 0, (nLive2, live2))                          -- 終了
-
 
 
 chkCReduce :: TpUpdateState2 -> Bool
