@@ -29,11 +29,11 @@ import Data.Maybe                     ( isNothing, fromJust )
 
 -- ======== testmatch ========
 testMatch :: TpUpdateState2 -> TpUpdateState2
-testMatch (lTwin, real, _nReal, bit, realTerm, m, d, b1, b2) = ret where
+testMatch (lTwin, real, _nReal, _bit, _realTerm, m, d, b1, b2) = ret where
   (_, ret) = (testMatchSub2wrapAug False (ring m, ring m)
               . testMatchSub1 False
                 . testMatchSub2wrapAug True (2, ring m - 1)
-                  . testMatchSub1 True) ((replicate 10 0, replicate 16 $ replicate 4 0, replicate 16 $ replicate 16 $ replicate 4 0), (lTwin, real, 0, bit, realTerm, m, d, b1, b2))
+                  . testMatchSub1 True) ((replicate 10 0, replicate 16 $ replicate 4 0, replicate 16 $ replicate 16 $ replicate 4 0), (lTwin, real, 0, 1, 0, m, d, b1, b2))
 
 
 testMatchSub1 :: Bool -> (TpTMbind, TpUpdateState2) -> (TpTMbind, TpUpdateState2)
