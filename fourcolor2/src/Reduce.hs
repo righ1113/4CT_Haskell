@@ -28,6 +28,7 @@ reduce :: String -> [Bool]
 reduce gStr =
 --  all (chkCReduce . chkDReduce . makeLive . makeAngle . makeEdgeNo . makeGConfMajor) . (read :: String -> [TpConfFmt])
   map (chkCReduce . chkDReduce . makeLive . makeAngle . makeEdgeNo . makeGConfMajor) gConfs where
+    --gConfs = drop 22 (read gStr :: [TpConfFmt])
     gConfs = take 12 (read gStr :: [TpConfFmt])
 
 

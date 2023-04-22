@@ -24,7 +24,7 @@ import Data.Bits                      ( Bits(shift, (.&.), (.|.), xor) )
 import Data.Function                  ( fix )
 -- import Data.Int                       ( Int8 )
 import Data.Maybe                     ( isNothing, fromJust )
-import Data.Array                     ( (!), accum )
+import Data.Array                     ( Array, (!), (//), accum, array )
 
 
 -- ======== testmatch ========
@@ -170,7 +170,8 @@ checkReality bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bi
 isStillReal :: TpBaseCol -> [Int] -> TpLiveTwin -> Maybe TpLiveTwin
 isStillReal (depth, col, on) choice lTwin = do
 {--}
-  pack                        <- stillRealSub1 col 0 lTwin (replicate 64 0, 0, replicate 64 0, replicate 64 0, 0)
+  let dat = array (0, 63) [(i, 0) | i <- [0..63]]
+  pack                        <- stillRealSub1 col 0 lTwin (dat, 0, dat, dat, 0)
   (twi2, nTw2, _, unt2, nUn2) <- flip fix (2, 1::Int, pack, 1) $ \loop (i, twoPow, packA, markA) -> case () of
                                   _ | i > depth -> return packA
                                     | otherwise -> do
@@ -178,7 +179,7 @@ isStillReal (depth, col, on) choice lTwin = do
                                         (pack2, mark2) <- flip fix (0, markA, packA) $ \loop2 (j, markB, packB@(_, _, sum0, _, _)) -> case () of
                                                             _ | j >= twoPow -> return (packB, markB)
                                                               | otherwise  -> do
-                                                                  let b = sum0 !! j - c
+                                                                  let b = sum0 ! j - c
                                                                   pack3 <- stillRealSub1 b markB lTwin packB
                                                                   loop2 (j + 1, markB + 1, pack3)
                                         loop (i + 1, shift twoPow 1, pack2, mark2)
@@ -192,26 +193,26 @@ isStillReal (depth, col, on) choice lTwin = do
 stillRealSub1 :: Int -> Int -> TpLiveTwin -> TpRealityPack -> Maybe TpRealityPack
 stillRealSub1 b mark (_, live) rp@(twi, nTw, sum0, unt, nUn) = do
   debugLogUpdateLive ("b: " ++ show b ++ " " ++ show rp) $ case () of
-    _ | length live <= abs b        -> error (show (length live) ++ " " ++ show b ++ " stillRealSub1 意図的なエラー!!")
+    _ | length live <= abs b       -> error (show (length live) ++ " " ++ show b ++ " stillRealSub1 意図的なエラー!!")
       | b <  0 && live ! (-b) == 0 -> empty
       | b <  0 && live ! (-b) /= 0 -> return (twi2, nTw2, sum2, unt,  nUn)
       | b >= 0 && live ! b    == 0 -> empty
-      | otherwise                   -> return (twi,  nTw,  sum2, unt2, nUn2) where
+      | otherwise                  -> return (twi,  nTw,  sum2, unt2, nUn2) where
           twi2
-            | b < 0     = twi & ix nTw  .~ (-b)
+            | b < 0     = twi // [(nTw, -b)]
             | otherwise = twi
           nTw2 = nTw + 1
-          sum2 = sum0 & ix mark .~ b
+          sum2 = sum0 // [(mark, b)]
           unt2
             | b < 0     = unt
-            | otherwise = unt & ix nUn  .~ b
+            | otherwise = unt // [(nUn, b)]
           nUn2 = nUn + 1
 
-stillRealSub2 :: Int -> [Int] -> Int -> Int -> TpLiveTwin -> TpLiveTwin
+stillRealSub2 :: Int -> Array Int Int -> Int -> Int -> TpLiveTwin -> TpLiveTwin
 stillRealSub2 i twist nTwist v lTwin@(nLive, live)
   | i >= nTwist = lTwin
   | otherwise   =
-      let live2 = accum (.|.) live [(twist !! i, v)]
+      let live2 = accum (.|.) live [(twist ! i, v)]
       in stillRealSub2 (i + 1) twist nTwist v (nLive, live2)
 
 

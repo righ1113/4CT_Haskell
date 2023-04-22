@@ -83,7 +83,7 @@ type TpUpdateState   = (TpLiveTwin, [Int], Int, Int8, Int)
 type TpUpdateState2  = (TpLiveTwin, [Int], Int, Int8, Int, GConfMajor, TpAnglePack, Bool, Bool)
 type TpBaseCol       = (Int, Int, Int)
 type TpTMbind        = ([Int], [[Int]], [[[Int]]])
-type TpRealityPack   = ([Int], Int, [Int], [Int], Int)
+type TpRealityPack   = (Array Int Int, Int, Array Int Int, Array Int Int, Int)
 data GConfMajor = Major {
   verts  :: Int,
   ring   :: Int,
