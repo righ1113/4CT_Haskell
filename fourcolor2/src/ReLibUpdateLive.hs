@@ -24,7 +24,7 @@ import Data.Bits                      ( Bits(shift, (.&.), (.|.), xor) )
 import Data.Function                  ( fix )
 -- import Data.Int                       ( Int8 )
 import Data.Maybe                     ( isNothing, fromJust )
-
+import Data.Array                     ( (!), accum )
 
 
 -- ======== testmatch ========
@@ -193,9 +193,9 @@ stillRealSub1 :: Int -> Int -> TpLiveTwin -> TpRealityPack -> Maybe TpRealityPac
 stillRealSub1 b mark (_, live) rp@(twi, nTw, sum0, unt, nUn) = do
   debugLogUpdateLive ("b: " ++ show b ++ " " ++ show rp) $ case () of
     _ | length live <= abs b        -> error (show (length live) ++ " " ++ show b ++ " stillRealSub1 意図的なエラー!!")
-      | b <  0 && live !! (-b) == 0 -> empty
-      | b <  0 && live !! (-b) /= 0 -> return (twi2, nTw2, sum2, unt,  nUn)
-      | b >= 0 && live !! b    == 0 -> empty
+      | b <  0 && live ! (-b) == 0 -> empty
+      | b <  0 && live ! (-b) /= 0 -> return (twi2, nTw2, sum2, unt,  nUn)
+      | b >= 0 && live ! b    == 0 -> empty
       | otherwise                   -> return (twi,  nTw,  sum2, unt2, nUn2) where
           twi2
             | b < 0     = twi & ix nTw  .~ (-b)
@@ -211,8 +211,7 @@ stillRealSub2 :: Int -> [Int] -> Int -> Int -> TpLiveTwin -> TpLiveTwin
 stillRealSub2 i twist nTwist v lTwin@(nLive, live)
   | i >= nTwist = lTwin
   | otherwise   =
-      let
-        live2 = live & ix (twist !! i) %~ (.|. v)
+      let live2 = accum (.|.) live [(twist !! i, v)]
       in stillRealSub2 (i + 1) twist nTwist v (nLive, live2)
 
 

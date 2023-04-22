@@ -23,6 +23,7 @@ dependencies:
 - base >= 4.7 && < 5
 - lens
 - transformers
+- array
 
 ghc-options:
 - -Wall

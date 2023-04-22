@@ -55,6 +55,7 @@ module CoLibCConst (
 
 import Data.Int    ( Int8 )
 import Debug.Trace ( trace )
+import Data.Array  ( Array )
 
 type TpAxle          = ([[Int]], [[Int]], Int)
 type TpAxleI         = ([Int], [Int])
@@ -74,9 +75,9 @@ type TpEdgeNo        = [[Int]]
 type TpGetENPack     = (TpConfFmt, Int, Int, [Bool], Int, TpEdgeNo)
 type TpAnglePack     = (TpConfFmt, TpEdgeNo, TpAngle, TpAngle, TpAngle, [Int])
 type TpExtCJ         = (Bool, [Int], Int)
-type TpFliveBindPack = (TpExtCJ, (Int, [Int]), TpExtCJ, TpExtCJ, TpExtCJ, [Int])
+type TpFliveBindPack = (TpExtCJ, (Int, Array Int Int), TpExtCJ, TpExtCJ, TpExtCJ, [Int])
 type TpBPSPack       = (Int, Int, Int, Int, TpExtCJ, Int)
-type TpLiveTwin      = (Int, [Int])
+type TpLiveTwin      = (Int, Array Int Int)
 type TpRingNchar     = (Int, Int)
 type TpUpdateState   = (TpLiveTwin, [Int], Int, Int8, Int)
 type TpUpdateState2  = (TpLiveTwin, [Int], Int, Int8, Int, GConfMajor, TpAnglePack, Bool, Bool)

@@ -1,16 +1,17 @@
 module ReLibFindlive( findLive ) where
 
-import CoLibCConst   ( edgesM, TpAngle, power, siMatchNumber, TpExtCJ, TpFliveBindPack, TpBPSPack )
+import CoLibCConst   ( edgesM, TpAngle, power, siMatchNumber, TpExtCJ, TpFliveBindPack, TpBPSPack, TpLiveTwin )
 import Control.Lens  ( (&), (.~), Ixed(ix) )
 import Data.Bits     ( Bits(shift, (.&.), (.|.)) )
 import Data.Function ( fix )
 --import Debug.Trace   ( trace )
+import Data.Array    ( Array, (!), (//) )
 
 
 -- computes {\cal C}_0 and stores it in live. That is, computes codes of
 -- colorings of the ring that are not restrictions of tri-colorings of the
 -- free extension. Returns the number of such codes
-findLive :: Int -> Int -> [Int] -> Int -> TpAngle -> Int -> (Int, [Int])
+findLive :: Int -> Int -> Array Int Int -> Int -> TpAngle -> Int -> TpLiveTwin
 findLive ring bigNo live nCodes angle extentC
   = findLiveSub (ring, nCodes, 0, extentC, (False, c3, j), ed) bigNo live angle forbi2 0 where
       ed         = head angle !! 2
@@ -23,7 +24,7 @@ findLive ring bigNo live nCodes angle extentC
 
 
 -- ======== findliveSub ========
-findLiveSub :: TpBPSPack -> Int -> [Int] -> TpAngle -> [Int] -> Int -> (Int, [Int])
+findLiveSub :: TpBPSPack -> Int -> Array Int Int -> TpAngle -> [Int] -> Int -> TpLiveTwin
 findLiveSub _ _ _ _ _ 262144 = error "findlive_sub : It was not good though it was repeated 262144 times!意図的なエラー"
 findLiveSub (ring, nCodes, extent, extentC, (_, c, j), ed) bigNo live angle forbi cnt =
   let ((exit1, _, j2), (extent2, live2), (exit2, _, _), (exit3, _, _), (_, cNext, jNext), forbi2)
@@ -42,7 +43,7 @@ findLiveSub (ring, nCodes, extent, extentC, (_, c, j), ed) bigNo live angle forb
           findLiveSub (ring, nCodes, extent2, extentC, (False, cNext, jNext), ed) bigNo live2 angle forbi2 (cnt + 1)
 
 
-findLiveSsub1 :: TpBPSPack -> ([Int], [Int]) -> TpFliveBindPack
+findLiveSsub1 :: TpBPSPack -> ([Int], Array Int Int) -> TpFliveBindPack
 findLiveSsub1 (ring, nCodes, extent, extentC, (_, c0, j0), ed) (forbi, live) =
   flip fix (False, c0, j0) $ \loop (exitSub, c, j) -> case () of
     _ | exitSub                        -> ((True,  c, j), (extent, live), (False, [], 0), (False, [], 0), (False, [], 0), forbi)
@@ -87,10 +88,10 @@ findLiveSsub5 ring ((exit1, c2, j2), (extent, live), (exit2, c3, j3), (exit3, c4
 -- ======== record ========
 -- Given a colouring specified by a 1,2,4-valued function "col", it computes
 -- the corresponding number, checks if it is in live, and if so removes it.
-record :: [Int] -> Int -> TpAngle -> Int -> Int -> [Int] -> (Int, [Int])
+record :: [Int] -> Int -> TpAngle -> Int -> Int -> Array Int Int -> TpLiveTwin
 record col ring angle bigNo extent live
-  | live !! colNo /= 0 = (extent + 1, live & ix colNo .~ 0)
-  | otherwise          = (extent    , live) where
+  | live ! colNo /= 0 = (extent + 1, live // [(colNo, 0)])
+  | otherwise         = (extent    , live) where
       weight0      = [0, 0, 0, 0, 0]
       weight1      = flip fix (weight0, 1) $ \loop (weight, i) -> case () of
                       _ | i > ring  -> weight
