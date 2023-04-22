@@ -18,10 +18,9 @@ import ReLibAngles                    ( findAngle )
 import ReLibFindlive                  ( findLive )
 import ReLibUpdateLive                ( testMatch )
 
-import Control.Lens                   ( (&), (.~), Ixed(ix) )
 import Data.Function                  ( fix )
 import Debug.Trace                    ( trace )
-import Data.Array                     ( (!), array )
+import Data.Array                     ( (!), (//), array )
 
 
 
@@ -76,14 +75,14 @@ updateLive (twin, real, nReal, _, _, m, d, _, _) = (twin2, real, nReal, 1, 0, m,
   isUpdate nCodes (nLive, live) _nReal =
     let _s1             = "\n\n\n                  ***  D-reducible  ***\n"
         _s2             = "\n\n\n                ***  Not D-reducible  ***\n"
-        liveB           = if live ! 0 > 1 then live & ix 0 .~ 15 else live
+        liveB           = if live ! 0 > 1 then live // [(0, 15)] else live
         (nLive2, live2) = flip fix (0, liveB, 0) $ \loop (nLive', live', i) -> case () of
                             _ | i >= nCodes      -> (nLive', live')
                               | live' ! i /= 15  -> loop (nLive',  live'3, i + 1)
                               | otherwise        -> loop (nLive'2, live'2, i + 1) where
                                   nLive'2 = nLive' + 1
-                                  live'2  = live' & ix i .~ 1
-                                  live'3  = live' & ix i .~ 0
+                                  live'2  = live' // [(i, 1)]
+                                  live'3  = live' // [(i, 0)]
     --putStrLn $ "                       " ++ show nReal -- right
     --putStr $ "              " ++ show nLive2           -- left
     in case () of
