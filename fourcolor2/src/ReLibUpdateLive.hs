@@ -169,6 +169,7 @@ checkReality bc@(depth, col, on) k weight maxK choice st@(lTwin, real, nReal, bi
 
 isStillReal :: TpBaseCol -> [Int] -> TpLiveTwin -> Maybe TpLiveTwin
 isStillReal (depth, col, on) choice lTwin = do
+{--}
   pack                        <- stillRealSub1 col 0 lTwin (replicate 64 0, 0, replicate 64 0, replicate 64 0, 0)
   (twi2, nTw2, _, unt2, nUn2) <- flip fix (2, 1::Int, pack, 1) $ \loop (i, twoPow, packA, markA) -> case () of
                                   _ | i > depth -> return packA
@@ -186,6 +187,7 @@ isStillReal (depth, col, on) choice lTwin = do
       | on == 0    = stillRealSub2 0 unt2 nUn2 2 $ stillRealSub2 0 twi2 nTw2 2 lTwin
       | otherwise  = stillRealSub2 0 unt2 nUn2 4 $ stillRealSub2 0 twi2 nTw2 8 lTwin
   return lTwin2
+{--}
 
 stillRealSub1 :: Int -> Int -> TpLiveTwin -> TpRealityPack -> Maybe TpRealityPack
 stillRealSub1 b mark (_, live) rp@(twi, nTw, sum0, unt, nUn) = do
@@ -208,10 +210,10 @@ stillRealSub1 b mark (_, live) rp@(twi, nTw, sum0, unt, nUn) = do
 stillRealSub2 :: Int -> [Int] -> Int -> Int -> TpLiveTwin -> TpLiveTwin
 stillRealSub2 i twist nTwist v lTwin@(nLive, live)
   | i >= nTwist = lTwin
-  | otherwise   = stillRealSub2 (i + 1) twist nTwist v (nLive, live2) where
-      index = twist !! i
-      live2 = if i >= nTwist then live
-              else live & ix index %~ (.|. v)
+  | otherwise   =
+      let
+        live2 = live & ix (twist !! i) %~ (.|. v)
+      in stillRealSub2 (i + 1) twist nTwist v (nLive, live2)
 
 
 
