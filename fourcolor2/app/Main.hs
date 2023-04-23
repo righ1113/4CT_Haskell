@@ -10,7 +10,7 @@ import Discharge ( discharge )
 
 main :: IO ()
 main = do
-  gConfsStrRe <- readFile "data/ReGoodConfs.txt"
+  gConfsStrRe <- readFile "data/ReGoodConfs20.txt"
 
   rulesStr    <- readFile "data/DiRules07.txt"
   gConfsStrDi <- readFile "data/DiGoodConfs.txt"

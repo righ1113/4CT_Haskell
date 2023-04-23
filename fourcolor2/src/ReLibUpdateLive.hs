@@ -191,8 +191,8 @@ isStillReal (depth, col, on) choice lTwin = do
 {--}
 
 stillRealSub1 :: Int -> Int -> TpLiveTwin -> TpRealityPack -> Maybe TpRealityPack
-stillRealSub1 b mark (_, live) rp@(twi, nTw, sum0, unt, nUn) = do
-  debugLogUpdateLive ("b: " ++ show b ++ " " ++ show rp) $ case () of
+stillRealSub1 b mark (_, live) (twi, nTw, sum0, unt, nUn) = do
+  debugLogUpdateLive ("b: " ++ show b) $ case () of
     _ | length live <= abs b       -> error (show (length live) ++ " " ++ show b ++ " stillRealSub1 意図的なエラー!!")
       | b <  0 && live ! (-b) == 0 -> empty
       | b <  0 && live ! (-b) /= 0 -> return (twi2, nTw2, sum2, unt,  nUn)
