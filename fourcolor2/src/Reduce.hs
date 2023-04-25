@@ -13,7 +13,7 @@ import CoLibCConst
       siMatchNumber,
       maxRing )
 
-import ReLibEdgeNo2                   ( getEdgeNo )
+import ReLibEdgeNo                   ( getEdgeNo )
 import ReLibAngles                    ( findAngle )
 import ReLibFindlive                  ( findLive )
 import ReLibUpdateLive                ( testMatch )

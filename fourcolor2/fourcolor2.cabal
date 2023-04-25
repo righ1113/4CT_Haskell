@@ -31,6 +31,7 @@ library
       Discharge
       Reduce
       ReLibAngles
+      ReLibEdgeNo
       ReLibEdgeNo2
       ReLibFindlive
       ReLibUpdateLive
