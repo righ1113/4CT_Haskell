@@ -3,6 +3,7 @@
 # 4CT_Haskell
 四色定理をHaskellに移植したよ  
 Ruby→https://github.com/righ1113/4CT_Ruby  
+F#→https://github.com/righ1113/4CT_FSharp  
 
 # 変更履歴
 23/03/17　二度目の挫折です  
